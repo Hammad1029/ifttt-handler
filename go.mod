@@ -6,13 +6,12 @@ require (
 	github.com/gocql/gocql v1.6.0
 	github.com/gofiber/fiber/v2 v2.52.2
 	github.com/redis/go-redis/v9 v9.5.1
-	github.com/scylladb/gocqlx v1.5.0
 	github.com/scylladb/gocqlx/v2 v2.8.0
 	github.com/spf13/viper v1.18.2
 )
 
 require (
-	github.com/Hammad1029/json-to-cql v0.0.0-20240505133952-8b256d8f3939 // indirect
+	github.com/Hammad1029/json-to-cql v0.0.0-20240524080521-51bd9d23baee // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect

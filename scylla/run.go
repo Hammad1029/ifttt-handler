@@ -2,23 +2,25 @@ package scylla
 
 import (
 	"fmt"
-
-	"github.com/scylladb/gocqlx"
+	"handler/utils"
+	"strings"
 )
 
 func RunSelect(queryString string, parameters []string, rowCount int) ([]map[string]interface{}, error) {
 	if rowCount != 0 {
-		queryString += fmt.Sprintf(" LIMIT %d", rowCount)
+		queryString = strings.ReplaceAll(queryString, ";", fmt.Sprintf(" LIMIT %d;", rowCount))
 	}
 
-	query := GetScylla().Query(queryString, parameters)
-	defer query.Release()
+	queryString = "SELECT int1, text1 FROM table_table1_62566050_185f_11ef_bf29_001 WHERE int1=1 and text2='yooo';"
 
-	var res []map[string]interface{}
-	if err := gocqlx.Select(&res, query.Query); err != nil {
+	query := GetScylla().Query(queryString, nil).Bind(utils.ConvertStringToInterfaceArray(parameters)...)
+	var res [][]interface{}
+	if err := query.SelectRelease(&res); err != nil {
 		return nil, err
 	}
-	return res, nil
+
+	return nil, nil
+
 }
 
 func RunQuery(queryString string, parameters []string) error {

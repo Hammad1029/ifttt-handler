@@ -11,8 +11,8 @@ import (
 )
 
 type ResolvableUDT struct {
-	Type string                 `cql:"type" json:"type"`
-	Data map[string]interface{} `cql:"data" json:"data"`
+	Type string            `cql:"type" json:"type"`
+	Data map[string]string `cql:"data" json:"data"`
 }
 
 func (r *ResolvableUDT) Resolve(ctx context.Context) (string, error) {
@@ -25,6 +25,8 @@ func (r *ResolvableUDT) Resolve(ctx context.Context) (string, error) {
 		return fmt.Sprint(r.Data["get"]), nil
 	case "setRes":
 		return "", r.setRes(ctx)
+	case "store":
+		return "", r.store(ctx)
 	default:
 		return "", fmt.Errorf("resolvable type %s not found", r.Type)
 	}
@@ -55,7 +57,7 @@ func (r *ResolvableUDT) resolveReq(ctx context.Context) (string, error) {
 
 func (r *ResolvableUDT) resolveQuery(ctx context.Context) (string, error) {
 	reqData := ctx.Value("request").(RequestData)
-	queries := reqData.Queries
+	queries := ctx.Value("queries").(map[string]QueryUDT)
 	queryHash := fmt.Sprint(r.Data["query"])
 	if currQuery, ok := queries[queryHash]; ok {
 		var queryParameters []string
@@ -78,6 +80,7 @@ func (r *ResolvableUDT) resolveQuery(ctx context.Context) (string, error) {
 					if newRes, err := scylla.RunSelect(currQuery.QueryString, queryParameters, 1); err != nil {
 						return "", err
 					} else {
+						reqData.QueryRes[queryHash] = newRes
 						results = newRes
 					}
 				}
@@ -107,6 +110,17 @@ func (r *ResolvableUDT) setRes(ctx context.Context) error {
 		responseData := data.Response
 		for key, value := range r.Data {
 			responseData[key] = value
+		}
+		return nil
+	}
+	return errors.New("set res type assertion failed")
+}
+
+func (r *ResolvableUDT) store(ctx context.Context) error {
+	if data, ok := ctx.Value("request").(RequestData); ok {
+		store := data.Store
+		for key, value := range r.Data {
+			store[key] = value
 		}
 		return nil
 	}

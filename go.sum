@@ -1,5 +1,9 @@
 github.com/Hammad1029/json-to-cql v0.0.0-20240505133952-8b256d8f3939 h1:bNohq8EbPj+cEBdLgnLR7Ryxvwx8ljhlnl/vXHl8fmk=
 github.com/Hammad1029/json-to-cql v0.0.0-20240505133952-8b256d8f3939/go.mod h1:i47bQ7CxppaC4NJ1UHO3kkB396xWVS5z2CFHpgxPquI=
+github.com/Hammad1029/json-to-cql v0.0.0-20240523105338-2217d41adc68 h1:an2xj2QwO50M6tBVdIe4tRcn8P0wMStfiUYs8fbVvbs=
+github.com/Hammad1029/json-to-cql v0.0.0-20240523105338-2217d41adc68/go.mod h1:i47bQ7CxppaC4NJ1UHO3kkB396xWVS5z2CFHpgxPquI=
+github.com/Hammad1029/json-to-cql v0.0.0-20240524080521-51bd9d23baee h1:ek9JJU6S1X5SBM4tXQQsO5FEffEF6zq3xJ4uTe46rrE=
+github.com/Hammad1029/json-to-cql v0.0.0-20240524080521-51bd9d23baee/go.mod h1:i47bQ7CxppaC4NJ1UHO3kkB396xWVS5z2CFHpgxPquI=
 github.com/andybalholm/brotli v1.0.5 h1:8uQZIdzKmjc/iuPu7O2ioW48L81FgatrcpfFmiq/cCs=
 github.com/andybalholm/brotli v1.0.5/go.mod h1:fO7iG3H7G2nSZ7m0zPUDn85XEX2GTukHGRSepvi9Eig=
 github.com/bitly/go-hostpool v0.0.0-20171023180738-a3a6125de932 h1:mXoPYz/Ul5HYEDvkta6I8/rnYM5gSdSV2tJ6XbZuEtY=

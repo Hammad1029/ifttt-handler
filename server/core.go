@@ -32,17 +32,18 @@ func getApiFromRedis(c *fiber.Ctx) (*models.ApiModel, error) {
 
 func initExec(startRules []int, ctx context.Context) {
 	var wg sync.WaitGroup
-
 	rules := ctx.Value("rules").([]models.RuleUDT)
 	for _, startIdx := range startRules {
 		wg.Add(1)
-		go prepRule(rules[startIdx], &wg, ctx)
-		wg.Wait()
+		go prepRule(rules[startIdx], &wg, ctx, startIdx)
 	}
+	wg.Wait()
 }
 
-func prepRule(rule models.RuleUDT, wg *sync.WaitGroup, ctx context.Context) {
+func prepRule(rule models.RuleUDT, wg *sync.WaitGroup, ctx context.Context, ruleIdx int) {
 	defer wg.Done()
+	log := ctx.Value("log").(models.LogModel)
+	log.ExecutionOrder = append(log.ExecutionOrder, ruleIdx)
 	if err := execRule(rule, ctx); err != nil {
 		addErrorToContext(err, ctx, true)
 		return
@@ -86,8 +87,8 @@ func getEvaluators() map[string]func(a, b string) bool {
 }
 
 func addErrorToContext(err error, ctx context.Context, sendRes bool) {
-	if request, ok := ctx.Value("request").(models.RequestData); ok {
-		request.AddError(err)
+	if l, ok := ctx.Value("log").(models.LogModel); ok {
+		l.AddExecLog("system", "error", err.Error())
 	} else {
 		log.Panic("could not type cast request data")
 	}

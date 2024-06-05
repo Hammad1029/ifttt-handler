@@ -30,7 +30,7 @@ func apiHandler(c *fiber.Ctx) error {
 	}
 
 	requestData := models.RequestData{}
-	requestData.Initialize()
+	requestData.Initialize(api)
 	err = c.BodyParser(&requestData.ReqBody)
 	if err != nil {
 		return utils.ResponseHandler(c, utils.ResponseConfig{Error: err})
@@ -44,17 +44,15 @@ func apiHandler(c *fiber.Ctx) error {
 	ctx.SetUserValue("request", requestData)
 	ctx.SetUserValue("resChan", resChan)
 	ctx.SetUserValue("rules", api.Rules)
+	ctx.SetUserValue("queries", api.Queries)
 
-	log.ExecutionOrder = api.StartRules
 	go initExec(api.StartRules, ctx)
 
 	responseCode := <-resChan
-
 	utils.ResponseHandler(c, utils.ResponseConfig{
 		Response: utils.Response{Code: responseCode},
 		Data: map[string]interface{}{
 			"response": requestData.Response,
-			"errors":   requestData.Errors,
 		},
 	})
 	log.Post()

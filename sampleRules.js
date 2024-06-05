@@ -19,17 +19,10 @@ const x = {
           get: "first",
           query: {
             type: "SELECT",
-            table: "table_table1_010d6515_0ade_11ef_aaaa_001",
+            table: "table_table1_62566050_185f_11ef_bf29_001",
             conditions: {
-              int1: {
-                eq: {
-                  type: "req",
-                  data: {
-                    get: "a.b.c",
-                  },
-                },
-              },
-              text2: "yooo",
+              int1: { eq: { type: "req", data: { get: "a.b.d" } } },
+              text2: { eq: "'yooo'" },
             },
             projections: {
               int1: {
@@ -65,17 +58,19 @@ const x = {
         {
           type: "db",
           data: {
-            type: "INSERT",
-            table: "table_table1_010d6515_0ade_11ef_aaaa_001",
-            columns: {
-              int1: 1,
-              text2: "yooo",
-              int2: 3,
-              text1: "hello",
-              int13: 2,
+            query: {
+              type: "INSERT",
+              table: "table_table1_62566050_185f_11ef_bf29_001",
+              columns: {
+                int1: { type: "req", data: { get: "a.b.d" } },
+                text2: "'yooo'",
+                int2: 3,
+                text1: "'hello'",
+                int13: 2,
+              },
+              conditions: {},
+              projections: {},
             },
-            conditions: {},
-            projections: {},
           },
         },
         {
@@ -110,8 +105,9 @@ const x = {
           data: {
             query: {
               type: "DELETE",
-              table: "table_table1_010d6515_0ade_11ef_aaaa_001",
-              columns: {
+              table: "table_table1_62566050_185f_11ef_bf29_001",
+              columns: {},
+              conditions: {
                 int1: {
                   eq: {
                     type: "req",
@@ -120,9 +116,8 @@ const x = {
                     },
                   },
                 },
-                text2: "yooo",
+                text2: { eq: "'yooo'" },
               },
-              conditions: {},
               projections: {},
             },
           },

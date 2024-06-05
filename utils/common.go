@@ -55,3 +55,11 @@ func SerializeMap(input map[string]interface{}) (map[string]interface{}, error) 
 	}
 	return output, nil
 }
+
+func ConvertStringToInterfaceArray(obj []string) []interface{} {
+	s := make([]interface{}, len(obj))
+	for i, v := range obj {
+		s[i] = v
+	}
+	return s
+}

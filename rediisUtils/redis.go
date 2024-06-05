@@ -11,8 +11,7 @@ import (
 	"strconv"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/scylladb/gocqlx"
-	"github.com/scylladb/gocqlx/qb"
+	"github.com/scylladb/gocqlx/v2/qb"
 )
 
 var redisClient *redis.Client
@@ -39,7 +38,7 @@ func ReadApisToRedis(ctx context.Context) {
 
 	stmt, names := qb.Select("apis").ToCql()
 	q := scylla.GetScylla().Query(stmt, names)
-	if err := gocqlx.Select(&apis, q.Query); err != nil {
+	if err := q.SelectRelease(&apis); err != nil {
 		utils.HandleError(err)
 		return
 	}
