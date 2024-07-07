@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 )
 
@@ -62,4 +63,48 @@ func ConvertStringToInterfaceArray(obj []string) []interface{} {
 		s[i] = v
 	}
 	return s
+}
+
+func toFloat64(v interface{}) (float64, bool) {
+	switch v := v.(type) {
+	case float64:
+		return v, true
+	case int:
+		return float64(v), true
+	case string:
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			return f, true
+		}
+	}
+	return 0, false
+}
+
+func toString(v interface{}) string {
+	switch v := v.(type) {
+	case string:
+		return v
+	case int:
+		return strconv.Itoa(v)
+	case float64:
+		return strconv.FormatFloat(v, 'f', -1, 64)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
+
+func toInt(v interface{}) (int, bool) {
+	switch v := v.(type) {
+	case int:
+		return v, true
+	case float64:
+		return int(v), true
+	case string:
+		if i, err := strconv.Atoi(v); err == nil {
+			return i, true
+		}
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			return int(f), true
+		}
+	}
+	return 0, false
 }

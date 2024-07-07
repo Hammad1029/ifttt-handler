@@ -2,56 +2,38 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"handler/models"
-	redisUtils "handler/rediisUtils"
+	"handler/utils"
 	"log"
 	"sync"
-
-	"github.com/gofiber/fiber/v2"
-	"github.com/redis/go-redis/v9"
 )
 
-func getApiFromRedis(c *fiber.Ctx) (*models.ApiModel, error) {
-	var api models.ApiModel
-	apiName := c.Params("apiName")
-	apiJSON, err := redisUtils.GetRedis().HGet(c.Context(), "apis", apiName).Result()
-	if err == redis.Nil {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal([]byte(apiJSON), &api)
-	if err != nil {
-		return nil, err
-	}
-	return &api, nil
-}
-
-func initExec(startRules []int, ctx context.Context) {
+func initExec(startRules []string, ctx context.Context) {
 	var wg sync.WaitGroup
-	rules := ctx.Value("rules").([]models.RuleUDT)
-	for _, startIdx := range startRules {
+	rules := ctx.Value("rules").(map[string]*models.RuleUDT)
+	for _, startId := range startRules {
 		wg.Add(1)
-		go prepRule(rules[startIdx], &wg, ctx, startIdx)
+		go prepRule(rules[startId], &wg, ctx, startId)
 	}
 	wg.Wait()
 }
 
-func prepRule(rule models.RuleUDT, wg *sync.WaitGroup, ctx context.Context, ruleIdx int) {
+func prepRule(rule *models.RuleUDT, wg *sync.WaitGroup, ctx context.Context, ruleId string) {
 	defer wg.Done()
-	log := ctx.Value("log").(models.LogModel)
-	log.ExecutionOrder = append(log.ExecutionOrder, ruleIdx)
+	if l, ok := ctx.Value("log").(*models.LogModel); ok {
+		l.ExecutionOrder = append(l.ExecutionOrder, ruleId)
+	} else {
+		log.Panic("method prepRule: could not type cast log model")
+	}
 	if err := execRule(rule, ctx); err != nil {
 		addErrorToContext(err, ctx, true)
 		return
 	}
 }
 
-func execRule(rule models.RuleUDT, ctx context.Context) error {
-	if ev, err := evaluateCondition(rule, ctx); err != nil {
+func execRule(rule *models.RuleUDT, ctx context.Context) error {
+	if ev, err := rule.Conditions.EvaluateGroup(ctx); err != nil {
 		return err
 	} else if ev {
 		return handleActions(rule.Then, ctx)
@@ -60,49 +42,27 @@ func execRule(rule models.RuleUDT, ctx context.Context) error {
 	}
 }
 
-func evaluateCondition(rule models.RuleUDT, ctx context.Context) (bool, error) {
-	evaluators := getEvaluators()
-	if evalFunc, ok := evaluators[rule.Operand]; ok {
-		op1Res, err := rule.Operator1.Resolve(ctx)
-		if err != nil {
-			return false, err
-		}
-		op2Res, err := rule.Operator2.Resolve(ctx)
-		if err != nil {
-			return false, err
-		}
-
-		return evalFunc(op1Res, op2Res), nil
-	} else {
-		return false, errors.New("operand not found")
-	}
-}
-
-func getEvaluators() map[string]func(a, b string) bool {
-	return map[string]func(a, b string) bool{
-		"eq": func(a, b string) bool {
-			return a == b
-		},
-	}
-}
-
 func addErrorToContext(err error, ctx context.Context, sendRes bool) {
-	if l, ok := ctx.Value("log").(models.LogModel); ok {
+	if l, ok := ctx.Value("log").(*models.LogModel); ok {
 		l.AddExecLog("system", "error", err.Error())
 	} else {
-		log.Panic("could not type cast request data")
+		log.Panic("method addErrorToContext: could not type cast log model")
 	}
 
+	log.Fatal(err.Error())
+
 	if sendRes {
-		sendResponse(ctx, "500")
+		sendResponse(ctx, utils.Responses["ServerError"])
 	}
 }
 
-func sendResponse(ctx context.Context, resCode string) error {
-	if responseChannel, ok := ctx.Value("resChan").(chan string); ok {
-		responseChannel <- resCode
+func sendResponse(ctx context.Context, res utils.Response) error {
+	if responseChannel, ok := ctx.Value("resChan").(chan utils.Response); ok {
+		responseChannel <- res
 		return nil
 	} else {
-		return errors.New("send res type assertion failed")
+		err := errors.New("method sendResponse: send res type assertion failed")
+		log.Panic(err)
+		return err
 	}
 }

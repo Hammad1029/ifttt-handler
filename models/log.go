@@ -14,7 +14,7 @@ import (
 type LogModel struct {
 	ApiGroup       string       `cql:"api_group"`
 	ApiName        string       `cql:"api_name"`
-	ExecutionOrder []int        `cql:"execution_order"`
+	ExecutionOrder []string     `cql:"execution_order"`
 	ExecutionLogs  []ExecLog    `cql:"execution_logs"`
 	RequestData    *RequestData `cql:"request_data"`
 	Start          time.Time    `cql:"start"`
@@ -25,7 +25,7 @@ type LogModel struct {
 
 var LogsMetadata = table.Metadata{
 	Name:    "Logs",
-	Columns: []string{"api_group", "api_name", "execution_order", "request_data", "start", "start_partition", "end", "time_taken"},
+	Columns: []string{"api_group", "api_name", "execution_order", "execution_logs", "request_data", "start", "start_partition", "end", "time_taken"},
 	PartKey: []string{"api_group", "start_partition"},
 	SortKey: []string{"api_name", "start"},
 }
@@ -36,21 +36,23 @@ type ExecLog struct {
 	LogData string `cql:"log_data"`
 }
 
-func (l *LogModel) Initialize(r *RequestData, api *ApiModel) {
+func (l *LogModel) StartLog() {
 	now := time.Now()
 	log.Printf("Request recieved at %s\n", now.String())
+	l.Start = now
+}
 
+func (l *LogModel) Initialize(r *RequestData, api *ApiModel) {
 	l.ApiGroup = api.ApiGroup
 	l.ApiName = api.ApiName
-	l.ExecutionOrder = []int{}
+	l.ExecutionOrder = []string{}
 	l.RequestData = r
-	l.Start = now
 
 	timeSlot, err := strconv.Atoi(config.GetConfigProp("app.logPartitionSeconds"))
 	if err != nil {
 		l.AddExecLog("system", "error", err.Error())
 	}
-	l.StartPartition = utils.GetTimeSlot(now, timeSlot)
+	l.StartPartition = utils.GetTimeSlot(l.Start, timeSlot)
 }
 
 func (l *LogModel) Post() {
@@ -73,14 +75,15 @@ func (l *LogModel) Post() {
 
 	l.End = time.Now()
 	LogsTable := table.New(LogsMetadata)
-	l.TimeTaken = int(l.End.Sub(l.Start).Milliseconds())
+	timeSubtracted := l.End.Sub(l.Start)
+	l.TimeTaken = int(timeSubtracted.Milliseconds())
 
 	q := scylla.GetScylla().Query(LogsTable.Insert()).BindStruct(&l)
 	if err := q.ExecRelease(); err != nil {
 		log.Printf("error in saving log: %s", err.Error())
 	}
 
-	log.Printf("execution time: %+v\n", l.TimeTaken)
+	log.Printf("execution time: %+vs %+vms %+vµs %+vns \n", timeSubtracted.Seconds(), timeSubtracted.Milliseconds(), timeSubtracted.Microseconds(), timeSubtracted.Nanoseconds())
 }
 
 func (l *LogModel) AddExecLog(logUser string, logType string, logData string) {
@@ -103,4 +106,14 @@ func (l *LogModel) AddExecLog(logUser string, logType string, logData string) {
 	}
 
 	l.ExecutionLogs = append(l.ExecutionLogs, execLog)
+}
+
+func (l *LogModel) GetUserErrorLogs() []ExecLog {
+	errLogs := []ExecLog{}
+	for _, log := range l.ExecutionLogs {
+		if log.LogUser == "user" && log.LogType == "error" {
+			errLogs = append(errLogs, log)
+		}
+	}
+	return errLogs
 }

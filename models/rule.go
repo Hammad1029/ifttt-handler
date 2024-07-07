@@ -1,15 +1,79 @@
 package models
 
+import (
+	"context"
+	"errors"
+	"fmt"
+	"handler/utils"
+	"strings"
+)
+
 type RuleUDT struct {
-	Operator1 ResolvableUDT   `cql:"op1" json:"op1"`
-	Operand   string          `cql:"opnd" json:"opnd"`
-	Operator2 ResolvableUDT   `cql:"op2" json:"op2"`
-	Then      []ResolvableUDT `cql:"then" json:"then"`
-	Else      []ResolvableUDT `cql:"else" json:"else"`
+	Id          string       `cql:"id" json:"id"`
+	Description string       `cql:"description" json:"description"`
+	Conditions  Condition    `cql:"conditions" json:"conditions"`
+	Then        []Resolvable `cql:"then" json:"then"`
+	Else        []Resolvable `cql:"else" json:"else"`
 }
 
-type QueryUDT struct {
-	QueryString string          `cql:"query_str"`
-	Resolvables []ResolvableUDT `cql:"resolvables"`
-	Type        string          `cql:"type"`
+type Condition struct {
+	ConditionType string      `cql:"condition_type" json:"conditionType" mapstructure:"conditionType"`
+	Conditions    []Condition `cql:"conditions" json:"conditions" mapstructure:"conditions"`
+	Group         bool        `cql:"group" json:"group" mapstructure:"group"`
+	Operator1     Resolvable  `cql:"op1" json:"op1" mapstructure:"op1"`
+	Operand       string      `cql:"opnd" json:"opnd" mapstructure:"opnd"`
+	Operator2     Resolvable  `cql:"op2" json:"op2" mapstructure:"op2"`
+}
+
+func (c *Condition) EvaluateCondition(ctx context.Context) (bool, error) {
+	if c.Group {
+		return false, errors.New("method EvaluateCondition: object is a set")
+	}
+	evaluators := utils.GetEvaluators()
+
+	if evalFunc, ok := evaluators[c.Operand]; ok {
+		op1Res, err := c.Operator1.Resolve(ctx)
+		if err != nil {
+			return false, fmt.Errorf("method EvaluateCondition: %s", err)
+		}
+		op2Res, err := c.Operator2.Resolve(ctx)
+		if err != nil {
+			return false, fmt.Errorf("method EvaluateCondition: %s", err)
+		}
+		ev := evalFunc(op1Res, op2Res)
+		return ev, nil
+	} else {
+		return false, errors.New("method EvaluateCondition: operand not found")
+	}
+}
+
+func (group *Condition) EvaluateGroup(ctx context.Context) (bool, error) {
+	if !group.Group {
+		return false, errors.New("method EvaluateGroup: object is not a group")
+	}
+	condType := strings.ToLower(group.ConditionType)
+	var ev bool
+	var err error
+	for _, cond := range group.Conditions {
+		switch cond.Group {
+		case true:
+			ev, err = cond.EvaluateGroup(ctx)
+		case false:
+			ev, err = cond.EvaluateCondition(ctx)
+		}
+
+		if err != nil {
+			return false, fmt.Errorf("method EvaluateGroup: %s", err)
+		}
+
+		switch {
+		case condType == "and" && !ev:
+			return false, nil
+		case condType == "or" && ev:
+			return true, nil
+		case condType != "and" && condType != "or":
+			return false, errors.New("method EvaluateGroup: condition type not in (and,or)")
+		}
+	}
+	return condType == "and", nil
 }

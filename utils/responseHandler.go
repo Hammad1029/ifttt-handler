@@ -5,6 +5,7 @@ import (
 )
 
 func ResponseHandler(c *fiber.Ctx, params ...ResponseConfig) error {
+
 	var config ResponseConfig
 
 	if len(params) > 0 {
@@ -47,17 +48,7 @@ type ResponseConfig struct {
 }
 
 var Responses = map[string]Response{
-	"Success":          {"00", "Success"},
-	"ClientNotFound":   {"05", "Client Not Found"},
-	"ApiNotFound":      {"10", "Api Not Found"},
-	"ApiAlreadyExists": {"15", "API Already Exists"},
-	"WrongTableFormat": {"20", "Wrong Table Format"},
-	"TableNotFound":    {"25", "Table Not Found"},
-	"IndexNotPossible": {"25", "Index Not Possible"},
-	"IndexNotFound":    {"30", "Index Not Found"},
-
-	"BadRequest":   {"400", "Bad request"},
-	"Unauthorized": {"401", "Unauthorized"},
-	"NotFound":     {"404", "Not Found"},
-	"ServerError":  {"500", "Internal Server Error"},
+	"Success":       {"00", "Success"},
+	"ServerError":   {"500", "Internal Server Error"},
+	"TypeCastError": {"505", "Error in typecasting property"},
 }

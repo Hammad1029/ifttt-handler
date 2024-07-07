@@ -1,0 +1,175 @@
+{
+  "db": [],
+  "arithmetic": [
+    {
+      "resolveType": "arithmetic",
+      "resolveData": {
+        "group": true,
+        "operation": "+",
+        "operators": [
+          {
+            "group": false,
+            "get": {
+              "resolveType": "const",
+              "resolveData": {
+                "get": 1
+              }
+            }
+          },
+          {
+            "group": false,
+            "get": {
+              "resolveType": "const",
+              "resolveData": {
+                "get": 2
+              }
+            }
+          },
+          {
+            "group": true,
+            "operation": "/",
+            "operands": [
+              {
+                "group": false,
+                "get": {
+                  "resolveType": "const",
+                  "resolveData": {
+                    "get": 2
+                  }
+                }
+              },
+              {
+                "group": false,
+                "get": {
+                  "resolveType": "const",
+                  "resolveData": {
+                    "get": 2
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "req": [
+    {
+      "resolveType": "req",
+      "resolveData": {
+        "get": {
+          "resolveType": "const",
+          "resolveData": {
+            "get": "a.b.c"
+          }
+        }
+      }
+    },
+    {
+      "resolveType": "req",
+      "resolveData": {
+        "get": {
+          "resolveType": "req",
+          "resolveData": {
+            "get": {
+              "resolveType": "const",
+              "resolveData": {
+                "get": "a.b.c"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "setRes": [
+    {
+      "resolveType": "setRes",
+      "resolveData": {
+        "variable": {
+          "resolveType": "const",
+          "resolveData": {
+            "get": "constant value"
+          }
+        }
+      }
+    }
+  ],
+  "store": [
+    {
+      "resolveType": "setRes",
+      "resolveData": {
+        "variable": {
+          "resolveType": "req",
+          "resolveData": {
+            "get": {
+              "resolveType": "const",
+              "resolveData": {
+                "get": "a.b.c"
+              }
+            }
+          }
+        },
+        "nestedObject": {
+          "a": {
+            "resolveType": "req",
+            "resolveData": {
+              "get": {
+                "resolveType": "const",
+                "resolveData": {
+                  "get": "a.b.c"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "log": [
+    {
+      "resolveType": "log",
+      "resolveData": {
+        "logData": {
+          "resolveType": "const",
+          "resolveData": {
+            "get": "logging transaction recorded"
+          }
+        },
+        "logType": {
+          "resolveType": "const",
+          "resolveData": {
+            "get": "logging transaction recorded"
+          }
+        }
+      }
+    }
+  ],
+  "const": [
+    {
+      "resolveType": "const",
+      "resolveData": {
+        "get": "constant value"
+      }
+    }
+  ],
+  "rule": [
+    {
+      "resolveType": "rule",
+      "resolveData": {
+        "get": {
+          "resolveType": "const",
+          "resolveData": {
+            "get": "ruleid"
+          }
+        }
+      }
+    }
+  ],
+  "res": [
+    {
+      "resolveType": "res",
+      "resolveData": {}
+    }
+  ]
+}
