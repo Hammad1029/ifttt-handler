@@ -1,0 +1,178 @@
+{
+  "apiName": "dbStoreTest",
+  "apiPath": "/path",
+  "apiGroup": "group1",
+  "apiDescription": "store query res in store and get using path from request",
+  "apiRequest": {
+    "accessor": "string"
+  },
+  "startRules": ["d19da8a8-3a05-11ef-9454-0242ac120002"],
+  "rules": {
+    "d19da8a8-3a05-11ef-9454-0242ac120002": {
+      "id": "d19da8a8-3a05-11ef-9454-0242ac120002",
+      "description": "get data from db and store",
+      "conditions": {
+        "group": true,
+        "conditionType": "and",
+        "conditions": [
+          {
+            "group": true,
+            "conditionType": "or",
+            "conditions": [
+              {
+                "group": false,
+                "op1": {
+                  "resolveType": "req",
+                  "resolveData": {
+                    "get": {
+                      "resolveType": "const",
+                      "resolveData": {
+                        "get": "MTI"
+                      }
+                    }
+                  }
+                },
+                "opnd": "eq",
+                "op2": {
+                  "resolveType": "const",
+                  "resolveData": {
+                    "get": "0100"
+                  }
+                }
+              },
+              {
+                "group": false,
+                "op1": {
+                  "resolveType": "req",
+                  "resolveData": {
+                    "get": {
+                      "resolveType": "const",
+                      "resolveData": {
+                        "get": "MTI"
+                      }
+                    }
+                  }
+                },
+                "opnd": "eq",
+                "op2": {
+                  "resolveType": "const",
+                  "resolveData": {
+                    "get": "0120"
+                  }
+                }
+              },
+              {
+                "group": false,
+                "op1": {
+                  "resolveType": "req",
+                  "resolveData": {
+                    "get": {
+                      "resolveType": "const",
+                      "resolveData": {
+                        "get": "MTI"
+                      }
+                    }
+                  }
+                },
+                "opnd": "eq",
+                "op2": {
+                  "resolveType": "const",
+                  "resolveData": {
+                    "get": "0220"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "group": true,
+            "conditionType": "or",
+            "conditions": [
+              {
+                "group": false,
+                "op1": {
+                  "resolveType": "req",
+                  "resolveData": {
+                    "get": {
+                      "resolveType": "const",
+                      "resolveData": {
+                        "get": "Trantype"
+                      }
+                    }
+                  }
+                },
+                "opnd": "eq",
+                "op2": {
+                  "resolveType": "const",
+                  "resolveData": {
+                    "get": "09"
+                  }
+                }
+              },
+              {
+                "group": false,
+                "op1": {
+                  "resolveType": "req",
+                  "resolveData": {
+                    "get": {
+                      "resolveType": "const",
+                      "resolveData": {
+                        "get": "Trantype"
+                      }
+                    }
+                  }
+                },
+                "opnd": "eq",
+                "op2": {
+                  "resolveType": "const",
+                  "resolveData": {
+                    "get": "30"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "group": false,
+            "op1": {
+              "resolveType": "req",
+              "resolveData": {
+                "get": {
+                  "resolveType": "const",
+                  "resolveData": {
+                    "get": "Amount"
+                  }
+                }
+              }
+            },
+            "opnd": "gt",
+            "op2": {
+              "resolveType": "const",
+              "resolveData": {
+                "get": 3000
+              }
+            }
+          }
+        ]
+      },
+      "then": [
+        {
+          "resolveType": "setRes",
+          "resolveData": {
+            "de39": {
+              "resolveType": "const",
+              "resolveData": {
+                "get": 65
+              }
+            }
+          }
+        },
+        {
+          "resolveType": "res",
+          "resolveData": {}
+        }
+      ],
+      "else": []
+    }
+  }
+}

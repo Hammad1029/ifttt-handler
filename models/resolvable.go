@@ -2,13 +2,13 @@ package models
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"handler/scylla"
-	"strings"
 
 	jsontocql "github.com/Hammad1029/json-to-cql"
+	"github.com/PaesslerAG/jsonpath"
 	"github.com/mitchellh/mapstructure"
+	"github.com/samber/lo"
 )
 
 type Resolvable struct {
@@ -23,14 +23,16 @@ func (r *Resolvable) Resolve(ctx context.Context) (interface{}, error) {
 	case "db":
 		return r.resolveQuery(ctx)
 	case "const":
-		return fmt.Sprint(r.ResolveData["get"]), nil
+		return r.ResolveData["get"], nil
 	case "arithmetic":
 		return r.arithmetic(ctx)
+	case "getStore":
+		return r.getStore(ctx)
 	// actions
 	case "setRes":
 		return nil, r.setRes(ctx)
-	case "store":
-		return nil, r.store(ctx)
+	case "setStore":
+		return nil, r.setStore(ctx)
 	case "log":
 		return nil, r.saveUserLog(ctx)
 	default:
@@ -39,17 +41,12 @@ func (r *Resolvable) Resolve(ctx context.Context) (interface{}, error) {
 }
 
 func resolveIfNested(value interface{}, ctx context.Context) (interface{}, error) {
-	if valueMap, ok := value.(map[string]interface{}); ok {
-		if resolvableType, ok := valueMap["resolveType"]; ok {
-			if resolvableData, ok := valueMap["resolveData"]; ok {
-				if castedType, ok := resolvableType.(string); ok {
-					if castedData, ok := resolvableData.(map[string]interface{}); ok {
-						nestedResolvable := Resolvable{ResolveType: castedType, ResolveData: castedData}
-						return nestedResolvable.Resolve(ctx)
-					}
-				}
-			}
-		}
+	var nestedResolvable Resolvable
+	if err := mapstructure.Decode(value, &nestedResolvable); err != nil {
+		return nil, err
+	}
+	if nestedResolvable.ResolveType != "" && nestedResolvable.ResolveData != nil {
+		return nestedResolvable.Resolve(ctx)
 	}
 	return value, nil
 }
@@ -60,66 +57,85 @@ func (r *Resolvable) resolveReq(ctx context.Context) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	keys := strings.Split(fmt.Sprint(reqPath), ".")
 
-	current := reqData
-
-	for _, key := range keys {
-		val, ok := current[key]
-		if !ok {
-			return nil, nil
-		}
-
-		if nestedMap, ok := val.(map[string]interface{}); ok {
-			current = nestedMap
-		} else {
-			return val, nil
-		}
+	if val, err := jsonpath.Get(fmt.Sprint(reqPath), reqData); err != nil {
+		return nil, fmt.Errorf("method resolveReq: %s", err.Error())
+	} else {
+		return val, nil
 	}
-
-	return nil, errors.New("method resolveReq: invalid accessor")
 }
 
 func (r *Resolvable) resolveQuery(ctx context.Context) (interface{}, error) {
 	reqData := ctx.Value("request").(*RequestData)
-	queries := ctx.Value("queries").(map[string]QueryUDT)
+	queries := ctx.Value("queries").(map[string]jsontocql.ParameterizedQuery)
 	queryHash := fmt.Sprint(r.ResolveData["query"])
 	if currQuery, ok := queries[queryHash]; ok {
 		var queryParameters []interface{}
+		var localResolvable Resolvable
 		for _, param := range currQuery.Resolvables {
-			if p, err := param.Resolve(ctx); err != nil {
-				return nil, err
+			localResolvable = Resolvable{
+				ResolveType: param.ResolveType,
+				ResolveData: param.ResolveData,
+			}
+			if p, err := localResolvable.Resolve(ctx); err != nil {
+				return nil, fmt.Errorf("method resolveQuery: could not resolve query parameters: %s", err)
 			} else {
-				queryParameters = append(queryParameters, fmt.Sprint(p))
+				queryParameters = append(queryParameters, p)
 			}
 		}
 
 		switch currQuery.Type {
 		case jsontocql.Select:
 			{
-				queryRes := reqData.QueryRes
 				var results []map[string]interface{}
-				if oldRes, queryRan := queryRes[queryHash]; queryRan {
-					results = oldRes
+				queryRes := reqData.QueryRes
+
+				callAgain, callAgainOk := r.ResolveData["callAgain"]
+				oldRes, queryRan := queryRes[queryHash]
+
+				if (!callAgainOk || callAgain != true) && queryRan {
+					if oldResCasted, ok := oldRes.([]map[string]interface{}); ok {
+						results = oldResCasted
+					} else {
+						return nil, fmt.Errorf("method resolveQuery: could not cast old query results")
+					}
 				} else {
-					if newRes, err := scylla.RunSelect(currQuery.QueryString, queryParameters, 1); err != nil {
-						return nil, err
+					if newRes, err := scylla.RunSelect(currQuery, queryParameters); err != nil {
+						return nil, fmt.Errorf("method resolveQuery: could not run query: %s", err.Error())
 					} else {
 						reqData.QueryRes[queryHash] = newRes
 						results = newRes
 					}
 				}
-				if accessor, ok := r.ResolveData["get"]; ok {
-					if len(results) == 0 {
-						return nil, nil
-					}
-					if val, ok := results[0][fmt.Sprint(accessor)]; ok {
-						return val, nil
 
-					}
-					return nil, errors.New("method resolveQuery: accessor not found in query result")
+				if len(results) == 0 {
+					return nil, nil
 				}
-				return nil, errors.New("method resolveQuery: query accessor not found")
+
+				var accessorResolvable Resolvable
+				if accessor, ok := r.ResolveData["get"]; ok {
+					if err := mapstructure.Decode(accessor, &accessorResolvable); err != nil {
+						return nil, err
+					}
+				}
+				resolved, err := accessorResolvable.Resolve(ctx)
+				if err != nil {
+					return nil, fmt.Errorf("method resolveQuery: could not resolve accessor | %s", err.Error())
+				}
+				accessorResolved := fmt.Sprint(resolved)
+				if accessorResolved == "*" {
+					return results, nil
+				} else {
+					interfaceResults := lo.Map(results, func(m map[string]interface{}, _ int) interface{} {
+						return m
+					})
+					if filteredResults, err := jsonpath.Get(accessorResolved, interfaceResults); err != nil {
+						return nil, fmt.Errorf("method resolveQuery: could not access accessor | %s", err.Error())
+					} else {
+						return filteredResults, nil
+					}
+
+				}
 			}
 		default:
 			{
@@ -147,10 +163,10 @@ func (r *Resolvable) setRes(ctx context.Context) error {
 		}
 		return nil
 	}
-	return errors.New("method setRes: setRes resolveType assertion failed")
+	return fmt.Errorf("method setRes: setRes resolveType assertion failed")
 }
 
-func (r *Resolvable) store(ctx context.Context) error {
+func (r *Resolvable) setStore(ctx context.Context) error {
 	if reqData, ok := ctx.Value("request").(*RequestData); ok {
 		store := reqData.Store
 		for key, value := range r.ResolveData {
@@ -162,7 +178,7 @@ func (r *Resolvable) store(ctx context.Context) error {
 		}
 		return nil
 	}
-	return errors.New("method store: setRes resolveType assertion failed")
+	return fmt.Errorf("method store: setRes resolveType assertion failed")
 
 }
 
@@ -181,11 +197,25 @@ func (r *Resolvable) saveUserLog(ctx context.Context) error {
 		l.AddExecLog("user", fmt.Sprint(logTypeResolved), fmt.Sprint(logDataResolved))
 		return nil
 	}
-	return errors.New("method saveUserLog: could not type cast log model")
+	return fmt.Errorf("method saveUserLog: could not type cast log model")
 }
 
 func (r *Resolvable) arithmetic(ctx context.Context) (interface{}, error) {
 	var arithmetic Arithmetic
 	mapstructure.Decode(r.ResolveData, &arithmetic)
 	return arithmetic.Arithmetic(ctx)
+}
+
+func (r *Resolvable) getStore(ctx context.Context) (interface{}, error) {
+	store := ctx.Value("request").(*RequestData).Store
+	storePath, err := resolveIfNested(r.ResolveData["get"], ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if val, err := jsonpath.Get(fmt.Sprint(storePath), store); err != nil {
+		return nil, fmt.Errorf("method getStore: %s", err.Error())
+	} else {
+		return val, nil
+	}
 }

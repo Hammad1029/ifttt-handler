@@ -3,15 +3,19 @@ module handler
 go 1.21.5
 
 require (
+	github.com/Hammad1029/json-to-cql v0.0.0-20240713125137-433c5a88f387
+	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/gocql/gocql v1.6.0
 	github.com/gofiber/fiber/v2 v2.52.2
+	github.com/mitchellh/mapstructure v1.5.0
 	github.com/redis/go-redis/v9 v9.5.1
+	github.com/samber/lo v1.44.0
 	github.com/scylladb/gocqlx/v2 v2.8.0
 	github.com/spf13/viper v1.18.2
 )
 
 require (
-	github.com/Hammad1029/json-to-cql v0.0.0-20240703193233-eb78ec2cf1f2 // indirect
+	github.com/PaesslerAG/gval v1.0.0 // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
@@ -21,19 +25,15 @@ require (
 	github.com/google/uuid v1.5.0 // indirect
 	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/kisielk/godepgraph v0.0.0-20240411160502-0f324ca7e282 // indirect
 	github.com/klauspost/compress v1.17.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
-	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
-	github.com/rs/zerolog v1.32.0 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
-	github.com/samber/lo v1.44.0 // indirect
 	github.com/scylladb/go-reflectx v1.0.1 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect

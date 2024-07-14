@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"handler/models"
 	"handler/utils"
 	"log"
@@ -49,7 +49,7 @@ func addErrorToContext(err error, ctx context.Context, sendRes bool) {
 		log.Panic("method addErrorToContext: could not type cast log model")
 	}
 
-	log.Fatal(err.Error())
+	log.Fatal(err)
 
 	if sendRes {
 		sendResponse(ctx, utils.Responses["ServerError"])
@@ -61,7 +61,7 @@ func sendResponse(ctx context.Context, res utils.Response) error {
 		responseChannel <- res
 		return nil
 	} else {
-		err := errors.New("method sendResponse: send res type assertion failed")
+		err := fmt.Errorf("method sendResponse: send res type assertion failed")
 		log.Panic(err)
 		return err
 	}

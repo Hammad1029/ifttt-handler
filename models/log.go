@@ -1,10 +1,10 @@
 package models
 
 import (
+	"fmt"
 	"handler/config"
 	"handler/scylla"
 	"handler/utils"
-	"log"
 	"strconv"
 	"time"
 
@@ -38,7 +38,7 @@ type ExecLog struct {
 
 func (l *LogModel) StartLog() {
 	now := time.Now()
-	log.Printf("Request recieved at %s\n", now.String())
+	fmt.Printf("Request recieved at %s\n", now.String())
 	l.Start = now
 }
 
@@ -68,10 +68,15 @@ func (l *LogModel) Post() {
 	if err != nil {
 		l.AddExecLog("system", "error", "could not serialize response")
 	}
+	queryResSerialized, err := utils.SerializeMap(l.RequestData.QueryRes)
+	if err != nil {
+		l.AddExecLog("system", "error", "could not serialize query results")
+	}
 
 	l.RequestData.ReqBody = reqBodySerialized
 	l.RequestData.Store = storeSerialized
 	l.RequestData.Response = responseSerialized
+	l.RequestData.QueryRes = queryResSerialized
 
 	l.End = time.Now()
 	LogsTable := table.New(LogsMetadata)
@@ -80,10 +85,10 @@ func (l *LogModel) Post() {
 
 	q := scylla.GetScylla().Query(LogsTable.Insert()).BindStruct(&l)
 	if err := q.ExecRelease(); err != nil {
-		log.Printf("error in saving log: %s", err.Error())
+		fmt.Printf("error in saving log: %s", err)
 	}
 
-	log.Printf("execution time: %+vs %+vms %+vµs %+vns \n", timeSubtracted.Seconds(), timeSubtracted.Milliseconds(), timeSubtracted.Microseconds(), timeSubtracted.Nanoseconds())
+	fmt.Printf("execution time: %+vs %+vms %+vµs %+vns \n", timeSubtracted.Seconds(), timeSubtracted.Milliseconds(), timeSubtracted.Microseconds(), timeSubtracted.Nanoseconds())
 }
 
 func (l *LogModel) AddExecLog(logUser string, logType string, logData string) {

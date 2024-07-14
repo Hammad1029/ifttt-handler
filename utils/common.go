@@ -40,6 +40,7 @@ func SerializeMap(input map[string]interface{}) (map[string]interface{}, error) 
 	output := make(map[string]interface{})
 	for key, value := range input {
 		switch v := value.(type) {
+		case []map[string]interface{}:
 		case map[string]interface{}:
 			serialized, err := SerializeMap(v)
 			if err != nil {

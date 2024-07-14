@@ -2,7 +2,6 @@ package models
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"handler/utils"
 	"strings"
@@ -27,7 +26,7 @@ type Condition struct {
 
 func (c *Condition) EvaluateCondition(ctx context.Context) (bool, error) {
 	if c.Group {
-		return false, errors.New("method EvaluateCondition: object is a set")
+		return false, fmt.Errorf("method EvaluateCondition: object is a set")
 	}
 	evaluators := utils.GetEvaluators()
 
@@ -43,13 +42,13 @@ func (c *Condition) EvaluateCondition(ctx context.Context) (bool, error) {
 		ev := evalFunc(op1Res, op2Res)
 		return ev, nil
 	} else {
-		return false, errors.New("method EvaluateCondition: operand not found")
+		return false, fmt.Errorf("method EvaluateCondition: operand not found")
 	}
 }
 
 func (group *Condition) EvaluateGroup(ctx context.Context) (bool, error) {
 	if !group.Group {
-		return false, errors.New("method EvaluateGroup: object is not a group")
+		return false, fmt.Errorf("method EvaluateGroup: object is not a group")
 	}
 	condType := strings.ToLower(group.ConditionType)
 	var ev bool
@@ -72,7 +71,7 @@ func (group *Condition) EvaluateGroup(ctx context.Context) (bool, error) {
 		case condType == "or" && ev:
 			return true, nil
 		case condType != "and" && condType != "or":
-			return false, errors.New("method EvaluateGroup: condition type not in (and,or)")
+			return false, fmt.Errorf("method EvaluateGroup: condition type not in (and,or)")
 		}
 	}
 	return condType == "and", nil

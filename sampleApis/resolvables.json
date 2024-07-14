@@ -1,5 +1,71 @@
 {
-  "db": [],
+  "db": [
+    {
+      "resolveType": "db",
+      "resolveData": {
+        "callAgain": true,
+        "get": {
+          "type": "const",
+          "data": {
+            "get": "[0].a"
+          }
+        },
+        "query": {
+          "type": "SELECT",
+          "table": "table1",
+          "rows": 1,
+          "conditions": [
+            {
+              "column": "a",
+              "operand": "eq",
+              "data": {
+                "type": "req",
+                "data": {
+                  "get": {
+                    "resolveType": "const",
+                    "resolveData": {
+                      "get": "a.b.c"
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "projections": [
+            {
+              "column": {
+                "resolveType": "const",
+                "resolveData": {
+                  "get": "a"
+                }
+              },
+              "as": {
+                "resolveType": "const",
+                "resolveData": {
+                  "get": "a"
+                }
+              }
+            },
+            {
+              "column": {
+                "resolveType": "const",
+                "resolveData": {
+                  "get": "b"
+                }
+              },
+              "as": {
+                "resolveType": "const",
+                "resolveData": {
+                  "get": "b"
+                }
+              }
+            }
+          ],
+          "columns": []
+        }
+      }
+    }
+  ],
   "arithmetic": [
     {
       "resolveType": "arithmetic",
@@ -95,9 +161,38 @@
       }
     }
   ],
-  "store": [
+  "getStore": [
     {
-      "resolveType": "setRes",
+      "resolveType": "getStore",
+      "resolveData": {
+        "get": {
+          "resolveType": "const",
+          "resolveData": {
+            "get": "a.b.c"
+          }
+        }
+      }
+    },
+    {
+      "resolveType": "getStore",
+      "resolveData": {
+        "get": {
+          "resolveType": "req",
+          "resolveData": {
+            "get": {
+              "resolveType": "const",
+              "resolveData": {
+                "get": "a.b.c"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "setStore": [
+    {
+      "resolveType": "setStore",
       "resolveData": {
         "variable": {
           "resolveType": "req",

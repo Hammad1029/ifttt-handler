@@ -15,7 +15,7 @@ func handleActions(actions []models.Resolvable, ctx context.Context) error {
 			handleActionRule(ctx, action.ResolveData)
 		case "res":
 			sendResponse(ctx, utils.Responses["success"])
-		case "db", "setRes", "store", "log":
+		case "db", "setRes", "setStore", "log":
 			{
 				if _, err := action.Resolve(ctx); err != nil {
 					return err
