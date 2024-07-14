@@ -94,11 +94,7 @@ func (r *Resolvable) resolveQuery(ctx context.Context) (interface{}, error) {
 				oldRes, queryRan := queryRes[queryHash]
 
 				if (!callAgainOk || callAgain != true) && queryRan {
-					if oldResCasted, ok := oldRes.([]map[string]interface{}); ok {
-						results = oldResCasted
-					} else {
-						return nil, fmt.Errorf("method resolveQuery: could not cast old query results")
-					}
+					results = oldRes
 				} else {
 					if newRes, err := scylla.RunSelect(currQuery, queryParameters); err != nil {
 						return nil, fmt.Errorf("method resolveQuery: could not run query: %s", err.Error())
@@ -185,7 +181,7 @@ func (r *Resolvable) setStore(ctx context.Context) error {
 func (r *Resolvable) saveUserLog(ctx context.Context) error {
 	logData := r.ResolveData["logData"]
 	logType := r.ResolveData["logType"]
-	if l, ok := ctx.Value("log").(*LogModel); ok {
+	if l, ok := ctx.Value("log").(*LogData); ok {
 		logTypeResolved, err := resolveIfNested(logType, ctx)
 		if err != nil {
 			return err

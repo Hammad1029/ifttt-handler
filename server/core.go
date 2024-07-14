@@ -21,7 +21,7 @@ func initExec(startRules []string, ctx context.Context) {
 
 func prepRule(rule *models.RuleUDT, wg *sync.WaitGroup, ctx context.Context, ruleId string) {
 	defer wg.Done()
-	if l, ok := ctx.Value("log").(*models.LogModel); ok {
+	if l, ok := ctx.Value("log").(*models.LogData); ok {
 		l.ExecutionOrder = append(l.ExecutionOrder, ruleId)
 	} else {
 		log.Panic("method prepRule: could not type cast log model")
@@ -43,7 +43,7 @@ func execRule(rule *models.RuleUDT, ctx context.Context) error {
 }
 
 func addErrorToContext(err error, ctx context.Context, sendRes bool) {
-	if l, ok := ctx.Value("log").(*models.LogModel); ok {
+	if l, ok := ctx.Value("log").(*models.LogData); ok {
 		l.AddExecLog("system", "error", err.Error())
 	} else {
 		log.Panic("method addErrorToContext: could not type cast log model")

@@ -28,7 +28,7 @@ func Init() {
 }
 
 func apiHandler(c *fiber.Ctx) error {
-	log := models.LogModel{}
+	log := models.LogData{}
 	log.StartLog()
 
 	api, err := redisUtils.GetApi(c)

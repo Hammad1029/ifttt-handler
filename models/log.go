@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"fmt"
 	"handler/config"
 	"handler/scylla"
@@ -12,15 +13,27 @@ import (
 )
 
 type LogModel struct {
-	ApiGroup       string       `cql:"api_group"`
-	ApiName        string       `cql:"api_name"`
-	ExecutionOrder []string     `cql:"execution_order"`
-	ExecutionLogs  []ExecLog    `cql:"execution_logs"`
-	RequestData    *RequestData `cql:"request_data"`
-	Start          time.Time    `cql:"start"`
-	StartPartition time.Time    `cql:"start_partition"`
-	End            time.Time    `cql:"end"`
-	TimeTaken      int          `cql:"time_taken"`
+	ApiGroup       string           `cql:"api_group"`
+	ApiName        string           `cql:"api_name"`
+	ExecutionOrder []string         `cql:"execution_order"`
+	ExecutionLogs  []ExecLog        `cql:"execution_logs"`
+	RequestData    RequestDataModel `cql:"request_data"`
+	Start          time.Time        `cql:"start"`
+	StartPartition time.Time        `cql:"start_partition"`
+	End            time.Time        `cql:"end"`
+	TimeTaken      int              `cql:"time_taken"`
+}
+
+type LogData struct {
+	ApiGroup       string       `json:"apiGroup" mapstructure:"apiGroup"`
+	ApiName        string       `json:"apiName" mapstructure:"apiName"`
+	ExecutionOrder []string     `json:"executionOrder" mapstructure:"executionOrder"`
+	ExecutionLogs  []ExecLog    `json:"executionLogs" mapstructure:"executionLogs"`
+	RequestData    *RequestData `json:"requestData" mapstructure:"requestData"`
+	Start          time.Time    `json:"start" mapstructure:"start"`
+	StartPartition time.Time    `json:"startPartition" mapstructure:"startPartition"`
+	End            time.Time    `json:"end" mapstructure:"end"`
+	TimeTaken      int          `json:"timeTaken" mapstructure:"timeTaken"`
 }
 
 var LogsMetadata = table.Metadata{
@@ -36,13 +49,13 @@ type ExecLog struct {
 	LogData string `cql:"log_data"`
 }
 
-func (l *LogModel) StartLog() {
+func (l *LogData) StartLog() {
 	now := time.Now()
 	fmt.Printf("Request recieved at %s\n", now.String())
 	l.Start = now
 }
 
-func (l *LogModel) Initialize(r *RequestData, api *ApiModel) {
+func (l *LogData) Initialize(r *RequestData, api *ApiModel) {
 	l.ApiGroup = api.ApiGroup
 	l.ApiName = api.ApiName
 	l.ExecutionOrder = []string{}
@@ -55,43 +68,52 @@ func (l *LogModel) Initialize(r *RequestData, api *ApiModel) {
 	l.StartPartition = utils.GetTimeSlot(l.Start, timeSlot)
 }
 
-func (l *LogModel) Post() {
-	reqBodySerialized, err := utils.SerializeMap(l.RequestData.ReqBody)
+func (l *LogData) Post() {
+	newLog := LogModel{
+		ApiGroup:       l.ApiGroup,
+		ApiName:        l.ApiName,
+		ExecutionOrder: l.ExecutionOrder,
+		ExecutionLogs:  l.ExecutionLogs,
+		Start:          l.Start,
+		StartPartition: l.StartPartition,
+	}
+
+	reqBodySerialized, err := json.Marshal(l.RequestData.ReqBody)
 	if err != nil {
 		l.AddExecLog("system", "error", "could not serialize request body")
 	}
-	storeSerialized, err := utils.SerializeMap(l.RequestData.Store)
+	storeSerialized, err := json.Marshal(l.RequestData.Store)
 	if err != nil {
 		l.AddExecLog("system", "error", "could not serialize store")
 	}
-	responseSerialized, err := utils.SerializeMap(l.RequestData.Response)
+	responseSerialized, err := json.Marshal(l.RequestData.Response)
 	if err != nil {
 		l.AddExecLog("system", "error", "could not serialize response")
 	}
-	queryResSerialized, err := utils.SerializeMap(l.RequestData.QueryRes)
+	queryResSerialized, err := json.Marshal(l.RequestData.QueryRes)
 	if err != nil {
 		l.AddExecLog("system", "error", "could not serialize query results")
 	}
 
-	l.RequestData.ReqBody = reqBodySerialized
-	l.RequestData.Store = storeSerialized
-	l.RequestData.Response = responseSerialized
-	l.RequestData.QueryRes = queryResSerialized
+	newLog.RequestData.ReqBody = string(reqBodySerialized)
+	newLog.RequestData.Store = string(storeSerialized)
+	newLog.RequestData.Response = string(responseSerialized)
+	newLog.RequestData.QueryRes = string(queryResSerialized)
 
-	l.End = time.Now()
+	newLog.End = time.Now()
 	LogsTable := table.New(LogsMetadata)
-	timeSubtracted := l.End.Sub(l.Start)
-	l.TimeTaken = int(timeSubtracted.Milliseconds())
+	timeSubtracted := newLog.End.Sub(newLog.Start)
+	newLog.TimeTaken = int(timeSubtracted.Milliseconds())
 
-	q := scylla.GetScylla().Query(LogsTable.Insert()).BindStruct(&l)
+	q := scylla.GetScylla().Query(LogsTable.Insert()).BindStruct(&newLog)
 	if err := q.ExecRelease(); err != nil {
-		fmt.Printf("error in saving log: %s", err)
+		fmt.Printf("error in saving log: %s\n", err)
 	}
 
 	fmt.Printf("execution time: %+vs %+vms %+vµs %+vns \n", timeSubtracted.Seconds(), timeSubtracted.Milliseconds(), timeSubtracted.Microseconds(), timeSubtracted.Nanoseconds())
 }
 
-func (l *LogModel) AddExecLog(logUser string, logType string, logData string) {
+func (l *LogData) AddExecLog(logUser string, logType string, logData string) {
 	execLog := ExecLog{
 		LogUser: logUser,
 		LogType: logType,
@@ -113,7 +135,7 @@ func (l *LogModel) AddExecLog(logUser string, logType string, logData string) {
 	l.ExecutionLogs = append(l.ExecutionLogs, execLog)
 }
 
-func (l *LogModel) GetUserErrorLogs() []ExecLog {
+func (l *LogData) GetUserErrorLogs() []ExecLog {
 	errLogs := []ExecLog{}
 	for _, log := range l.ExecutionLogs {
 		if log.LogUser == "user" && log.LogType == "error" {
