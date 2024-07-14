@@ -3,65 +3,36 @@ package utils
 func GetEvaluators() map[string]func(a, b interface{}) bool {
 	return map[string]func(a, b interface{}) bool{
 		"eq": func(a, b interface{}) bool {
-			if aStr, aOk := a.(string); aOk {
-				if bStr, bOk := b.(string); bOk {
-					return aStr == bStr
-				}
-			}
-
-			if af, aOk := toFloat64(a); aOk {
-				if bf, bOk := toFloat64(b); bOk {
-					return af == bf
-				}
-			}
-			return false
+			return EqualityCheck(a, b)
 		},
 		"ne": func(a, b interface{}) bool {
-
-			if aStr, aOk := a.(string); aOk {
-				if bStr, bOk := b.(string); bOk {
-					return aStr != bStr
-				}
-			}
-
-			if af, aOk := toFloat64(a); aOk {
-				if bf, bOk := toFloat64(b); bOk {
-					return af != bf
-				}
-			}
-			return false
+			return !EqualityCheck(a, b)
+		},
+		"in": func(a, b interface{}) bool {
+			return ArrayIncludes(a, b)
+		},
+		"notIn": func(a, b interface{}) bool {
+			return !ArrayIncludes(a, b)
 		},
 		"lt": func(a, b interface{}) bool {
-			if af, aOk := toFloat64(a); aOk {
-				if bf, bOk := toFloat64(b); bOk {
-					return af < bf
-				}
-			}
-			return false
+			return evaluateFloats(a, b, func(aFloat, bFloat float64) interface{} {
+				return aFloat < bFloat
+			}).(bool)
 		},
 		"lte": func(a, b interface{}) bool {
-			if af, aOk := toFloat64(a); aOk {
-				if bf, bOk := toFloat64(b); bOk {
-					return af <= bf
-				}
-			}
-			return false
+			return evaluateFloats(a, b, func(aFloat, bFloat float64) interface{} {
+				return aFloat <= bFloat
+			}).(bool)
 		},
 		"gt": func(a, b interface{}) bool {
-			if af, aOk := toFloat64(a); aOk {
-				if bf, bOk := toFloat64(b); bOk {
-					return af > bf
-				}
-			}
-			return false
+			return evaluateFloats(a, b, func(aFloat, bFloat float64) interface{} {
+				return aFloat > bFloat
+			}).(bool)
 		},
 		"gte": func(a, b interface{}) bool {
-			if af, aOk := toFloat64(a); aOk {
-				if bf, bOk := toFloat64(b); bOk {
-					return af >= bf
-				}
-			}
-			return false
+			return evaluateFloats(a, b, func(aFloat, bFloat float64) interface{} {
+				return aFloat >= bFloat
+			}).(bool)
 		},
 	}
 }
@@ -93,36 +64,24 @@ func GetArithmeticOperators() map[string]func(a, b interface{}) interface{} {
 			return toString(a) + toString(b)
 		},
 		"-": func(a, b interface{}) interface{} {
-			floatA, okA := toFloat64(a)
-			floatB, okB := toFloat64(b)
-			if okA && okB {
-				return floatA - floatB
-			}
-			return nil
+			return evaluateFloats(a, b, func(aFloat, bFloat float64) interface{} {
+				return aFloat - bFloat
+			}).(float64)
 		},
 		"*": func(a, b interface{}) interface{} {
-			floatA, okA := toFloat64(a)
-			floatB, okB := toFloat64(b)
-			if okA && okB {
-				return floatA * floatB
-			}
-			return nil
+			return evaluateFloats(a, b, func(aFloat, bFloat float64) interface{} {
+				return aFloat * bFloat
+			}).(float64)
 		},
 		"/": func(a, b interface{}) interface{} {
-			floatA, okA := toFloat64(a)
-			floatB, okB := toFloat64(b)
-			if okA && okB {
-				return floatA / floatB
-			}
-			return nil
+			return evaluateFloats(a, b, func(aFloat, bFloat float64) interface{} {
+				return aFloat / bFloat
+			}).(float64)
 		},
 		"%": func(a, b interface{}) interface{} {
-			intA, okA := toInt(a)
-			intB, okB := toInt(b)
-			if okA && okB {
-				return intA % intB
-			}
-			return nil
+			return evaluateFloats(a, b, func(aFloat, bFloat float64) interface{} {
+				return int(aFloat) % int(bFloat)
+			}).(int)
 		},
 	}
 
