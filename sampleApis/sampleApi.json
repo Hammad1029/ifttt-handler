@@ -98,35 +98,35 @@
               "columns": [
                 {
                   "column": "int1",
-                  "resolveData": {
+                  "data": {
                     "resolveType": "req",
                     "resolveData": { "get": "a.b.d" }
                   }
                 },
                 {
                   "column": "text2",
-                  "resolveData": {
+                  "data": {
                     "resolveType": "const",
                     "resolveData": { "get": "yooo" }
                   }
                 },
                 {
                   "column": "int2",
-                  "resolveData": {
+                  "data": {
                     "resolveType": "const",
                     "resolveData": { "get": 3 }
                   }
                 },
                 {
                   "column": "text1",
-                  "resolveData": {
+                  "data": {
                     "resolveType": "const",
                     "resolveData": { "get": "hello" }
                   }
                 },
                 {
                   "column": "int13",
-                  "resolveData": {
+                  "data": {
                     "resolveType": "const",
                     "resolveData": { "get": 2 }
                   }

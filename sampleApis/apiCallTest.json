@@ -1,0 +1,70 @@
+{
+  "apiName": "test",
+  "apiPath": "",
+  "apiGroup": "call",
+  "apiDescription": "test api call and response manipulation",
+  "apiRequest": {
+    "name": "string",
+    "data": {
+      "CPU model": "string"
+    }
+  },
+  "startRules": ["9c9517e9-6459-417e-9587-1f9b787be310"],
+  "rules": {
+    "9c9517e9-6459-417e-9587-1f9b787be310": {
+      "id": "9c9517e9-6459-417e-9587-1f9b787be310",
+      "description": "",
+      "conditions": {
+        "group": true,
+        "conditionType": "and",
+        "conditions": []
+      },
+      "then": [
+        {
+          "resolveType": "setRes",
+          "resolveData": {
+            "apiResp": {
+              "resolveType": "api",
+              "resolveData": {
+                "url": "https://api.restful-api.dev/objects",
+                "method": "POST",
+                "headers": {
+                  "Content-Type": "application/json"
+                },
+                "body": {
+                  "name": {
+                    "resolveType": "req",
+                    "resolveData": {
+                      "get": ".name"
+                    }
+                  },
+                  "data": {
+                    "year": 2019,
+                    "price": 1849.99,
+                    "CPU model":{
+                      "resolveType": "req",
+                      "resolveData": {
+                        "get": ".data.\"CPU model\""
+                      }
+                    },
+                    "Hard disk size": "1 TB"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "resolveType": "res",
+          "resolveData": {}
+        }
+      ],
+      "else": [
+        {
+          "resolveType": "",
+          "resolveData": {}
+        }
+      ]
+    }
+  }
+}

@@ -20,12 +20,12 @@ type ApiModelSerialized struct {
 }
 
 type ApiModel struct {
-	ApiGroup       string                                  `json:"api_group" mapstructure:"api_group"`
-	ApiName        string                                  `json:"api_name" mapstructure:"api_name"`
-	ApiDescription string                                  `json:"api_description" mapstructure:"api_description"`
-	ApiPath        string                                  `json:"api_path" mapstructure:"api_path"`
-	ApiRequest     map[string]interface{}                  `json:"api_request" mapstructure:"api_request"`
-	StartRules     []string                                `json:"start_rules" mapstructure:"start_rules"`
+	ApiGroup       string                                  `json:"apiGroup" mapstructure:"apiGroup"`
+	ApiName        string                                  `json:"apiName" mapstructure:"apiName"`
+	ApiDescription string                                  `json:"apiDescription" mapstructure:"apiDescription"`
+	ApiPath        string                                  `json:"apiPath" mapstructure:"apiPath"`
+	ApiRequest     map[string]interface{}                  `json:"apiRequest" mapstructure:"apiRequest"`
+	StartRules     []string                                `json:"startRules" mapstructure:"startRules"`
 	Rules          map[string]*RuleUDT                     `json:"rules" mapstructure:"rules"`
 	Queries        map[string]jsontocql.ParameterizedQuery `json:"queries" mapstructure:"queries"`
 }

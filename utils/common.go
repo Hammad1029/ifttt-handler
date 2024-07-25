@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/itchyny/gojq"
 	"github.com/samber/lo"
 )
 
@@ -79,4 +80,37 @@ func ArrayIncludes(a, b interface{}) bool {
 	return lo.ContainsBy(arr, func(x interface{}) bool {
 		return EqualityCheck(x, b)
 	})
+}
+
+func RunJQQuery(queryString string, input interface{}) (interface{}, error) {
+	query, err := gojq.Parse(queryString)
+	if err != nil {
+		return nil, fmt.Errorf("method runJQQuery: could not parse gojq query: %s", err)
+	}
+
+	var resultVals []interface{}
+	resultIter := query.Run(input)
+
+	for {
+		v, ok := resultIter.Next()
+		if !ok {
+			break
+		}
+		if err, ok := v.(error); ok {
+			if err, ok := err.(*gojq.HaltError); ok && err.Value() == nil {
+				break
+			}
+			return nil, fmt.Errorf("method runJQQuery: error in running gojq iter: %s", err)
+		}
+		resultVals = append(resultVals, v)
+	}
+
+	switch len(resultVals) {
+	case 0:
+		return nil, nil
+	case 1:
+		return resultVals[0], nil
+	default:
+		return resultVals, nil
+	}
 }

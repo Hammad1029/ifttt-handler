@@ -1,0 +1,62 @@
+{
+  "apiName": "",
+  "apiPath": "",
+  "apiGroup": "",
+  "apiDescription": "",
+  "apiRequest": {
+    "test": "123"
+  },
+  "startRules": ["9c9517e9-6459-417e-9587-1f9b787be310"],
+  "rules": {
+    "9c9517e9-6459-417e-9587-1f9b787be310": {
+      "id": "9c9517e9-6459-417e-9587-1f9b787be310",
+      "description": "",
+      "conditions": {
+        "group": true,
+        "conditionType": "and",
+        "conditions": []
+      },
+      "then": [
+        {
+          "resolveType": "setRes",
+          "resolveData": {
+            "hello": {
+              "resolveType": "jq",
+              "resolveData": {
+                "query": ".[0].test",
+                "input": [
+                  {
+                    "resolveType": "req",
+                    "resolveData": {}
+                  }
+                ]
+              }
+            },
+            "world": {
+              "resolveType": "jq",
+              "resolveData": {
+                "query": ".[0]",
+                "input": [
+                  {
+                    "resolveType": "getRes",
+                    "resolveData": {}
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "resolveType": "sendRes",
+          "resolveData": {}
+        }
+      ],
+      "else": [
+        {
+          "resolveType": "",
+          "resolveData": {}
+        }
+      ]
+    }
+  }
+}

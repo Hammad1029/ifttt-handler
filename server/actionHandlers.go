@@ -13,16 +13,14 @@ func handleActions(actions []models.Resolvable, ctx context.Context) error {
 		switch action.ResolveType {
 		case "rule":
 			handleActionRule(ctx, action.ResolveData)
-		case "res":
+		case "sendRes":
 			sendResponse(ctx, utils.Responses["success"])
-		case "db", "setRes", "setStore", "log":
+		default:
 			{
 				if _, err := action.Resolve(ctx); err != nil {
 					return err
 				}
 			}
-		default:
-			return fmt.Errorf("method handleActions: action type %s not found", action.ResolveType)
 		}
 	}
 	return nil

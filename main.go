@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"handler/config"
-	redisUtils "handler/rediisUtils"
+	"handler/redisUtils"
 	"handler/scylla"
 	"handler/server"
 )

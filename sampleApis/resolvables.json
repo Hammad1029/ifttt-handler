@@ -1,12 +1,36 @@
 {
+  "api": [
+    {
+      "resolveType": "api",
+      "resolveData": {
+        "url": "https://reqres.in/api/users",
+        "method": "POST",
+        "headers": {},
+        "body": {
+          "name": {
+            "resolveType": "req",
+            "resolveData": {
+              "get": "name"
+            }
+          },
+          "job": {
+            "resolveType": "req",
+            "resolveData": {
+              "get": "job"
+            }
+          }
+        }
+      }
+    }
+  ],
   "db": [
     {
       "resolveType": "db",
       "resolveData": {
         "callAgain": true,
         "get": {
-          "type": "const",
-          "data": {
+          "resolveType": "const",
+          "resolveData": {
             "get": "[0].a"
           }
         },
@@ -19,8 +43,8 @@
               "column": "a",
               "operand": "eq",
               "data": {
-                "type": "req",
-                "data": {
+                "resolveType": "req",
+                "resolveData": {
                   "get": {
                     "resolveType": "const",
                     "resolveData": {

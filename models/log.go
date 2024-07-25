@@ -1,7 +1,6 @@
 package models
 
 import (
-	"encoding/json"
 	"fmt"
 	"handler/config"
 	"handler/scylla"
@@ -78,27 +77,11 @@ func (l *LogData) Post() {
 		StartPartition: l.StartPartition,
 	}
 
-	reqBodySerialized, err := json.Marshal(l.RequestData.ReqBody)
-	if err != nil {
-		l.AddExecLog("system", "error", "could not serialize request body")
+	if serializedRequestData, err := l.RequestData.serialize(); err == nil {
+		newLog.RequestData = serializedRequestData
+	} else {
+		fmt.Printf("method Post: error in serializing request data, %s\n", err)
 	}
-	storeSerialized, err := json.Marshal(l.RequestData.Store)
-	if err != nil {
-		l.AddExecLog("system", "error", "could not serialize store")
-	}
-	responseSerialized, err := json.Marshal(l.RequestData.Response)
-	if err != nil {
-		l.AddExecLog("system", "error", "could not serialize response")
-	}
-	queryResSerialized, err := json.Marshal(l.RequestData.QueryRes)
-	if err != nil {
-		l.AddExecLog("system", "error", "could not serialize query results")
-	}
-
-	newLog.RequestData.ReqBody = string(reqBodySerialized)
-	newLog.RequestData.Store = string(storeSerialized)
-	newLog.RequestData.Response = string(responseSerialized)
-	newLog.RequestData.QueryRes = string(queryResSerialized)
 
 	newLog.End = time.Now()
 	LogsTable := table.New(LogsMetadata)
@@ -107,7 +90,7 @@ func (l *LogData) Post() {
 
 	q := scylla.GetScylla().Query(LogsTable.Insert()).BindStruct(&newLog)
 	if err := q.ExecRelease(); err != nil {
-		fmt.Printf("error in saving log: %s\n", err)
+		fmt.Printf("method Post: error in saving log: %s\n", err)
 	}
 
 	fmt.Printf("execution time: %+vs %+vms %+vµs %+vns \n", timeSubtracted.Seconds(), timeSubtracted.Milliseconds(), timeSubtracted.Microseconds(), timeSubtracted.Nanoseconds())
