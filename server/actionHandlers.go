@@ -13,8 +13,6 @@ func handleActions(actions []models.Resolvable, ctx context.Context) error {
 		switch action.ResolveType {
 		case "rule":
 			handleActionRule(ctx, action.ResolveData)
-		case "sendRes":
-			sendResponse(ctx, common.Responses["success"])
 		default:
 			{
 				if _, err := action.Resolve(ctx); err != nil {

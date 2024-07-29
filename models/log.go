@@ -67,7 +67,7 @@ func (l *LogData) Initialize(r *RequestData, api *ApiModel) {
 	l.StartPartition = common.GetTimeSlot(l.Start, timeSlot)
 }
 
-func (l *LogData) Post() {
+func (l *LogData) Post() error {
 	newLog := LogModel{
 		ApiGroup:       l.ApiGroup,
 		ApiName:        l.ApiName,
@@ -80,7 +80,7 @@ func (l *LogData) Post() {
 	if serializedRequestData, err := l.RequestData.serialize(); err == nil {
 		newLog.RequestData = serializedRequestData
 	} else {
-		fmt.Printf("method Post: error in serializing request data, %s\n", err)
+		return fmt.Errorf("method Post: error in serializing request data, %s", err)
 	}
 
 	newLog.End = time.Now()
@@ -90,10 +90,11 @@ func (l *LogData) Post() {
 
 	q := scylla.GetScylla().Query(LogsTable.Insert()).BindStruct(&newLog)
 	if err := q.ExecRelease(); err != nil {
-		fmt.Printf("method Post: error in saving log: %s\n", err)
+		return fmt.Errorf("method Post: error in saving log: %s", err)
 	}
 
 	fmt.Printf("execution time: %+vs %+vms %+vµs %+vns \n", timeSubtracted.Seconds(), timeSubtracted.Milliseconds(), timeSubtracted.Microseconds(), timeSubtracted.Nanoseconds())
+	return nil
 }
 
 func (l *LogData) AddExecLog(logUser string, logType string, logData string) {

@@ -6,41 +6,45 @@ import (
 	"maps"
 )
 
-type RequestResolvable common.JsonObject
+type GetRequestResolvable common.JsonObject
 
-type ResponseResolvable common.JsonObject
+type GetResponseResolvable common.JsonObject
 
-type StoreResolvable common.JsonObject
+type GetStoreResolvable common.JsonObject
 
-type ApiResultsResolvable map[string]common.JsonObject
+type GetApiResultsResolvable map[string]common.JsonObject
 
-type QueryResultsResolvable map[string][]common.JsonObject
+type GetQueryResultsResolvable map[string][]common.JsonObject
+
+type GetConstResolvable struct {
+	value any
+}
 
 func getRequestData(ctx context.Context) *RequestData {
 	reqData, _ := ctx.Value("request").(*RequestData)
 	return reqData
 }
 
-func (r *RequestResolvable) Resolve(ctx context.Context) (any, error) {
+func (r *GetRequestResolvable) Resolve(ctx context.Context) (any, error) {
 	return getRequestData(ctx).ReqBody, nil
 }
 
-func (r *ResponseResolvable) Resolve(ctx context.Context) (any, error) {
+func (r *GetResponseResolvable) Resolve(ctx context.Context) (any, error) {
 	return maps.Clone(getRequestData(ctx).Response), nil
 }
 
-func (a *ApiResultsResolvable) Resolve(ctx context.Context) (any, error) {
+func (a *GetApiResultsResolvable) Resolve(ctx context.Context) (any, error) {
 	return getRequestData(ctx).ApiRes, nil
 }
 
-func (s *StoreResolvable) Resolve(ctx context.Context) (any, error) {
+func (s *GetStoreResolvable) Resolve(ctx context.Context) (any, error) {
 	return getRequestData(ctx).Store, nil
 }
 
-func (q *QueryResultsResolvable) Resolve(ctx context.Context) (any, error) {
+func (q *GetQueryResultsResolvable) Resolve(ctx context.Context) (any, error) {
 	return getRequestData(ctx).QueryRes, nil
 }
 
-func ResolveConstant(c any, ctx context.Context) (any, error) {
-	return c, nil
+func (c *GetConstResolvable) Resolve(ctx context.Context) (any, error) {
+	return c.value, nil
 }

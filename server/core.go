@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"handler/common"
 	"handler/models"
 	"log"
 	"sync"
@@ -27,7 +26,7 @@ func prepRule(rule *models.RuleUDT, wg *sync.WaitGroup, ctx context.Context, rul
 		log.Panic("method prepRule: could not type cast log model")
 	}
 	if err := execRule(rule, ctx); err != nil {
-		addErrorToContext(err, ctx, true)
+		addErrorToContext(err, ctx)
 		return
 	}
 }
@@ -42,27 +41,11 @@ func execRule(rule *models.RuleUDT, ctx context.Context) error {
 	}
 }
 
-func addErrorToContext(err error, ctx context.Context, sendRes bool) {
+func addErrorToContext(err error, ctx context.Context) error {
 	if l, ok := ctx.Value("log").(*models.LogData); ok {
 		l.AddExecLog("system", "error", err.Error())
 	} else {
-		log.Panic("method addErrorToContext: could not type cast log model")
+		return fmt.Errorf("method addErrorToContext: could not type cast log model")
 	}
-
-	log.Fatal(err)
-
-	if sendRes {
-		sendResponse(ctx, common.Responses["ServerError"])
-	}
-}
-
-func sendResponse(ctx context.Context, res common.Response) error {
-	if responseChannel, ok := ctx.Value("resChan").(chan common.Response); ok {
-		responseChannel <- res
-		return nil
-	} else {
-		err := fmt.Errorf("method sendResponse: send res type assertion failed")
-		log.Panic(err)
-		return err
-	}
+	return nil
 }

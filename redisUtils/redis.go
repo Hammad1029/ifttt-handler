@@ -94,7 +94,7 @@ func GetApi(c *fiber.Ctx) (*models.ApiModel, error) {
 	apiName := apiSplit[2]
 	apiJSON, err := GetRedis().HGet(c.Context(), "apis", fmt.Sprintf("%s.%s", apiGroup, apiName)).Result()
 	if err == redis.Nil {
-		return nil, nil
+		return nil, fmt.Errorf("api %s not found", c.Path())
 	}
 	if err != nil {
 		return nil, err

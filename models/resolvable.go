@@ -36,14 +36,37 @@ func (r *Resolvable) Resolve(ctx context.Context) (any, error) {
 
 func resolvableFactory(rType string) ResolvableInterface {
 	switch rType {
+	// getters
 	case "jq":
 		return &JqResolvable{}
+	case "getReq":
+		return &GetRequestResolvable{}
+	case "getRes":
+		return &GetResponseResolvable{}
+	case "getQueryRes":
+		return &GetQueryResultsResolvable{}
+	case "getApiRes":
+		return &GetApiResultsResolvable{}
+	case "getStore":
+		return &GetStoreResolvable{}
+	case "const":
+		return &GetConstResolvable{}
+	case "arithmetic":
+		return &Arithmetic{}
+	// actions & getters both
+	case "db":
+		return &QueryResolvable{}
+	case "api":
+		return &ApiResolvable{}
+	// actions
 	case "setRes":
 		return &SetResResolvable{}
-	case "getRes":
+	case "setStore":
+		return &SetStoreResolvable{}
+	case "log":
+		return &SetLogResolvable{}
+	case "sendRes":
 		return &ResponseResolvable{}
-	case "getReq":
-		return &RequestResolvable{}
 	default:
 		return nil
 	}
