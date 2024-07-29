@@ -3,8 +3,8 @@ package server
 import (
 	"context"
 	"fmt"
+	"handler/common"
 	"handler/models"
-	"handler/utils"
 	"sync"
 )
 
@@ -14,7 +14,7 @@ func handleActions(actions []models.Resolvable, ctx context.Context) error {
 		case "rule":
 			handleActionRule(ctx, action.ResolveData)
 		case "sendRes":
-			sendResponse(ctx, utils.Responses["success"])
+			sendResponse(ctx, common.Responses["success"])
 		default:
 			{
 				if _, err := action.Resolve(ctx); err != nil {
@@ -26,7 +26,7 @@ func handleActions(actions []models.Resolvable, ctx context.Context) error {
 	return nil
 }
 
-func handleActionRule(ctx context.Context, actionData map[string]interface{}) {
+func handleActionRule(ctx context.Context, actionData common.JsonObject) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	rules := ctx.Value("rules").(map[string]*models.RuleUDT)

@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"handler/common"
 
 	jsontocql "github.com/Hammad1029/json-to-cql"
 	"github.com/scylladb/gocqlx/v2/table"
@@ -24,7 +25,7 @@ type ApiModel struct {
 	ApiName        string                                  `json:"apiName" mapstructure:"apiName"`
 	ApiDescription string                                  `json:"apiDescription" mapstructure:"apiDescription"`
 	ApiPath        string                                  `json:"apiPath" mapstructure:"apiPath"`
-	ApiRequest     map[string]interface{}                  `json:"apiRequest" mapstructure:"apiRequest"`
+	ApiRequest     common.JsonObject                       `json:"apiRequest" mapstructure:"apiRequest"`
 	StartRules     []string                                `json:"startRules" mapstructure:"startRules"`
 	Rules          map[string]*RuleUDT                     `json:"rules" mapstructure:"rules"`
 	Queries        map[string]jsontocql.ParameterizedQuery `json:"queries" mapstructure:"queries"`

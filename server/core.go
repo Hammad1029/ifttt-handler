@@ -3,8 +3,8 @@ package server
 import (
 	"context"
 	"fmt"
+	"handler/common"
 	"handler/models"
-	"handler/utils"
 	"log"
 	"sync"
 )
@@ -52,12 +52,12 @@ func addErrorToContext(err error, ctx context.Context, sendRes bool) {
 	log.Fatal(err)
 
 	if sendRes {
-		sendResponse(ctx, utils.Responses["ServerError"])
+		sendResponse(ctx, common.Responses["ServerError"])
 	}
 }
 
-func sendResponse(ctx context.Context, res utils.Response) error {
-	if responseChannel, ok := ctx.Value("resChan").(chan utils.Response); ok {
+func sendResponse(ctx context.Context, res common.Response) error {
+	if responseChannel, ok := ctx.Value("resChan").(chan common.Response); ok {
 		responseChannel <- res
 		return nil
 	} else {

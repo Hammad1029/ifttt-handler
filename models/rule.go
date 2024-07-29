@@ -3,7 +3,7 @@ package models
 import (
 	"context"
 	"fmt"
-	"handler/utils"
+	"handler/common"
 	"strings"
 )
 
@@ -28,7 +28,7 @@ func (c *Condition) EvaluateCondition(ctx context.Context) (bool, error) {
 	if c.Group {
 		return false, fmt.Errorf("method EvaluateCondition: object is a set")
 	}
-	evaluators := utils.GetEvaluators()
+	evaluators := common.GetEvaluators()
 
 	if evalFunc, ok := evaluators[c.Operand]; ok {
 		op1Res, err := c.Operator1.Resolve(ctx)

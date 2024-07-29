@@ -2,9 +2,9 @@ package models
 
 import (
 	"fmt"
+	"handler/common"
 	"handler/config"
 	"handler/scylla"
-	"handler/utils"
 	"strconv"
 	"time"
 
@@ -64,7 +64,7 @@ func (l *LogData) Initialize(r *RequestData, api *ApiModel) {
 	if err != nil {
 		l.AddExecLog("system", "error", err.Error())
 	}
-	l.StartPartition = utils.GetTimeSlot(l.Start, timeSlot)
+	l.StartPartition = common.GetTimeSlot(l.Start, timeSlot)
 }
 
 func (l *LogData) Post() {

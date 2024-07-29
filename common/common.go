@@ -1,4 +1,4 @@
-package utils
+package common
 
 import (
 	"crypto/md5"
@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/itchyny/gojq"
 	"github.com/samber/lo"
 )
 
@@ -29,7 +28,7 @@ func GetTimeSlot(t time.Time, slot int) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).Add(time.Duration(startOfLastFullSlot) * time.Second)
 }
 
-func toFloat64(v interface{}) (float64, bool) {
+func toFloat64(v any) (float64, bool) {
 	switch v := v.(type) {
 	case float64:
 		return v, true
@@ -43,7 +42,7 @@ func toFloat64(v interface{}) (float64, bool) {
 	return 0, false
 }
 
-func toString(v interface{}) string {
+func toString(v any) string {
 	switch v := v.(type) {
 	case string:
 		return v
@@ -56,7 +55,7 @@ func toString(v interface{}) string {
 	}
 }
 
-func evaluateFloats(a, b interface{}, evaluate func(float64, float64) interface{}) interface{} {
+func evaluateFloats(a, b any, evaluate func(float64, float64) any) any {
 	if af, aOk := toFloat64(a); aOk {
 		if bf, bOk := toFloat64(b); bOk {
 			return evaluate(af, bf)
@@ -65,52 +64,19 @@ func evaluateFloats(a, b interface{}, evaluate func(float64, float64) interface{
 	return nil
 }
 
-func EqualityCheck(a, b interface{}) bool {
+func EqualityCheck(a, b any) bool {
 	return fmt.Sprint(a) == fmt.Sprint(b)
 }
 
-func ArrayIncludes(a, b interface{}) bool {
-	var arr []interface{}
+func ArrayIncludes(a, b any) bool {
+	var arr []any
 	switch a := a.(type) {
-	case []interface{}:
+	case []any:
 		arr = a
 	default:
-		arr = []interface{}{a}
+		arr = []any{a}
 	}
-	return lo.ContainsBy(arr, func(x interface{}) bool {
+	return lo.ContainsBy(arr, func(x any) bool {
 		return EqualityCheck(x, b)
 	})
-}
-
-func RunJQQuery(queryString string, input interface{}) (interface{}, error) {
-	query, err := gojq.Parse(queryString)
-	if err != nil {
-		return nil, fmt.Errorf("method runJQQuery: could not parse gojq query: %s", err)
-	}
-
-	var resultVals []interface{}
-	resultIter := query.Run(input)
-
-	for {
-		v, ok := resultIter.Next()
-		if !ok {
-			break
-		}
-		if err, ok := v.(error); ok {
-			if err, ok := err.(*gojq.HaltError); ok && err.Value() == nil {
-				break
-			}
-			return nil, fmt.Errorf("method runJQQuery: error in running gojq iter: %s", err)
-		}
-		resultVals = append(resultVals, v)
-	}
-
-	switch len(resultVals) {
-	case 0:
-		return nil, nil
-	case 1:
-		return resultVals[0], nil
-	default:
-		return resultVals, nil
-	}
 }

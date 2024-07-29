@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"handler/common"
 	"handler/config"
 	"handler/models"
 	"handler/scylla"
-	"handler/utils"
 	"strings"
 
 	"strconv"
@@ -23,7 +23,7 @@ var redisClient *redis.Client
 func Init() {
 	db, err := strconv.Atoi(config.GetConfigProp("redis.db"))
 	if err != nil {
-		utils.HandleError(err, "failed to connect to redis")
+		common.HandleError(err, "failed to connect to redis")
 		return
 	}
 	redisClient = redis.NewClient(&redis.Options{
@@ -43,24 +43,24 @@ func ReadApisToRedis(ctx context.Context) {
 	stmt, names := qb.Select("apis").ToCql()
 	q := scylla.GetScylla().Query(stmt, names)
 	if err := q.SelectRelease(&apis); err != nil {
-		utils.HandleError(err)
+		common.HandleError(err)
 		return
 	}
 
 	for _, v := range apis {
 		deserialized, err := v.Deserialize()
 		if err != nil {
-			utils.HandleError(err, "failed to store apis in redis")
+			common.HandleError(err, "failed to store apis in redis")
 			return
 		}
 
 		marshalled, err := json.Marshal(deserialized)
 		if err != nil {
-			utils.HandleError(err, "failed to store apis in redis")
+			common.HandleError(err, "failed to store apis in redis")
 			return
 		}
 		if err := redisClient.HSet(ctx, "apis", fmt.Sprintf("%s.%s", v.ApiGroup, v.ApiName), string(marshalled)).Err(); err != nil {
-			utils.HandleError(err, "failed to store apis in redis")
+			common.HandleError(err, "failed to store apis in redis")
 			return
 		}
 	}

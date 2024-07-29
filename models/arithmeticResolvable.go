@@ -3,7 +3,7 @@ package models
 import (
 	"context"
 	"fmt"
-	"handler/utils"
+	"handler/common"
 )
 
 type Arithmetic struct {
@@ -13,8 +13,8 @@ type Arithmetic struct {
 	Get       Resolvable   `json:"get" mapstructure:"get"`
 }
 
-func (a *Arithmetic) Arithmetic(ctx context.Context) (interface{}, error) {
-	opFuncs := utils.GetArithmeticOperators()
+func (a *Arithmetic) Resolve(ctx context.Context) (any, error) {
+	opFuncs := common.GetArithmeticOperators()
 	currFunc, ok := opFuncs[a.Operation]
 
 	if !ok {
@@ -22,13 +22,13 @@ func (a *Arithmetic) Arithmetic(ctx context.Context) (interface{}, error) {
 	}
 
 	var err error
-	var result interface{}
+	var result any
 
 	for _, op := range a.Operators {
-		var val interface{}
+		var val any
 		var e error
 		if op.Group {
-			val, e = a.Arithmetic(ctx)
+			val, e = a.Resolve(ctx)
 		} else {
 			val, e = op.Get.Resolve(ctx)
 		}

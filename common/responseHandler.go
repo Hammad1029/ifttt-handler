@@ -1,4 +1,4 @@
-package utils
+package common
 
 import (
 	"github.com/gofiber/fiber/v2"
@@ -25,10 +25,10 @@ func ResponseHandler(c *fiber.Ctx, params ...ResponseConfig) error {
 	}
 
 	if config.Data == nil {
-		config.Data = make(map[string]interface{})
+		config.Data = make(JsonObject)
 	}
 
-	fRes := make(map[string]interface{})
+	fRes := make(JsonObject)
 	fRes["responseCode"] = config.Response.Code
 	fRes["responseDescription"] = config.Response.Description
 	fRes["data"] = config.Data
@@ -43,7 +43,7 @@ type Response struct {
 
 type ResponseConfig struct {
 	Response Response
-	Data     interface{}
+	Data     any
 	Error    error
 }
 

@@ -1,8 +1,8 @@
 package scylla
 
 import (
+	"handler/common"
 	"handler/config"
-	"handler/utils"
 	"time"
 
 	"github.com/gocql/gocql"
@@ -22,7 +22,7 @@ func Init() {
 
 	session, err := gocqlx.WrapSession(gocql.NewSession(*cluster))
 	scyllaSession = &session
-	utils.HandleError(err)
+	common.HandleError(err)
 
 	// Right now perform initial DDL manually
 

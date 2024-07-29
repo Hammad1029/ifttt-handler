@@ -2,10 +2,10 @@ package server
 
 import (
 	"fmt"
+	"handler/common"
 	"handler/config"
 	"handler/models"
 	"handler/redisUtils"
-	"handler/utils"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/mitchellh/mapstructure"
@@ -17,7 +17,7 @@ func Init() {
 
 	apis, err := redisUtils.GetAllApis()
 	if err != nil {
-		utils.HandleError(err, "failed to get apis from redis")
+		common.HandleError(err, "failed to get apis from redis")
 		return
 	}
 	app.Post("/testApi", testHandler)
@@ -38,25 +38,30 @@ func testHandler(c *fiber.Ctx) error {
 	requestData := models.RequestData{}
 
 	requestData.Initialize()
-	reqBody := make(map[string]interface{})
+	var reqBody common.JsonObject
 	if err := c.BodyParser(&reqBody); err != nil {
-		return utils.ResponseHandler(c, utils.ResponseConfig{Error: fmt.Errorf("could parse reqBody: %s", err)})
+		return common.ResponseHandler(c, common.ResponseConfig{Error: fmt.Errorf("method testHandler: could not parse reqBody: %s", err)})
 	}
 
-	if reqBodyMap, ok := reqBody["request"].(map[string]interface{}); !ok {
-		return utils.ResponseHandler(c, utils.ResponseConfig{Error: fmt.Errorf("could not cast reqbody to map")})
+	if requestInterface, ok := reqBody["request"]; ok {
+		var requestBodyData common.JsonObject
+		if err := mapstructure.Decode(requestInterface, &requestBodyData); err == nil {
+			requestData.ReqBody = requestBodyData
+		} else {
+			return common.ResponseHandler(c, common.ResponseConfig{Error: fmt.Errorf("method testHandler: could not decode request data to JsonObject: %s", err)})
+		}
 	} else {
-		requestData.ReqBody = reqBodyMap
+		return common.ResponseHandler(c, common.ResponseConfig{Error: fmt.Errorf("method testHandler: request data not found in body")})
 	}
 
 	var api models.ApiModel
 	if err := mapstructure.Decode(reqBody["api"], &api); err != nil {
-		return utils.ResponseHandler(c, utils.ResponseConfig{Error: fmt.Errorf("could not decode api from request body")})
+		return common.ResponseHandler(c, common.ResponseConfig{Error: fmt.Errorf("could not decode api from request body")})
 	}
 
 	log.Initialize(&requestData, &api)
 
-	resChan := make(chan utils.Response)
+	resChan := make(chan common.Response)
 	ctx.SetUserValue("log", &log)
 	ctx.SetUserValue("request", &requestData)
 	ctx.SetUserValue("resChan", resChan)
@@ -66,9 +71,9 @@ func testHandler(c *fiber.Ctx) error {
 	go initExec(api.StartRules, ctx)
 
 	res := <-resChan
-	err := utils.ResponseHandler(c, utils.ResponseConfig{
+	err := common.ResponseHandler(c, common.ResponseConfig{
 		Response: res,
-		Data: map[string]interface{}{
+		Data: common.JsonObject{
 			"response": requestData.Response,
 			"errors":   log.GetUserErrorLogs(),
 		},
@@ -87,9 +92,9 @@ func apiHandler(c *fiber.Ctx) error {
 
 	switch {
 	case err != nil:
-		return utils.ResponseHandler(c, utils.ResponseConfig{Error: err})
+		return common.ResponseHandler(c, common.ResponseConfig{Error: err})
 	case api == nil:
-		return utils.ResponseHandler(c, utils.ResponseConfig{Response: utils.Responses["ApiNotFound"]})
+		return common.ResponseHandler(c, common.ResponseConfig{Response: common.Responses["ApiNotFound"]})
 	}
 
 	requestData := models.RequestData{}
@@ -98,10 +103,10 @@ func apiHandler(c *fiber.Ctx) error {
 	requestData.Initialize()
 	err = c.BodyParser(&requestData.ReqBody)
 	if err != nil {
-		return utils.ResponseHandler(c, utils.ResponseConfig{Error: err})
+		return common.ResponseHandler(c, common.ResponseConfig{Error: err})
 	}
 
-	resChan := make(chan utils.Response)
+	resChan := make(chan common.Response)
 	ctx.SetUserValue("log", &log)
 	ctx.SetUserValue("request", &requestData)
 	ctx.SetUserValue("resChan", resChan)
@@ -111,9 +116,9 @@ func apiHandler(c *fiber.Ctx) error {
 	go initExec(api.StartRules, ctx)
 
 	res := <-resChan
-	utils.ResponseHandler(c, utils.ResponseConfig{
+	common.ResponseHandler(c, common.ResponseConfig{
 		Response: res,
-		Data: map[string]interface{}{
+		Data: common.JsonObject{
 			"response": requestData.Response,
 			"errors":   log.GetUserErrorLogs(),
 		},

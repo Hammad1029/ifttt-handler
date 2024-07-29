@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"handler/common"
 )
 
 type RequestDataModel struct {
@@ -14,19 +15,19 @@ type RequestDataModel struct {
 }
 
 type RequestData struct {
-	ReqBody  map[string]interface{}              `json:"reqBody" mapstructure:"reqBody"`
-	Store    map[string]interface{}              `json:"store" mapstructure:"store"`
-	Response map[string]interface{}              `json:"response" mapstructure:"response"`
-	QueryRes map[string][]map[string]interface{} `json:"queryRes" mapstructure:"queryRes"`
-	ApiRes   map[string]map[string]interface{}   `json:"apiRes" mapstructure:"apiRes"`
+	ReqBody  common.JsonObject              `json:"reqBody" mapstructure:"reqBody"`
+	Store    common.JsonObject              `json:"store" mapstructure:"store"`
+	Response common.JsonObject              `json:"response" mapstructure:"response"`
+	QueryRes map[string][]common.JsonObject `json:"queryRes" mapstructure:"queryRes"`
+	ApiRes   map[string]common.JsonObject   `json:"apiRes" mapstructure:"apiRes"`
 }
 
 func (r *RequestData) Initialize() {
-	r.ReqBody = make(map[string]interface{})
-	r.Store = make(map[string]interface{})
-	r.Response = make(map[string]interface{})
-	r.QueryRes = make(map[string][]map[string]interface{})
-	r.ApiRes = make(map[string]map[string]interface{})
+	r.ReqBody = make(common.JsonObject)
+	r.Store = make(common.JsonObject)
+	r.Response = make(common.JsonObject)
+	r.QueryRes = make(map[string][]common.JsonObject)
+	r.ApiRes = make(map[string]common.JsonObject)
 }
 
 func (r *RequestData) serialize() (RequestDataModel, error) {
