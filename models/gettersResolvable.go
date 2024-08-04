@@ -17,7 +17,7 @@ type GetApiResultsResolvable map[string]common.JsonObject
 type GetQueryResultsResolvable map[string][]common.JsonObject
 
 type GetConstResolvable struct {
-	value any
+	Value any `json:"value" mapstructure:"value"`
 }
 
 func getRequestData(ctx context.Context) *RequestData {
@@ -46,5 +46,5 @@ func (q *GetQueryResultsResolvable) Resolve(ctx context.Context) (any, error) {
 }
 
 func (c *GetConstResolvable) Resolve(ctx context.Context) (any, error) {
-	return c.value, nil
+	return c.Value, nil
 }

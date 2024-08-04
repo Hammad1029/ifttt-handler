@@ -16,47 +16,8 @@
         "conditionType": "and",
         "conditions": []
       },
-      "then": [
-        {
-          "resolveType": "setRes",
-          "resolveData": {
-            "hello": {
-              "resolveType": "jq",
-              "resolveData": {
-                "query": ".[0].test",
-                "input": [
-                  {
-                    "resolveType": "req",
-                    "resolveData": {}
-                  }
-                ]
-              }
-            },
-            "world": {
-              "resolveType": "jq",
-              "resolveData": {
-                "query": ".[0]",
-                "input": [
-                  {
-                    "resolveType": "getRes",
-                    "resolveData": {}
-                  }
-                ]
-              }
-            }
-          }
-        },
-        {
-          "resolveType": "sendRes",
-          "resolveData": {}
-        }
-      ],
-      "else": [
-        {
-          "resolveType": "",
-          "resolveData": {}
-        }
-      ]
+      "then": [],
+      "else": []
     }
   }
 }

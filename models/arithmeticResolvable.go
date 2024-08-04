@@ -10,7 +10,7 @@ type Arithmetic struct {
 	Group     bool         `json:"group" mapstructure:"group"`
 	Operation string       `json:"operation" mapstructure:"operation"`
 	Operators []Arithmetic `json:"operators" mapstructure:"operators"`
-	Get       Resolvable   `json:"get" mapstructure:"get"`
+	Value     Resolvable   `json:"value" mapstructure:"value"`
 }
 
 func (a *Arithmetic) Resolve(ctx context.Context) (any, error) {
@@ -30,7 +30,7 @@ func (a *Arithmetic) Resolve(ctx context.Context) (any, error) {
 		if op.Group {
 			val, e = a.Resolve(ctx)
 		} else {
-			val, e = op.Get.Resolve(ctx)
+			val, e = op.Value.Resolve(ctx)
 		}
 		if e != nil {
 			err = fmt.Errorf("method Arithmetic: %s", e)

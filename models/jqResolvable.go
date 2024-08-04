@@ -13,12 +13,16 @@ type JqResolvable struct {
 }
 
 func (j *JqResolvable) Resolve(ctx context.Context) (any, error) {
+	queryResolved, err := resolveIfNested(j.Query, ctx)
+	if err != nil {
+		return nil, fmt.Errorf("method resolveJq: couldn't resolve input: %s", err)
+	}
 	inputResolved, err := resolveIfNested(j.Input, ctx)
 	if err != nil {
 		return nil, fmt.Errorf("method resolveJq: couldn't resolve input: %s", err)
 	}
 
-	return runJQQuery(fmt.Sprint(j.Query), inputResolved)
+	return runJQQuery(fmt.Sprint(queryResolved), inputResolved)
 }
 
 func runJQQuery(queryString string, input any) (any, error) {

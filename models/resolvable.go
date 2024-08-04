@@ -49,6 +49,8 @@ func resolvableFactory(rType string) ResolvableInterface {
 		return &GetApiResultsResolvable{}
 	case "getStore":
 		return &GetStoreResolvable{}
+	case "getConfig":
+		return &UserConfigurationResolvable{}
 	case "const":
 		return &GetConstResolvable{}
 	case "arithmetic":

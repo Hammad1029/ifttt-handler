@@ -12,6 +12,12 @@ import (
 )
 
 func Init() {
+	userConfig := models.UserConfigurationResolvable{IsActive: true}
+	if err := userConfig.ReadUserConfig(); err != nil {
+		common.HandleError(err, "failed to read user configuration")
+		return
+	}
+
 	port := config.GetConfigProp("app.port")
 	app := fiber.New()
 

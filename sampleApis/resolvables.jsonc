@@ -1,0 +1,274 @@
+{
+  "jq": [
+    {
+      "resolveType": "jq",
+      "resolveData": {
+        "query": ".name",
+        "input": {
+          "resolveType": "getReq",
+          "resolveData": {}
+        }
+      }
+    },
+    {
+      "resolveType": "jq",
+      "resolveData": {
+        "query": ".[0].name",
+        "input": [
+          {
+            "resolveType": "getReq",
+            "resolveData": {}
+          }
+        ]
+      }
+    },
+    {
+      "resolveType": "jq",
+      "resolveData": {
+        "query": ".[1]",
+        "input": [
+          {
+            "resolveType": "getReq",
+            "resolveData": {}
+          },
+          "hello"
+        ]
+      }
+    },
+    {
+      "resolveType": "jq",
+      "resolveData": {
+        "query": ".",
+        "input": "hello"
+      }
+    }
+  ],
+  "api": [
+    {
+      "resolveType": "api",
+      "resolveData": {
+        "url": "https://reqres.in/api/users",
+        "method": "POST",
+        "headers": {},
+        "body": {
+          "something": "as is",
+          "name": {
+            "resolveType": "jq",
+            "resolveData": {
+              "query": ".name",
+              "input": {
+                "resolveType": "getReq",
+                "resolveData": {}
+              }
+            }
+          },
+          "job": {
+            "resolveType": "jq",
+            "resolveData": {
+              "query": ".job",
+              "input": {
+                "resolveType": "getReq",
+                "resolveData": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "db": [
+    {
+      "resolveType": "db",
+      "resolveData": {
+        "recall": true,
+        "query": {
+          "type": "SELECT",
+          "table": "table1",
+          "rows": 1,
+          "conditions": [
+            {
+              "column": "a",
+              "operand": "eq",
+              "data": {
+                "resolveType": "jq",
+                "resolveData": {
+                  "query": ".a.b.c",
+                  "input": {
+                    "resolveType": "getReq",
+                    "resolveData": {}
+                  }
+                }
+              }
+            }
+          ],
+          // jahan projections khali wahan *. refer queries.json for more examples
+          "projections": [
+            {
+              "column": "a",
+              "as": "a"
+            },
+            {
+              "column": "b",
+              "as": "b"
+            }
+          ],
+          "columns": []
+        }
+      }
+    }
+  ],
+  "arithmetic": [
+    {
+      "resolveType": "arithmetic",
+      "resolveData": {
+        "group": true,
+        "operation": "+",
+        "operators": [
+          {
+            "group": false,
+            "value": 1
+          },
+          {
+            "group": false,
+            "value": 2
+          },
+          {
+            "group": true,
+            "operation": "/",
+            "operands": [
+              {
+                "group": false,
+                "value": 2
+              },
+              {
+                "group": false,
+                "value": 2
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "getReq": [
+    {
+      "resolveType": "getReq",
+      "resolveData": {}
+    }
+  ],
+  "getRes": [
+    {
+      "resolveType": "getRes",
+      "resolveData": {}
+    }
+  ],
+  "setRes": [
+    {
+      "resolveType": "setRes",
+      "resolveData": {
+        "variable": {
+          "resolveType": "jq",
+          "resolveData": {
+            "query": ".[1].name",
+            "input": [
+              "hello",
+              { "resolveType": "getReq", "resolveData": {} },
+              "world"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "getStore": [
+    {
+      "resolveType": "getStore",
+      "resolveData": {}
+    },
+    {
+      "resolveType": "jq",
+      "resolveData": {
+        "query": ".abc",
+        "input": {
+          "resolveType": "getStore",
+          "resolveData": {}
+        }
+      }
+    }
+  ],
+  "getQueryRes": [
+    {
+      "resolveType": "getQueryRes",
+      "resolveData": {}
+    }
+  ],
+  "getApiRes": [
+    {
+      "resolveType": "getApiRes",
+      "resolveData": {}
+    }
+  ],
+  "setStore": [
+    {
+      "resolveType": "setStore",
+      "resolveData": {
+        "variable": "abc",
+        "nestedObject": {
+          "a": {
+            "resolveType": "jq",
+            "resolveData": {
+              "query": ".a.c",
+              "input": {
+                "resolveType": "getReq",
+                "resolveData": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "log": [
+    {
+      "resolveType": "log",
+      "resolveData": {
+        "logData": {
+          "resolveType": "jq",
+          "resolveData": {
+            "query": "hello"
+          }
+        },
+        "logType": "info"
+      }
+    }
+  ],
+  "const": [
+    {
+      "resolveType": "const",
+      "resolveData": {
+        "value": "hello world"
+      }
+    }
+  ],
+  "rule": [
+    {
+      "resolveType": "rule",
+      "resolveData": {
+        "value": "9c9517e9-6459-417e-9587-1f9b787be310"
+      }
+    }
+  ],
+  "sendRes": [
+    {
+      "resolveType": "sendRes",
+      "resolveData": {}
+    },
+    {
+      "resolveType": "sendRes",
+      "resolveData": {
+        "responseCode": "00",
+        "responseDescription": "SUCCESS"
+      }
+    }
+  ]
+}

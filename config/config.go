@@ -1,22 +1,22 @@
 package config
 
 import (
+	"bytes"
 	"log"
 
 	"github.com/spf13/viper"
 )
 
 func Init() {
-
 	viperInit()
 }
 
 var config *viper.Viper
-var schemas *viper.Viper
+var userConfig *viper.Viper
 
 func viperInit() {
 	config = viper.New()
-	schemas = viper.New()
+	userConfig = viper.New()
 	readEnv(config, "env", "json", "./config")
 }
 
@@ -40,10 +40,14 @@ func GetConfigProp(key string) string {
 	return config.GetString(key)
 }
 
-func GetSchemas() *viper.Viper {
-	return schemas
+func GetUserConfig() *viper.Viper {
+	return userConfig
 }
 
-func GetSchemasProp(key string) string {
-	return schemas.GetString(key)
+func GetUserConfigProp(key string) string {
+	return userConfig.GetString(key)
+}
+
+func SetUserConfig(json string) error {
+	return userConfig.ReadConfig(bytes.NewBufferString(json))
 }

@@ -23,18 +23,6 @@ func Init() {
 	session, err := gocqlx.WrapSession(gocql.NewSession(*cluster))
 	scyllaSession = &session
 	common.HandleError(err)
-
-	// Right now perform initial DDL manually
-
-	// create keyspace IF NOT EXISTS
-	// err = session.ExecStmt(GetSchemasProp("keyspace"))
-	// utils.HandleError(err)
-
-	// // create table for tables IF NOT EXISTS
-	// err = session.ExecStmt(GetSchemasProp("tables.tables"))
-	// utils.HandleError(err)
-
-	// defer session.Close()
 }
 
 func GetScylla() *gocqlx.Session {

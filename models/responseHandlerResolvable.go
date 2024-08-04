@@ -6,14 +6,14 @@ import (
 )
 
 type ResponseResolvable struct {
-	ResponseCode        string       `json="responseCode" mapstructure="responseCode"`
-	ResponseDescription string       `json="responseDescription" mapstructure="responseDescription"`
-	Response            ResponseData `json="response" mapstructure="response"`
+	ResponseCode        string       `json:"responseCode" mapstructure:"responseCode"`
+	ResponseDescription string       `json:"responseDescription" mapstructure:"responseDescription"`
+	Response            ResponseData `json:"response" mapstructure:"response"`
 }
 
 type ResponseData struct {
-	Data   any `json="data" mapstructure="data"`
-	Errors any `json="errors" mapstructure="errors"`
+	Data   any `json:"data" mapstructure:"data"`
+	Errors any `json:"errors" mapstructure:"errors"`
 }
 
 func (s *ResponseResolvable) Resolve(ctx context.Context) (interface{}, error) {

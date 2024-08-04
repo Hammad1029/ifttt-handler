@@ -9,9 +9,8 @@ import (
 )
 
 type QueryResolvable struct {
-	QueryHash string     `json:"query" mapstructure:"query"`
-	Get       Resolvable `json:"get" mapstructure:"get"`
-	Recall    bool       `json:"recall" mapstructure:"recall"`
+	QueryHash string `json:"query" mapstructure:"query"`
+	Recall    bool   `json:"recall" mapstructure:"recall"`
 }
 
 func (q *QueryResolvable) Resolve(ctx context.Context) (any, error) {
