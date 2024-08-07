@@ -12,7 +12,7 @@ type JqResolvable struct {
 	Input any    `json:"input" mapstructure:"input"`
 }
 
-func (j *JqResolvable) Resolve(ctx context.Context) (any, error) {
+func (j *JqResolvable) Resolve(ctx context.Context, optional ...any) (any, error) {
 	queryResolved, err := resolveIfNested(j.Query, ctx)
 	if err != nil {
 		return nil, fmt.Errorf("method resolveJq: couldn't resolve input: %s", err)

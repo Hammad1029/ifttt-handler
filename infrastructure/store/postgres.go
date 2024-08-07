@@ -1,4 +1,4 @@
-package store
+package infrastructure
 
 import (
 	"fmt"
@@ -36,16 +36,4 @@ func (p *PostgresStore) init(config common.JsonObject) error {
 		p.store = db
 	}
 	return nil
-}
-
-func (p *PostgresStore) RawQuery(queryString string, parameters []any) ([]common.JsonObject, error) {
-	var result []common.JsonObject
-	if err := p.store.Raw(queryString, parameters...).Scan(&result).Error; err != nil {
-		return nil, fmt.Errorf("method RawQuery: error running query: %s", err)
-	}
-	return result, nil
-}
-
-func (p *PostgresStore) RawSelect(queryString string, parameters []any) ([]common.JsonObject, error) {
-	return p.RawQuery(queryString, parameters)
 }

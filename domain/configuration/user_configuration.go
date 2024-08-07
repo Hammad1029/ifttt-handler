@@ -1,23 +1,17 @@
-package resolvable
+package configuration
 
 import (
 	"context"
 	"handler/config"
-	"handler/store"
 	"time"
 )
 
-type UserConfigurationResolvable struct {
+type UserConfiguration struct {
 	IsActive          bool      `json:"isActive" mapstructure:"isActive"`
 	ConfigurationJSON string    `json:"configurationJSON" mapstructure:"configurationJSON"`
 	CreatedAt         time.Time `json:"createdAt" mapstructure:"createdAt"`
 }
 
-func (u *UserConfigurationResolvable) Resolve(ctx context.Context) (interface{}, error) {
+func (u *UserConfiguration) Resolve(ctx context.Context) (any, error) {
 	return config.GetUserConfig().AllSettings(), nil
-}
-
-func (u *UserConfigurationResolvable) ReadUserConfig() error {
-	(*store.GetConfigStore()).GetUserConfiguration(u)
-	return config.SetUserConfig(u.ConfigurationJSON)
 }

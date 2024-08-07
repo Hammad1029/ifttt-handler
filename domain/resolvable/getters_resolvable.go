@@ -26,26 +26,26 @@ func getRequestData(ctx context.Context) *request_data.RequestData {
 	return reqData
 }
 
-func (r *GetRequestResolvable) Resolve(ctx context.Context) (any, error) {
+func (r *GetRequestResolvable) Resolve(ctx context.Context, optional ...any) (any, error) {
 	return getRequestData(ctx).ReqBody, nil
 }
 
-func (r *GetResponseResolvable) Resolve(ctx context.Context) (any, error) {
+func (r *GetResponseResolvable) Resolve(ctx context.Context, optional ...any) (any, error) {
 	return maps.Clone(getRequestData(ctx).Response), nil
 }
 
-func (a *GetApiResultsResolvable) Resolve(ctx context.Context) (any, error) {
+func (a *GetApiResultsResolvable) Resolve(ctx context.Context, optional ...any) (any, error) {
 	return getRequestData(ctx).ApiRes, nil
 }
 
-func (s *GetStoreResolvable) Resolve(ctx context.Context) (any, error) {
+func (s *GetStoreResolvable) Resolve(ctx context.Context, optional ...any) (any, error) {
 	return getRequestData(ctx).Store, nil
 }
 
-func (q *GetQueryResultsResolvable) Resolve(ctx context.Context) (any, error) {
+func (q *GetQueryResultsResolvable) Resolve(ctx context.Context, optional ...any) (any, error) {
 	return getRequestData(ctx).QueryRes, nil
 }
 
-func (c *GetConstResolvable) Resolve(ctx context.Context) (any, error) {
+func (c *GetConstResolvable) Resolve(ctx context.Context, optional ...any) (any, error) {
 	return c.Value, nil
 }

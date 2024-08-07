@@ -29,7 +29,7 @@ type apiCallResponse struct {
 	Body       common.JsonObject   `json:"body" mapstructure:"body"`
 }
 
-func (a *ApiCallResolvable) Resolve(ctx context.Context) (any, error) {
+func (a *ApiCallResolvable) Resolve(ctx context.Context, optional ...any) (any, error) {
 	reqData := ctx.Value("request").(*request_data.RequestData)
 
 	callMethod := strings.ToUpper(a.Method)

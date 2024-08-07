@@ -17,7 +17,7 @@ type ResponseData struct {
 	Errors any `json:"errors" mapstructure:"errors"`
 }
 
-func (s *ResponseResolvable) Resolve(ctx context.Context) (interface{}, error) {
+func (s *ResponseResolvable) Resolve(ctx context.Context, optional ...any) (any, error) {
 	if log, ok := ctx.Value("log").(*audit_log.AuditLog); !ok {
 		return nil, fmt.Errorf("method Resolve: log model type assertion failed")
 	} else {

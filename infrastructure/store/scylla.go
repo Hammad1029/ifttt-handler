@@ -1,4 +1,4 @@
-package store
+package infrastructure
 
 import (
 	"fmt"
@@ -8,11 +8,10 @@ import (
 	"github.com/gocql/gocql"
 	"github.com/mitchellh/mapstructure"
 	"github.com/scylladb/gocqlx/v2"
-	"github.com/scylladb/gocqlx/v2/qb"
 )
 
 type ScyllaStore struct {
-	store   *gocqlx.Session
+	session *gocqlx.Session
 	cluster *gocql.ClusterConfig
 	config  scyllaConfig
 }
@@ -47,41 +46,8 @@ func (s *ScyllaStore) init(config common.JsonObject) error {
 	if session, err := gocqlx.WrapSession(gocql.NewSession(*s.cluster)); err != nil {
 		return fmt.Errorf("method: *ScyllaStore.Init: error in creating new scylla session: %s", err)
 	} else {
-		s.store = &session
+		s.session = &session
 	}
 
-	return nil
-}
-
-func (s *ScyllaStore) RawSelect(queryString string, parameters []any) ([]common.JsonObject, error) {
-	rows, err := s.store.Query(queryString, nil).Iter().SliceMap()
-	if err != nil {
-		return nil, fmt.Errorf("method RunSelect: error running query: %s", err)
-	}
-
-	var results []common.JsonObject
-	if err := mapstructure.Decode(rows, &results); err != nil {
-		return nil, fmt.Errorf("method RunSelect: could not conver results to []common.JsonObject: %s", err)
-	}
-
-	return results, nil
-}
-
-func (s *ScyllaStore) RawQuery(queryString string, parameters []any) ([]common.JsonObject, error) {
-	query := s.store.Query(queryString, nil).Bind(parameters...)
-
-	if err := query.ExecRelease(); err != nil {
-		return nil, err
-	}
-
-	return nil, nil
-}
-
-func (s *ScyllaStore) GetUserConfiguration(data interface{}) error {
-	stmt, names := qb.Select("configuration").ToCql()
-	q := s.store.Query(stmt, names).BindMap(map[string]interface{}{"is_active": true})
-	if err := q.SelectRelease(&data); err != nil {
-		return fmt.Errorf("method getUserConfiguration: error in getting configuration from scylla: %s", err)
-	}
 	return nil
 }

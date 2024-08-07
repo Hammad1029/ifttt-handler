@@ -17,7 +17,7 @@ type SetLogResolvable struct {
 	LogType string `json:"logType" mapstructure:"logType"`
 }
 
-func (s *SetResResolvable) Resolve(ctx context.Context) (any, error) {
+func (s *SetResResolvable) Resolve(ctx context.Context, optional ...any) (any, error) {
 	if reqData, ok := ctx.Value("request").(*request_data.RequestData); ok {
 		responseData := reqData.Response
 		for key, value := range *s {
@@ -32,7 +32,7 @@ func (s *SetResResolvable) Resolve(ctx context.Context) (any, error) {
 	return nil, fmt.Errorf("method setRes: setRes resolveType assertion failed")
 }
 
-func (s *SetStoreResolvable) Resolve(ctx context.Context) (any, error) {
+func (s *SetStoreResolvable) Resolve(ctx context.Context, optional ...any) (any, error) {
 	if reqData, ok := ctx.Value("request").(*request_data.RequestData); ok {
 		store := reqData.Store
 		for key, value := range *s {
@@ -47,7 +47,7 @@ func (s *SetStoreResolvable) Resolve(ctx context.Context) (any, error) {
 	return nil, fmt.Errorf("method store: setRes resolveType assertion failed")
 }
 
-func (s *SetLogResolvable) Resolve(ctx context.Context) (any, error) {
+func (s *SetLogResolvable) Resolve(ctx context.Context, optional ...any) (any, error) {
 	if l, ok := ctx.Value("log").(*audit_log.AuditLog); ok {
 		logTypeResolved, err := resolveIfNested(s.LogType, ctx)
 		if err != nil {

@@ -1,4 +1,4 @@
-package adapters
+package infrastructure
 
 import (
 	"context"
@@ -36,7 +36,7 @@ func NewScyllaApiRepository(base ScyllaBaseRepository) *ScyllaApiPersistentRepos
 	return &ScyllaApiPersistentRepository{ScyllaBaseRepository: base}
 }
 
-func (s ScyllaApiPersistentRepository) GetAllApis(ctx context.Context) ([]api.Api, error) {
+func (s *ScyllaApiPersistentRepository) GetAllApis(ctx context.Context) ([]api.Api, error) {
 	var scyllaApis []scyllaApi
 	var apis []api.Api
 

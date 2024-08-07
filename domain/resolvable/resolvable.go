@@ -10,7 +10,7 @@ import (
 )
 
 type ResolvableInterface interface {
-	Resolve(ctx context.Context) (any, error)
+	Resolve(ctx context.Context, optional ...any) (any, error)
 }
 
 type Resolvable struct {
@@ -18,7 +18,7 @@ type Resolvable struct {
 	ResolveData common.JsonObject `json:"resolveData" mapstructure:"resolveData"`
 }
 
-func (r *Resolvable) Resolve(ctx context.Context) (any, error) {
+func (r *Resolvable) Resolve(ctx context.Context, optional ...any) (any, error) {
 	var genericResolvable ResolvableInterface
 	var err error
 
@@ -31,7 +31,7 @@ func (r *Resolvable) Resolve(ctx context.Context) (any, error) {
 		return nil, fmt.Errorf("method Resolve: resolveType %s not found", r.ResolveType)
 	}
 
-	return genericResolvable.Resolve(ctx)
+	return genericResolvable.Resolve(ctx, optional)
 }
 
 func resolvableFactory(rType string) ResolvableInterface {
@@ -49,8 +49,8 @@ func resolvableFactory(rType string) ResolvableInterface {
 		return &GetApiResultsResolvable{}
 	case "getStore":
 		return &GetStoreResolvable{}
-	case "getConfig":
-		return &UserConfigurationResolvable{}
+	// case "getConfig":
+	// 	return &UserConfigurationResolvable{}
 	case "const":
 		return &GetConstResolvable{}
 	case "arithmetic":
@@ -74,7 +74,7 @@ func resolvableFactory(rType string) ResolvableInterface {
 	}
 }
 
-func resolveIfNested(original any, ctx context.Context) (any, error) {
+func resolveIfNested(original any, ctx context.Context, optional ...any) (any, error) {
 	var err error
 
 	switch o := original.(type) {
@@ -92,7 +92,7 @@ func resolveIfNested(original any, ctx context.Context) (any, error) {
 			var nestedResolvable Resolvable
 			err = mapstructure.Decode(o, &nestedResolvable)
 			if err == nil && nestedResolvable.ResolveType != "" && nestedResolvable.ResolveData != nil {
-				return nestedResolvable.Resolve(ctx)
+				return nestedResolvable.Resolve(ctx, optional)
 			}
 
 			mapCloned := maps.Clone(o)
