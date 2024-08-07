@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"handler/config"
 	"handler/redisUtils"
-	"handler/scylla"
 	"handler/server"
+	"handler/store"
+	"os"
 )
 
 func main() {
@@ -15,7 +16,16 @@ func main() {
 	fmt.Println("Starting handler")
 
 	config.Init()
-	scylla.Init()
+
+	if err := store.InitConfigStore(); err != nil {
+		fmt.Printf("error in instantiating config store: %s \n exiting", err)
+		os.Exit(1)
+	}
+	if err := store.InitDataStore(); err != nil {
+		fmt.Printf("error in instantiating config store: %s \n exiting", err)
+		os.Exit(1)
+	}
+
 	redisUtils.Init()
 	redisUtils.ReadApisToRedis(ctx)
 
