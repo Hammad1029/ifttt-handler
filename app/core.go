@@ -41,7 +41,7 @@ func newCore() (*core, error) {
 	if config, err := serverCore.ConfigStore.ConfigRepo.GetUserConfigFromDb(); err != nil {
 		return nil, fmt.Errorf("method newCore: could not get user configuration: %s", err)
 	} else {
-		serverCore.UserConfiguration = config
+		serverCore.UserConfiguration = *config
 	}
 
 	return &serverCore, nil
@@ -83,6 +83,8 @@ func (c *core) execRule(rule *api.Rule, ctx context.Context) error {
 func (c *core) addErrorToContext(err error, ctx context.Context) error {
 	if l, ok := ctx.Value("log").(*audit_log.AuditLog); ok {
 		l.AddExecLog("system", "error", err.Error())
+		errorResponse := resolvable.ResponseResolvable{ResponseCode: "500", ResponseDescription: "Server Errro"}
+		errorResponse.Resolve(ctx)
 	} else {
 		return fmt.Errorf("method addErrorToContext: could not type cast log model")
 	}

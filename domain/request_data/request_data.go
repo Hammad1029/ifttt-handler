@@ -4,14 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"handler/common"
+	"time"
 )
 
 type RequestData struct {
-	ReqBody  common.JsonObject              `json:"reqBody" mapstructure:"reqBody"`
-	Store    common.JsonObject              `json:"store" mapstructure:"store"`
-	Response common.JsonObject              `json:"response" mapstructure:"response"`
-	QueryRes map[string][]common.JsonObject `json:"queryRes" mapstructure:"queryRes"`
-	ApiRes   map[string]common.JsonObject   `json:"apiRes" mapstructure:"apiRes"`
+	ReqBody  common.JsonObject            `json:"reqBody" mapstructure:"reqBody"`
+	Store    common.JsonObject            `json:"store" mapstructure:"store"`
+	Response common.JsonObject            `json:"response" mapstructure:"response"`
+	QueryRes map[string][]QueryResult     `json:"queryRes" mapstructure:"queryRes"`
+	ApiRes   map[string]common.JsonObject `json:"apiRes" mapstructure:"apiRes"`
 }
 
 type SerializedRequestData struct {
@@ -22,11 +23,18 @@ type SerializedRequestData struct {
 	ApiRes   string `json:"apiRes" mapstructure:"apiRes"`
 }
 
+type QueryResult struct {
+	Start     time.Time           `json:"start" mapstructure:"start"`
+	End       time.Time           `json:"end" mapstructure:"end"`
+	TimeTaken int64               `json:"timeTaken" mapstructure:"timeTaken"`
+	Results   []common.JsonObject `json:"results" mapstructure:"results"`
+}
+
 func (r *RequestData) Initialize() {
 	r.ReqBody = make(common.JsonObject)
 	r.Store = make(common.JsonObject)
 	r.Response = make(common.JsonObject)
-	r.QueryRes = make(map[string][]common.JsonObject)
+	r.QueryRes = make(map[string][]QueryResult)
 	r.ApiRes = make(map[string]common.JsonObject)
 }
 

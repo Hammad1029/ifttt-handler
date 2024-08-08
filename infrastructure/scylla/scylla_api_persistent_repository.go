@@ -67,16 +67,11 @@ func (a *scyllaApi) deserialize() (api.Api, error) {
 
 	err := json.Unmarshal([]byte(a.ApiRequest), &deserializedApi.ApiRequest)
 	if err != nil {
-		return deserializedApi, fmt.Errorf("method ScyllaApi.deserialize: %s", err)
+		return deserializedApi, fmt.Errorf("method ScyllaApi.deserialize: could not deserialize api request: %s", err)
 	}
 	err = json.Unmarshal([]byte(a.Rules), &deserializedApi.Rules)
 	if err != nil {
-		return deserializedApi, fmt.Errorf("method ScyllaApi.deserialize: %s", err)
+		return deserializedApi, fmt.Errorf("method ScyllaApi.deserialize: could not deserialize rules: %s", err)
 	}
-	err = json.Unmarshal([]byte(a.Queries), &deserializedApi.Queries)
-	if err != nil {
-		return deserializedApi, fmt.Errorf("method ScyllaApi.deserialize: %s", err)
-	}
-
 	return deserializedApi, nil
 }

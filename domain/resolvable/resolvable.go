@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"handler/common"
-	"maps"
 
 	"github.com/mitchellh/mapstructure"
 )
@@ -50,13 +49,13 @@ func resolvableFactory(rType string) ResolvableInterface {
 	case "getStore":
 		return &GetStoreResolvable{}
 	// case "getConfig":
-	// 	return &UserConfigurationResolvable{}
+	// 	return &resolvable.{}
 	case "const":
 		return &GetConstResolvable{}
 	case "arithmetic":
 		return &Arithmetic{}
 	// actions & getters both
-	case "db":
+	case "query":
 		return &QueryResolvable{}
 	case "api":
 		return &ApiCallResolvable{}
@@ -87,7 +86,7 @@ func resolveIfNested(original any, ctx context.Context, optional ...any) (any, e
 			}
 			return o, nil
 		}
-	case map[string]any:
+	case map[string]any, common.JsonObject:
 		{
 			var nestedResolvable Resolvable
 			err = mapstructure.Decode(o, &nestedResolvable)
@@ -95,7 +94,10 @@ func resolveIfNested(original any, ctx context.Context, optional ...any) (any, e
 				return nestedResolvable.Resolve(ctx, optional)
 			}
 
-			mapCloned := maps.Clone(o)
+			var mapCloned map[string]any
+			if err := mapstructure.Decode(o, &mapCloned); err != nil {
+				return nil, fmt.Errorf("method resolveIfNested: error in cloning map: %s", err)
+			}
 			for key, val := range mapCloned {
 				if mapCloned[key], err = resolveIfNested(val, ctx); err != nil {
 					return nil, fmt.Errorf("method resolveIfNested: error in resolving nested map: %s", err)

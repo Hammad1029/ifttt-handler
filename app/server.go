@@ -82,7 +82,6 @@ func testHandler(c *fiber.Ctx) error {
 	ctx.SetUserValue("request", &requestData)
 	ctx.SetUserValue("resChan", resChan)
 	ctx.SetUserValue("rules", api.Rules)
-	ctx.SetUserValue("queries", api.Queries)
 
 	go serverCore.initExec(api.StartRules, ctx)
 
@@ -91,7 +90,7 @@ func testHandler(c *fiber.Ctx) error {
 		fmt.Println(err)
 	} else {
 		serverCore.ConfigStore.AuditLogRepo.InsertLog(postableLog, ctx)
-		fmt.Printf("execution time: %s", postableLog.TimeTaken)
+		fmt.Printf("execution time: %v", postableLog.TimeTaken)
 	}
 	return c.JSON(res)
 }
@@ -122,7 +121,6 @@ func apiHandler(c *fiber.Ctx) error {
 	ctx.SetUserValue("request", &requestData)
 	ctx.SetUserValue("resChan", resChan)
 	ctx.SetUserValue("rules", api.Rules)
-	ctx.SetUserValue("queries", api.Queries)
 
 	go serverCore.initExec(api.StartRules, ctx)
 
@@ -131,7 +129,7 @@ func apiHandler(c *fiber.Ctx) error {
 		fmt.Println(err)
 	} else {
 		serverCore.ConfigStore.AuditLogRepo.InsertLog(postableLog, ctx)
-		fmt.Printf("execution time: %s", postableLog.TimeTaken)
+		fmt.Printf("execution time: %v", postableLog.TimeTaken)
 	}
 	return c.JSON(res)
 }

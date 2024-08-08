@@ -15,7 +15,7 @@ func NewScyllaRawQueryRepository(base ScyllaBaseRepository) *ScyllaRawQueryRepos
 	return &ScyllaRawQueryRepository{ScyllaBaseRepository: base}
 }
 
-func (s *ScyllaRawQueryRepository) RawSelect(queryString string, parameters []any) ([]common.JsonObject, error) {
+func (s *ScyllaRawQueryRepository) RawSelect(queryString string) ([]common.JsonObject, error) {
 	rows, err := s.session.Query(queryString, nil).Iter().SliceMap()
 	if err != nil {
 		return nil, fmt.Errorf("method RunSelect: error running query: %s", err)
@@ -29,12 +29,28 @@ func (s *ScyllaRawQueryRepository) RawSelect(queryString string, parameters []an
 	return results, nil
 }
 
-func (s *ScyllaRawQueryRepository) RawQuery(queryString string, parameters []any) ([]common.JsonObject, error) {
-	query := s.session.Query(queryString, nil).Bind(parameters...)
+func (s *ScyllaRawQueryRepository) RawSelectNamed(queryString string, parameters common.JsonObject) ([]common.JsonObject, error) {
+	return nil, nil
+}
 
-	if err := query.ExecRelease(); err != nil {
-		return nil, err
-	}
+func (s *ScyllaRawQueryRepository) RawSelectPositional(queryString string, parameters []any) ([]common.JsonObject, error) {
+	return nil, nil
+}
 
+func (s *ScyllaRawQueryRepository) RawQuery(queryString string) ([]common.JsonObject, error) {
+	// query := s.session.Query(queryString, nil).Bind(parameters...)
+
+	// if err := query.ExecRelease(); err != nil {
+	// 	return nil, err
+	// }
+
+	return nil, nil
+}
+
+func (s *ScyllaRawQueryRepository) RawQueryNamed(queryString string, parameters common.JsonObject) ([]common.JsonObject, error) {
+	return nil, nil
+}
+
+func (s *ScyllaRawQueryRepository) RawQueryPositional(queryString string, parameters []any) ([]common.JsonObject, error) {
 	return nil, nil
 }

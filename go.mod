@@ -3,7 +3,6 @@ module handler
 go 1.21.5
 
 require (
-	github.com/Hammad1029/json-to-cql v0.0.0-20240713125137-433c5a88f387
 	github.com/gocql/gocql v1.6.0
 	github.com/gofiber/fiber/v2 v2.52.2
 	github.com/mitchellh/mapstructure v1.5.0

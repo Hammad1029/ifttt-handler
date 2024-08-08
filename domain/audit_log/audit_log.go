@@ -45,7 +45,7 @@ var LogsMetadata = table.Metadata{
 type ExecLog struct {
 	LogUser string `json:"logUser" mapstructure:"logUser"`
 	LogType string `json:"logType" mapstructure:"logType"`
-	LogData string `json:"AuditLog" mapstructure:"AuditLog"`
+	LogData string `json:"logData" mapstructure:"logData"`
 }
 
 func (l *AuditLog) StartLog() {
@@ -90,8 +90,8 @@ func (l *AuditLog) Post() (PostableAuditLog, error) {
 	}
 
 	postableLog.End = time.Now()
-	timeSubtracted := l.End.Sub(l.Start)
-	postableLog.TimeTaken = int(timeSubtracted.Milliseconds())
+	timeSubtracted := postableLog.End.Sub(l.Start)
+	postableLog.TimeTaken = int(timeSubtracted.Microseconds())
 
 	return postableLog, nil
 }
@@ -118,11 +118,21 @@ func (l *AuditLog) AddExecLog(logUser string, logType string, AuditLog string) {
 	l.ExecutionLogs = append(l.ExecutionLogs, execLog)
 }
 
-func (l *AuditLog) GetUserErrorLogs() []ExecLog {
-	errLogs := []ExecLog{}
+func (l *AuditLog) GetSystemErrorLogs() []string {
+	errLogs := []string{}
+	for _, log := range l.ExecutionLogs {
+		if log.LogUser == "system" && log.LogType == "error" {
+			errLogs = append(errLogs, log.LogData)
+		}
+	}
+	return errLogs
+}
+
+func (l *AuditLog) GetUserErrorLogs() []string {
+	errLogs := []string{}
 	for _, log := range l.ExecutionLogs {
 		if log.LogUser == "user" && log.LogType == "error" {
-			errLogs = append(errLogs, log)
+			errLogs = append(errLogs, log.LogData)
 		}
 	}
 	return errLogs

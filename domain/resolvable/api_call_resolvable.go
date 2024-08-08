@@ -20,6 +20,7 @@ type ApiCallResolvable struct {
 	Url     string            `json:"url" mapstructure:"url"`
 	Headers common.JsonObject `json:"headers" mapstructure:"headers"`
 	Body    common.JsonObject `json:"body" mapstructure:"body"`
+	Start   time.Time         `json:"start" mapstructure:"start"`
 }
 
 type apiCallResponse struct {
@@ -27,9 +28,12 @@ type apiCallResponse struct {
 	Status     string              `json:"status" mapstructure:"status"`
 	Headers    map[string][]string `json:"headers" mapstructure:"headers"`
 	Body       common.JsonObject   `json:"body" mapstructure:"body"`
+	End        time.Time           `json:"end" mapstructure:"end"`
+	TimeTaken  int64               `json:"timeTaken" mapstructure:"timeTaken"`
 }
 
 func (a *ApiCallResolvable) Resolve(ctx context.Context, optional ...any) (any, error) {
+	var response apiCallResponse
 	reqData := ctx.Value("request").(*request_data.RequestData)
 
 	callMethod := strings.ToUpper(a.Method)
@@ -43,15 +47,15 @@ func (a *ApiCallResolvable) Resolve(ctx context.Context, optional ...any) (any, 
 	}
 
 	var callBodyReader io.Reader
-	callBodyResolved, err := resolveIfNested(callBody, ctx)
-
-	if callBodyResolvedMap, ok := callBodyResolved.(common.JsonObject); ok {
-		callBody = callBodyResolvedMap
-	}
-	if err != nil {
+	if callBodyResolved, err := resolveIfNested(callBody, ctx); err != nil {
 		return nil, fmt.Errorf("method resolveApi: could not resolve map: %s", err)
+	} else {
+		if err := mapstructure.Decode(callBodyResolved, &a.Body); err != nil {
+			return nil, fmt.Errorf("method resolveApi: could not decode resolved request body to a.Body: %s", err)
+		}
 	}
-	if callBodyStringified, err := json.Marshal(callBodyResolved); err == nil {
+
+	if callBodyStringified, err := json.Marshal(a.Body); err == nil {
 		callBodyReader = strings.NewReader(string(callBodyStringified))
 	} else {
 		return nil, fmt.Errorf("method resolveApi: couldn't stringify body: %s", err)
@@ -70,10 +74,13 @@ func (a *ApiCallResolvable) Resolve(ctx context.Context, optional ...any) (any, 
 		httpRequest.Header.Add(key, val)
 	}
 
+	a.Start = time.Now()
 	resp, err := http.DefaultClient.Do(httpRequest)
 	if err != nil {
 		return nil, fmt.Errorf("method resolveApi: api request failed: %s", err)
 	}
+	response.End = time.Now()
+	response.TimeTaken = response.End.Sub(a.Start).Milliseconds()
 	defer resp.Body.Close()
 
 	respHeadersMap := make(map[string][]string)
@@ -87,17 +94,17 @@ func (a *ApiCallResolvable) Resolve(ctx context.Context, optional ...any) (any, 
 		return nil, fmt.Errorf("method resolveApi: could not decode response body to map: %s", err)
 	}
 
+	response.StatusCode = resp.StatusCode
+	response.Status = resp.Status
+	response.Headers = respHeadersMap
+	response.Body = respBodyMap
+
 	apiResponseStructured := common.JsonObject{
-		"request": a,
-		"response": apiCallResponse{
-			StatusCode: resp.StatusCode,
-			Status:     resp.Status,
-			Headers:    respHeadersMap,
-			Body:       respBodyMap,
-		},
+		"request":  a,
+		"response": response,
 	}
 
-	callSignature := fmt.Sprintf("%s - %s - %s", httpRequest.Method, httpRequest.URL.String(), time.Now().Format("yyyy-MM-dd HH:mm:ss"))
+	callSignature := fmt.Sprintf("%s|%s|%s", httpRequest.Method, httpRequest.URL.String(), a.Start)
 	reqData.ApiRes[callSignature] = apiResponseStructured
 	return apiResponseStructured, nil
 }

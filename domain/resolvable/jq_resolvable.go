@@ -3,6 +3,7 @@ package resolvable
 import (
 	"context"
 	"fmt"
+	"handler/common"
 
 	"github.com/itchyny/gojq"
 )
@@ -26,6 +27,8 @@ func (j *JqResolvable) Resolve(ctx context.Context, optional ...any) (any, error
 }
 
 func runJQQuery(queryString string, input any) (any, error) {
+	input = convertToGoJQCompatible(input)
+
 	query, err := gojq.Parse(queryString)
 	if err != nil {
 		return nil, fmt.Errorf("method runJQQuery: could not parse gojq query: %s", err)
@@ -56,4 +59,33 @@ func runJQQuery(queryString string, input any) (any, error) {
 	default:
 		return resultVals, nil
 	}
+}
+
+func convertToGoJQCompatible(input any) any {
+	switch v := input.(type) {
+	case common.JsonObject:
+		return map[string]any(v)
+	case map[string]any:
+		return convertMapToGoJQCompatible(v)
+	case []any:
+		return convertSliceToGoJQCompatible(v)
+	default:
+		return input
+	}
+}
+
+func convertMapToGoJQCompatible(m map[string]any) map[string]any {
+	compatibleMap := make(map[string]any)
+	for key, value := range m {
+		compatibleMap[key] = convertToGoJQCompatible(value)
+	}
+	return compatibleMap
+}
+
+func convertSliceToGoJQCompatible(slice []any) []any {
+	compatibleSlice := make([]any, len(slice))
+	for i, value := range slice {
+		compatibleSlice[i] = convertToGoJQCompatible(value)
+	}
+	return compatibleSlice
 }
