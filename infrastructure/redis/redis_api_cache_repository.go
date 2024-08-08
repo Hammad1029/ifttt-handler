@@ -17,8 +17,8 @@ func NewRedisApiCacheRepository(base RedisBaseRepository) *RedisApiCacheReposito
 	return &RedisApiCacheRepository{RedisBaseRepository: base}
 }
 
-func (r *RedisApiCacheRepository) StoreApis(apis []api.Api, ctx context.Context) error {
-	for _, api := range apis {
+func (r *RedisApiCacheRepository) StoreApis(apis *[]api.Api, ctx context.Context) error {
+	for _, api := range *apis {
 		marshalled, err := json.Marshal(api)
 		if err != nil {
 			return fmt.Errorf("method RedisApiCacheRepository.StoreApis: could not marshall api: %s", err)
@@ -30,8 +30,8 @@ func (r *RedisApiCacheRepository) StoreApis(apis []api.Api, ctx context.Context)
 	return nil
 }
 
-func (r *RedisApiCacheRepository) GetAllApis(ctx context.Context) ([]api.Api, error) {
-	var apis []api.Api
+func (r *RedisApiCacheRepository) GetAllApis(ctx context.Context) (*[]api.Api, error) {
+	var apis *[]api.Api
 	apiJSONs, err := r.client.HGetAll(context.Background(), "apis").Result()
 	if err == redis.Nil {
 		return nil, nil
@@ -40,19 +40,19 @@ func (r *RedisApiCacheRepository) GetAllApis(ctx context.Context) ([]api.Api, er
 		return nil, fmt.Errorf("method RedisApiCacheRepository.GetAllApis: could not get apis from redis: %s", err)
 	}
 
-	var apiUnmarshalled api.Api
+	var apiUnmarshalled *api.Api
 	for _, api := range apiJSONs {
 		if err := json.Unmarshal([]byte(api), &apiUnmarshalled); err != nil {
 			return nil, fmt.Errorf("method RedisApiCacheRepository.GetAllApis: could not unmarshall api: %s", err)
 		}
-		apis = append(apis, apiUnmarshalled)
+		*apis = append(*apis, *apiUnmarshalled)
 	}
 
 	return apis, nil
 }
 
-func (r *RedisApiCacheRepository) GetApiByGroupAndName(group string, name string, ctx context.Context) (api.Api, error) {
-	var api api.Api
+func (r *RedisApiCacheRepository) GetApiByGroupAndName(group string, name string, ctx context.Context) (*api.Api, error) {
+	var api *api.Api
 	apiJSON, err := r.client.HGet(ctx, "apis", fmt.Sprintf("%s.%s", group, name)).Result()
 	if err == redis.Nil {
 		return api, fmt.Errorf("method RedisApiCacheRepository.GetApiByGroupAndName: no api found with group: %s and name: %s", group, name)

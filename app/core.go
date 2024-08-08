@@ -14,10 +14,10 @@ import (
 )
 
 type core struct {
-	ConfigStore       infraStore.ConfigStore
-	DataStore         infraStore.DataStore
-	CacheStore        infraStore.CacheStore
-	UserConfiguration configuration.UserConfiguration
+	ConfigStore   infraStore.ConfigStore
+	DataStore     infraStore.DataStore
+	CacheStore    infraStore.CacheStore
+	Configuration configuration.Configuration
 }
 
 func newCore() (*core, error) {
@@ -38,10 +38,10 @@ func newCore() (*core, error) {
 	} else {
 		serverCore.CacheStore = *cacheStore
 	}
-	if config, err := serverCore.ConfigStore.ConfigRepo.GetUserConfigFromDb(); err != nil {
+	if config, err := serverCore.ConfigStore.ConfigRepo.GetConfigFromDb(); err != nil {
 		return nil, fmt.Errorf("method newCore: could not get user configuration: %s", err)
 	} else {
-		serverCore.UserConfiguration = *config
+		serverCore.Configuration = *config
 	}
 
 	return &serverCore, nil
@@ -105,7 +105,7 @@ func (c *core) callResolvable(resolvable resolvable.Resolvable, ctx context.Cont
 	case "rule":
 		c.handleActionRule(ctx, resolvable.ResolveData)
 	case "db":
-		resolvable.Resolve(ctx, c.DataStore.RawQueryRepository)
+		resolvable.Resolve(ctx, c.DataStore.RawQueryRepo)
 	default:
 		return resolvable.Resolve(ctx)
 	}

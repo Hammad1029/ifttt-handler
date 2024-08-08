@@ -1,8 +1,6 @@
 package infrastructure
 
-import (
-	"github.com/scylladb/gocqlx/v2/table"
-)
+import "github.com/scylladb/gocqlx/v3/table"
 
 type scyllaTables struct {
 	InternalName   string                 `cql:"internal_name"`

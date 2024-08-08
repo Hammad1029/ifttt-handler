@@ -3,6 +3,7 @@ package infrastructure
 import (
 	"fmt"
 	"handler/common"
+	redisInfra "handler/infrastructure/redis"
 	"strconv"
 
 	"github.com/mitchellh/mapstructure"
@@ -33,4 +34,12 @@ func (r *RedisStore) init(config common.JsonObject) error {
 		DB:       dbIndex,
 	})
 	return nil
+}
+
+func (r *RedisStore) createCacheStore() *CacheStore {
+	redisBase := redisInfra.NewRedisBaseRepository(r.client)
+	return &CacheStore{
+		Store:        r,
+		APICacheRepo: redisInfra.NewRedisApiCacheRepository(*redisBase),
+	}
 }

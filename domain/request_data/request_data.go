@@ -24,10 +24,10 @@ type SerializedRequestData struct {
 }
 
 type QueryResult struct {
-	Start     time.Time           `json:"start" mapstructure:"start"`
-	End       time.Time           `json:"end" mapstructure:"end"`
-	TimeTaken int64               `json:"timeTaken" mapstructure:"timeTaken"`
-	Results   []common.JsonObject `json:"results" mapstructure:"results"`
+	Start     time.Time            `json:"start" mapstructure:"start"`
+	End       time.Time            `json:"end" mapstructure:"end"`
+	TimeTaken int64                `json:"timeTaken" mapstructure:"timeTaken"`
+	Results   *[]common.JsonObject `json:"results" mapstructure:"results"`
 }
 
 func (r *RequestData) Initialize() {

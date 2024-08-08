@@ -1,6 +1,7 @@
 package infrastructure
 
 import (
+	"fmt"
 	"handler/common"
 )
 
@@ -12,32 +13,32 @@ func NewPostgresRawQueryRepository(base PostgresBaseRepository) *PostgresRawQuer
 	return &PostgresRawQueryRepository{PostgresBaseRepository: base}
 }
 
-func (p *PostgresRawQueryRepository) RawSelect(queryString string) ([]common.JsonObject, error) {
-	// return p.RawQuery(queryString, parameters)
-	return nil, nil
+func (p *PostgresRawQueryRepository) RawQueryPositional(queryString string, parameters []any) (*[]common.JsonObject, error) {
+	var results *[]common.JsonObject
+	if err := p.client.Raw(queryString, parameters...).Scan(&results).Error; err != nil {
+		return nil, fmt.Errorf("method *PostgresRawQueryRepository.RawQueryPositional: could not run query: %s", err)
+	}
+	return results, nil
 }
 
-func (s *PostgresRawQueryRepository) RawSelectNamed(queryString string, parameters common.JsonObject) ([]common.JsonObject, error) {
-	return nil, nil
+func (p *PostgresRawQueryRepository) RawQueryNamed(queryString string, parameters common.JsonObject) (*[]common.JsonObject, error) {
+	var results *[]common.JsonObject
+	if err := p.client.Raw(queryString, parameters).Scan(&results).Error; err != nil {
+		return nil, fmt.Errorf("method *PostgresRawQueryRepository.RawQueryNamed: could not run query: %s", err)
+	}
+	return results, nil
 }
 
-func (s *PostgresRawQueryRepository) RawSelectPositional(queryString string, parameters []any) ([]common.JsonObject, error) {
-	return nil, nil
+func (p *PostgresRawQueryRepository) RawExecPositional(queryString string, parameters []any) error {
+	if err := p.client.Exec(queryString, parameters...).Error; err != nil {
+		return fmt.Errorf("method *PostgresRawQueryRepository.RawExecPositional: could not run query: %s", err)
+	}
+	return nil
 }
 
-func (p *PostgresRawQueryRepository) RawQuery(queryString string) ([]common.JsonObject, error) {
-	// var result []common.JsonObject
-	// if err := p.client.Raw(queryString, parameters...).Scan(&result).Error; err != nil {
-	// 	return nil, fmt.Errorf("method RawQuery: error running query: %s", err)
-	// }
-	// return result, nil
-	return nil, nil
-}
-
-func (s *PostgresRawQueryRepository) RawQueryNamed(queryString string, parameters common.JsonObject) ([]common.JsonObject, error) {
-	return nil, nil
-}
-
-func (s *PostgresRawQueryRepository) RawQueryPositional(queryString string, parameters []any) ([]common.JsonObject, error) {
-	return nil, nil
+func (p *PostgresRawQueryRepository) RawExecNamed(queryString string, parameters common.JsonObject) error {
+	if err := p.client.Exec(queryString, parameters).Error; err != nil {
+		return fmt.Errorf("method *PostgresRawQueryRepository.RawExecNamed: could not run query: %s", err)
+	}
+	return nil
 }

@@ -7,8 +7,6 @@ import (
 	"handler/domain/request_data"
 	"strconv"
 	"time"
-
-	"github.com/scylladb/gocqlx/table"
 )
 
 type AuditLog struct {
@@ -33,13 +31,6 @@ type PostableAuditLog struct {
 	StartPartition time.Time                          `json:"startPartition" mapstructure:"startPartition"`
 	End            time.Time                          `json:"end" mapstructure:"end"`
 	TimeTaken      int                                `json:"timeTaken" mapstructure:"timeTaken"`
-}
-
-var LogsMetadata = table.Metadata{
-	Name:    "Logs",
-	Columns: []string{"api_group", "api_name", "execution_order", "execution_logs", "request_data", "start", "start_partition", "end", "time_taken"},
-	PartKey: []string{"api_group", "start_partition"},
-	SortKey: []string{"api_name", "start"},
 }
 
 type ExecLog struct {

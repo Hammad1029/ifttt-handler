@@ -6,7 +6,7 @@ import (
 	"handler/domain/audit_log"
 	"time"
 
-	"github.com/scylladb/gocqlx/table"
+	"github.com/scylladb/gocqlx/v3/table"
 )
 
 type scyllaAuditLog struct {
@@ -42,12 +42,21 @@ var scyllaAuditLogMetadata = table.Metadata{
 	SortKey: []string{"api_name", "start"},
 }
 
+var scyllaAuditLogTable *table.Table
+
 type ScyllaAuditLogRepository struct {
 	ScyllaBaseRepository
 }
 
 func NewScyllaAuditLogRepository(base ScyllaBaseRepository) *ScyllaAuditLogRepository {
 	return &ScyllaAuditLogRepository{ScyllaBaseRepository: base}
+}
+
+func (s *ScyllaAuditLogRepository) getTable() *table.Table {
+	if scyllaAuditLogTable == nil {
+		scyllaAuditLogTable = table.New(scyllaAuditLogMetadata)
+	}
+	return scyllaAuditLogTable
 }
 
 func (s *ScyllaAuditLogRepository) InsertLog(log audit_log.PostableAuditLog, ctx context.Context) error {
@@ -76,9 +85,9 @@ func (s *ScyllaAuditLogRepository) InsertLog(log audit_log.PostableAuditLog, ctx
 		ApiRes:   log.RequestData.ApiRes,
 	}
 
-	LogsTable := table.New(scyllaAuditLogMetadata)
-	q := s.session.Query(LogsTable.Insert()).BindStruct(&log)
-	if err := q.ExecRelease(); err != nil {
+	LogsTable := s.getTable()
+	query := LogsTable.InsertQuery(*s.session).BindStruct(&newLog)
+	if err := query.ExecRelease(); err != nil {
 		return fmt.Errorf("method ScyllaLogRepository.InsertLog: error in inserting log: %s", err)
 	}
 

@@ -10,7 +10,7 @@ type PostgresBaseRepository struct {
 
 func NewPostgresBaseRepository(client *gorm.DB) *PostgresBaseRepository {
 	if client == nil {
-		panic("missing redis client")
+		panic("missing postgres client")
 	}
 	return &PostgresBaseRepository{client: client}
 }

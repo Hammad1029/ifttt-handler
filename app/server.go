@@ -37,7 +37,7 @@ func Init() {
 	}
 
 	app.Post("/testApi", testHandler)
-	for _, api := range apis {
+	for _, api := range *apis {
 		app.Post(fmt.Sprintf("/%s/%s", api.ApiGroup, api.ApiName), apiHandler)
 	}
 
