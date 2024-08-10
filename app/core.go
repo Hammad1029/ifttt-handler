@@ -9,15 +9,17 @@ import (
 	"handler/domain/configuration"
 	"handler/domain/resolvable"
 	infraStore "handler/infrastructure/store"
-	"log"
 	"sync"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 type core struct {
-	ConfigStore   infraStore.ConfigStore
-	DataStore     infraStore.DataStore
-	CacheStore    infraStore.CacheStore
-	Configuration configuration.Configuration
+	configStore            *infraStore.ConfigStore
+	dataStore              *infraStore.DataStore
+	cacheStore             *infraStore.CacheStore
+	configuration          *configuration.Configuration
+	resolvableDependencies map[string]any
 }
 
 func newCore() (*core, error) {
@@ -26,22 +28,25 @@ func newCore() (*core, error) {
 	if configStore, err := infraStore.NewConfigStore(); err != nil {
 		return nil, fmt.Errorf("method newCore: could not create config store: %s", err)
 	} else {
-		serverCore.ConfigStore = *configStore
+		serverCore.configStore = configStore
 	}
 	if dataStore, err := infraStore.NewDataStore(); err != nil {
 		return nil, fmt.Errorf("method newCore: could not create data store: %s", err)
 	} else {
-		serverCore.DataStore = *dataStore
+		serverCore.dataStore = dataStore
 	}
 	if cacheStore, err := infraStore.NewCacheStore(); err != nil {
 		return nil, fmt.Errorf("method newCore: could not create cache store: %s", err)
 	} else {
-		serverCore.CacheStore = *cacheStore
+		serverCore.cacheStore = cacheStore
 	}
-	if config, err := serverCore.ConfigStore.ConfigRepo.GetConfigFromDb(); err != nil {
+	if config, err := serverCore.configStore.ConfigRepo.GetConfigFromDb(); err != nil {
 		return nil, fmt.Errorf("method newCore: could not get user configuration: %s", err)
 	} else {
-		serverCore.Configuration = *config
+		serverCore.configuration = config
+	}
+	serverCore.resolvableDependencies = map[string]any{
+		common.DependencyRawQueryRepo: serverCore.dataStore.RawQueryRepo,
 	}
 
 	return &serverCore, nil
@@ -49,29 +54,37 @@ func newCore() (*core, error) {
 
 func (c *core) initExec(startRules []string, ctx context.Context) {
 	var wg sync.WaitGroup
-	rules := ctx.Value("rules").(map[string]*api.Rule)
 	for _, startId := range startRules {
 		wg.Add(1)
-		go c.prepRule(rules[startId], &wg, ctx, startId)
+		go c.prepRule(startId, &wg, ctx)
 	}
 	wg.Wait()
 }
 
-func (c *core) prepRule(rule *api.Rule, wg *sync.WaitGroup, ctx context.Context, ruleId string) {
+func (c *core) prepRule(ruleId string, wg *sync.WaitGroup, ctx context.Context) error {
 	defer wg.Done()
+
+	rules := ctx.Value("rules").(map[string]*api.Rule)
+	currRule, ok := rules[ruleId]
+	if !ok {
+		return c.addErrorToContext(fmt.Errorf("method *core.prepRule: rule %s not found", ruleId), ctx)
+	}
+
 	if l, ok := ctx.Value("log").(*audit_log.AuditLog); ok {
 		l.ExecutionOrder = append(l.ExecutionOrder, ruleId)
 	} else {
-		log.Panic("method prepRule: could not type cast log model")
+		return c.addErrorToContext(fmt.Errorf("method *core.prepRule: could not type cast log model"), ctx)
 	}
-	if err := c.execRule(rule, ctx); err != nil {
-		c.addErrorToContext(err, ctx)
-		return
+
+	if err := c.execRule(currRule, ctx); err != nil {
+		return c.addErrorToContext(fmt.Errorf("method *core.prepRule: error in rule %s execution: %s", ruleId, err), ctx)
 	}
+
+	return nil
 }
 
 func (c *core) execRule(rule *api.Rule, ctx context.Context) error {
-	if ev, err := rule.Conditions.EvaluateGroup(ctx); err != nil {
+	if ev, err := rule.Conditions.EvaluateGroup(ctx, c.resolvableDependencies); err != nil {
 		return err
 	} else if ev {
 		return c.handleResolvableArray(rule.Then, ctx)
@@ -83,8 +96,12 @@ func (c *core) execRule(rule *api.Rule, ctx context.Context) error {
 func (c *core) addErrorToContext(err error, ctx context.Context) error {
 	if l, ok := ctx.Value("log").(*audit_log.AuditLog); ok {
 		l.AddExecLog("system", "error", err.Error())
-		errorResponse := resolvable.ResponseResolvable{ResponseCode: "500", ResponseDescription: "Server Errro"}
-		errorResponse.Resolve(ctx)
+		errorResponse := &resolvable.Resolvable{
+			ResolveType: resolvable.AccessorResponseResolvable,
+			ResolveData: map[string]any{
+				"responseCode": "500", "responseDescription": "Server Errror",
+			}}
+		c.callResolvable(errorResponse, ctx)
 	} else {
 		return fmt.Errorf("method addErrorToContext: could not type cast log model")
 	}
@@ -93,29 +110,30 @@ func (c *core) addErrorToContext(err error, ctx context.Context) error {
 
 func (c *core) handleResolvableArray(resolvables []resolvable.Resolvable, ctx context.Context) error {
 	for _, r := range resolvables {
-		if _, err := c.callResolvable(r, ctx); err != nil {
+		if _, err := c.callResolvable(&r, ctx); err != nil {
 			return fmt.Errorf("method *core.handleResolvableArray: error in resolving: %s", err)
 		}
 	}
 	return nil
 }
 
-func (c *core) callResolvable(resolvable resolvable.Resolvable, ctx context.Context) (any, error) {
-	switch resolvable.ResolveType {
-	case "rule":
-		c.handleActionRule(ctx, resolvable.ResolveData)
-	case "db":
-		resolvable.Resolve(ctx, c.DataStore.RawQueryRepo)
+func (c *core) callResolvable(r *resolvable.Resolvable, ctx context.Context) (any, error) {
+	switch r.ResolveType {
+	case resolvable.AccessorRuleResolvable:
+		return nil, c.handleActionRule(ctx, r.ResolveData)
 	default:
-		return resolvable.Resolve(ctx)
+		return r.Resolve(ctx, c.resolvableDependencies)
 	}
-	return nil, nil
 }
 
-func (c *core) handleActionRule(ctx context.Context, actionData common.JsonObject) {
+func (c *core) handleActionRule(ctx context.Context, data map[string]any) error {
+	var ruleRes resolvable.CallRuleResolvable
+	if err := mapstructure.Decode(data, &ruleRes); err != nil {
+		return fmt.Errorf("method *core.handleActionRule: could not decode resolvable data to resolvable.CallRuleResolvable: %s", err)
+	}
+
 	var wg sync.WaitGroup
 	wg.Add(1)
-	rules := ctx.Value("rules").(map[string]*api.Rule)
-	ruleId := fmt.Sprint(actionData["value"])
-	go c.prepRule(rules[ruleId], &wg, ctx, ruleId)
+	go c.prepRule(ruleRes.RuleId, &wg, ctx)
+	return nil
 }

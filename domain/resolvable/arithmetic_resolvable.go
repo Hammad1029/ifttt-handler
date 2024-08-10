@@ -13,7 +13,7 @@ type Arithmetic struct {
 	Value     Resolvable   `json:"value" mapstructure:"value"`
 }
 
-func (a *Arithmetic) Resolve(ctx context.Context, optional ...any) (any, error) {
+func (a *Arithmetic) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	opFuncs := common.GetArithmeticOperators()
 	currFunc, ok := opFuncs[a.Operation]
 
@@ -28,9 +28,9 @@ func (a *Arithmetic) Resolve(ctx context.Context, optional ...any) (any, error) 
 		var val any
 		var e error
 		if op.Group {
-			val, e = a.Resolve(ctx, optional)
+			val, e = a.Resolve(ctx, dependencies)
 		} else {
-			val, e = op.Value.Resolve(ctx, optional)
+			val, e = op.Value.Resolve(ctx, dependencies)
 		}
 		if e != nil {
 			err = fmt.Errorf("method Arithmetic: %s", e)

@@ -1,3 +1,3 @@
 package common
 
-type JsonObject map[string]any
+// type JsonObject map[string]any

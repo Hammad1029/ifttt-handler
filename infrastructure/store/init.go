@@ -2,7 +2,6 @@ package infrastructure
 
 import (
 	"fmt"
-	"handler/common"
 	"handler/config"
 	"handler/domain/api"
 	"handler/domain/audit_log"
@@ -13,7 +12,7 @@ import (
 )
 
 type dbStorer interface {
-	init(config common.JsonObject) error
+	init(config map[string]any) error
 }
 
 type configStorer interface {
@@ -83,7 +82,7 @@ func NewCacheStore() (*CacheStore, error) {
 	}
 }
 
-func configStoreFactory(connectionSettings common.JsonObject) (*ConfigStore, error) {
+func configStoreFactory(connectionSettings map[string]any) (*ConfigStore, error) {
 	var storer configStorer
 	dbName, ok := connectionSettings["db"]
 	if !ok {
@@ -104,7 +103,7 @@ func configStoreFactory(connectionSettings common.JsonObject) (*ConfigStore, err
 	return storer.createConfigStore(), nil
 }
 
-func dataStoreFactory(connectionSettings common.JsonObject) (*DataStore, error) {
+func dataStoreFactory(connectionSettings map[string]any) (*DataStore, error) {
 	var storer dataStorer
 	dbName, ok := connectionSettings["db"]
 	if !ok {
@@ -128,7 +127,7 @@ func dataStoreFactory(connectionSettings common.JsonObject) (*DataStore, error) 
 	return storer.createDataStore(), nil
 }
 
-func cacheStoreFactory(connectionSettings common.JsonObject) (*CacheStore, error) {
+func cacheStoreFactory(connectionSettings map[string]any) (*CacheStore, error) {
 	var storer cacheStorer
 	dbName, ok := connectionSettings["db"]
 	if !ok {

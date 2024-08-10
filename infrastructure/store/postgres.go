@@ -2,7 +2,6 @@ package infrastructure
 
 import (
 	"fmt"
-	"handler/common"
 	postgresInfra "handler/infrastructure/postgres"
 
 	"github.com/mitchellh/mapstructure"
@@ -23,7 +22,7 @@ type postgresConfig struct {
 	Password string `json:"password" mapstructure:"password"`
 }
 
-func (p *postgresStore) init(config common.JsonObject) error {
+func (p *postgresStore) init(config map[string]any) error {
 	if err := mapstructure.Decode(config, &p.config); err != nil {
 		return fmt.Errorf("method: *PostgresStore.Init: could not decode scylla configuration from env: %s", err)
 	}

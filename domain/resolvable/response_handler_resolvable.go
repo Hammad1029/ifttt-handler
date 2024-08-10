@@ -22,7 +22,7 @@ type errorsData struct {
 	System any `json:"system" mapstructure:"system"`
 }
 
-func (s *ResponseResolvable) Resolve(ctx context.Context, optional ...any) (any, error) {
+func (s *ResponseResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	if log, ok := ctx.Value("log").(*audit_log.AuditLog); !ok {
 		return nil, fmt.Errorf("method Resolve: log model type assertion failed")
 	} else {

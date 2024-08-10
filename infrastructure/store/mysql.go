@@ -2,7 +2,6 @@ package infrastructure
 
 import (
 	"fmt"
-	"handler/common"
 	postgresInfra "handler/infrastructure/postgres"
 
 	"github.com/mitchellh/mapstructure"
@@ -23,7 +22,7 @@ type mysqlConfig struct {
 	Password string `json:"password" mapstructure:"password"`
 }
 
-func (m *mysqlStore) init(config common.JsonObject) error {
+func (m *mysqlStore) init(config map[string]any) error {
 	if err := mapstructure.Decode(config, &m.config); err != nil {
 		return fmt.Errorf("method: *mysqlStore.Init: could not decode scylla configuration from env: %s", err)
 	}

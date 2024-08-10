@@ -2,7 +2,6 @@ package infrastructure
 
 import (
 	"fmt"
-	"handler/common"
 	redisInfra "handler/infrastructure/redis"
 	"strconv"
 
@@ -23,7 +22,7 @@ type redisConfig struct {
 	DbIndex  string `json:"dbIndex" mapstructure:"dbIndex"`
 }
 
-func (r *RedisStore) init(config common.JsonObject) error {
+func (r *RedisStore) init(config map[string]any) error {
 	if err := mapstructure.Decode(config, &r.config); err != nil {
 		return fmt.Errorf("method: *RedisStore.Init: could not decode redis configuration from env: %s", err)
 	}

@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"handler/common"
 	"handler/config"
 	"handler/domain/api"
 	"handler/domain/audit_log"
@@ -29,11 +28,11 @@ func Init() {
 	app := fiber.New()
 	ctx := context.Background()
 
-	apis, err := serverCore.ConfigStore.APIPersistentRepo.GetAllApis(ctx)
+	apis, err := serverCore.configStore.APIPersistentRepo.GetAllApis(ctx)
 	if err != nil {
 		panic(fmt.Errorf("could not get apis from persistent storage: %s", err))
 	} else {
-		serverCore.CacheStore.APICacheRepo.StoreApis(apis, ctx)
+		serverCore.cacheStore.APICacheRepo.StoreApis(apis, ctx)
 	}
 
 	app.Post("/testApi", testHandler)
@@ -46,21 +45,23 @@ func Init() {
 }
 
 func testHandler(c *fiber.Ctx) error {
-	log := audit_log.AuditLog{}
-	log.StartLog()
-
 	ctx := c.Context()
 
-	requestData := request_data.RequestData{}
+	log := audit_log.AuditLog{}
+	ctx.SetUserValue("log", &log)
+	log.StartLog()
 
+	requestData := request_data.RequestData{}
+	ctx.SetUserValue("request", &requestData)
 	requestData.Initialize()
-	var reqBody common.JsonObject
+
+	var reqBody map[string]any
 	if err := c.BodyParser(&reqBody); err != nil {
 		return serverCore.addErrorToContext(fmt.Errorf("method testHandler: could not parse reqBody: %s", err), ctx)
 	}
 
 	if requestInterface, ok := reqBody["request"]; ok {
-		var requestBodyData common.JsonObject
+		var requestBodyData map[string]any
 		if err := mapstructure.Decode(requestInterface, &requestBodyData); err == nil {
 			requestData.ReqBody = requestBodyData
 		} else {
@@ -78,8 +79,6 @@ func testHandler(c *fiber.Ctx) error {
 	log.Initialize(&requestData, api.ApiGroup, api.ApiName)
 
 	resChan := make(chan resolvable.ResponseResolvable)
-	ctx.SetUserValue("log", &log)
-	ctx.SetUserValue("request", &requestData)
 	ctx.SetUserValue("resChan", resChan)
 	ctx.SetUserValue("rules", api.Rules)
 
@@ -89,7 +88,7 @@ func testHandler(c *fiber.Ctx) error {
 	if postableLog, err := log.Post(); err != nil {
 		fmt.Println(err)
 	} else {
-		serverCore.ConfigStore.AuditLogRepo.InsertLog(postableLog, ctx)
+		serverCore.configStore.AuditLogRepo.InsertLog(postableLog, ctx)
 		fmt.Printf("execution time: %v", postableLog.TimeTaken)
 	}
 	return c.JSON(res)
@@ -102,7 +101,7 @@ func apiHandler(c *fiber.Ctx) error {
 	log.StartLog()
 
 	apiParts := strings.Split(c.Path(), "/")
-	api, err := serverCore.CacheStore.APICacheRepo.GetApiByGroupAndName(apiParts[0], apiParts[1], ctx)
+	api, err := serverCore.cacheStore.APICacheRepo.GetApiByGroupAndName(apiParts[0], apiParts[1], ctx)
 	if err != nil {
 		return serverCore.addErrorToContext(err, ctx)
 	}
@@ -128,7 +127,7 @@ func apiHandler(c *fiber.Ctx) error {
 	if postableLog, err := log.Post(); err != nil {
 		fmt.Println(err)
 	} else {
-		serverCore.ConfigStore.AuditLogRepo.InsertLog(postableLog, ctx)
+		serverCore.configStore.AuditLogRepo.InsertLog(postableLog, ctx)
 		fmt.Printf("execution time: %v", postableLog.TimeTaken)
 	}
 	return c.JSON(res)

@@ -3,7 +3,6 @@ package resolvable
 import (
 	"context"
 	"fmt"
-	"handler/common"
 
 	"github.com/itchyny/gojq"
 )
@@ -13,12 +12,12 @@ type JqResolvable struct {
 	Input any    `json:"input" mapstructure:"input"`
 }
 
-func (j *JqResolvable) Resolve(ctx context.Context, optional ...any) (any, error) {
-	queryResolved, err := resolveIfNested(j.Query, ctx)
+func (j *JqResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+	queryResolved, err := resolveIfNested(j.Query, ctx, dependencies)
 	if err != nil {
 		return nil, fmt.Errorf("method resolveJq: couldn't resolve input: %s", err)
 	}
-	inputResolved, err := resolveIfNested(j.Input, ctx)
+	inputResolved, err := resolveIfNested(j.Input, ctx, dependencies)
 	if err != nil {
 		return nil, fmt.Errorf("method resolveJq: couldn't resolve input: %s", err)
 	}
@@ -63,8 +62,6 @@ func runJQQuery(queryString string, input any) (any, error) {
 
 func convertToGoJQCompatible(input any) any {
 	switch v := input.(type) {
-	case common.JsonObject:
-		return map[string]any(v)
 	case map[string]any:
 		return convertMapToGoJQCompatible(v)
 	case []any:

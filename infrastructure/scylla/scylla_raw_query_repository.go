@@ -2,7 +2,6 @@ package infrastructure
 
 import (
 	"fmt"
-	"handler/common"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/scylladb/gocqlx/v3"
@@ -16,8 +15,8 @@ func NewScyllaRawQueryRepository(base ScyllaBaseRepository) *ScyllaRawQueryRepos
 	return &ScyllaRawQueryRepository{ScyllaBaseRepository: base}
 }
 
-func (s *ScyllaRawQueryRepository) RawQueryPositional(queryString string, parameters []any) (*[]common.JsonObject, error) {
-	var results *[]common.JsonObject
+func (s *ScyllaRawQueryRepository) RawQueryPositional(queryString string, parameters []any) (*[]map[string]any, error) {
+	var results *[]map[string]any
 	query := s.session.Query(queryString, nil)
 	defer query.Release()
 	if rows, err := query.Bind(parameters...).Iter().SliceMap(); err != nil {
@@ -31,8 +30,8 @@ func (s *ScyllaRawQueryRepository) RawQueryPositional(queryString string, parame
 	return results, nil
 }
 
-func (s *ScyllaRawQueryRepository) RawQueryNamed(queryString string, parameters common.JsonObject) (*[]common.JsonObject, error) {
-	var results *[]common.JsonObject
+func (s *ScyllaRawQueryRepository) RawQueryNamed(queryString string, parameters map[string]any) (*[]map[string]any, error) {
+	var results *[]map[string]any
 	stmt, names, err := gocqlx.CompileNamedQueryString(queryString)
 	if err != nil {
 		return nil, fmt.Errorf("method *ScyllaRawQueryRepository.RawQueryNamed: could not compile named query string: %s", err)
@@ -58,7 +57,7 @@ func (s *ScyllaRawQueryRepository) RawExecPositional(queryString string, paramet
 	return nil
 }
 
-func (s *ScyllaRawQueryRepository) RawExecNamed(queryString string, parameters common.JsonObject) error {
+func (s *ScyllaRawQueryRepository) RawExecNamed(queryString string, parameters map[string]any) error {
 	stmt, names, err := gocqlx.CompileNamedQueryString(queryString)
 	if err != nil {
 		return fmt.Errorf("method *ScyllaRawQueryRepository.RawExecNamed: could not compile named query string: %s", err)

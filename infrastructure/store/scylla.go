@@ -2,7 +2,6 @@ package infrastructure
 
 import (
 	"fmt"
-	"handler/common"
 	scyllaInfra "handler/infrastructure/scylla"
 	"time"
 
@@ -26,7 +25,7 @@ type scyllaConfig struct {
 	RetryCount int      `json:"retryCount" mapstructure:"retryCount"`
 }
 
-func (s *scyllaStore) init(config common.JsonObject) error {
+func (s *scyllaStore) init(config map[string]any) error {
 	if err := mapstructure.Decode(config, &s.config); err != nil {
 		return fmt.Errorf("method: *ScyllaStore.Init: could not decode scylla configuration from env: %s", err)
 	}

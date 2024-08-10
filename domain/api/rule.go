@@ -25,18 +25,18 @@ type Condition struct {
 	Operator2     resolvable.Resolvable `json:"op2" mapstructure:"op2"`
 }
 
-func (c *Condition) EvaluateCondition(ctx context.Context) (bool, error) {
+func (c *Condition) EvaluateCondition(ctx context.Context, resolvableDependencies map[string]any) (bool, error) {
 	if c.Group {
 		return false, fmt.Errorf("method EvaluateCondition: object is a set")
 	}
 	evaluators := common.GetEvaluators()
 
 	if evalFunc, ok := evaluators[c.Operand]; ok {
-		op1Res, err := c.Operator1.Resolve(ctx)
+		op1Res, err := c.Operator1.Resolve(ctx, resolvableDependencies)
 		if err != nil {
 			return false, fmt.Errorf("method EvaluateCondition: %s", err)
 		}
-		op2Res, err := c.Operator2.Resolve(ctx)
+		op2Res, err := c.Operator2.Resolve(ctx, resolvableDependencies)
 		if err != nil {
 			return false, fmt.Errorf("method EvaluateCondition: %s", err)
 		}
@@ -47,7 +47,7 @@ func (c *Condition) EvaluateCondition(ctx context.Context) (bool, error) {
 	}
 }
 
-func (group *Condition) EvaluateGroup(ctx context.Context) (bool, error) {
+func (group *Condition) EvaluateGroup(ctx context.Context, resolvableDependencies map[string]any) (bool, error) {
 	if !group.Group {
 		return false, fmt.Errorf("method EvaluateGroup: object is not a group")
 	}
@@ -57,9 +57,9 @@ func (group *Condition) EvaluateGroup(ctx context.Context) (bool, error) {
 	for _, cond := range group.Conditions {
 		switch cond.Group {
 		case true:
-			ev, err = cond.EvaluateGroup(ctx)
+			ev, err = cond.EvaluateGroup(ctx, resolvableDependencies)
 		case false:
-			ev, err = cond.EvaluateCondition(ctx)
+			ev, err = cond.EvaluateCondition(ctx, resolvableDependencies)
 		}
 
 		if err != nil {

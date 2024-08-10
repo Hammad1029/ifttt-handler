@@ -2,20 +2,19 @@ package resolvable
 
 import (
 	"context"
-	"handler/common"
 	"handler/domain/request_data"
 	"maps"
 )
 
-type GetRequestResolvable common.JsonObject
+type GetRequestResolvable map[string]any
 
-type GetResponseResolvable common.JsonObject
+type GetResponseResolvable map[string]any
 
-type GetStoreResolvable common.JsonObject
+type GetStoreResolvable map[string]any
 
-type GetApiResultsResolvable map[string]common.JsonObject
+type GetApiResultsResolvable map[string]map[string]any
 
-type GetQueryResultsResolvable map[string][]common.JsonObject
+type GetQueryResultsResolvable map[string][]map[string]any
 
 type GetConstResolvable struct {
 	Value any `json:"value" mapstructure:"value"`
@@ -26,26 +25,26 @@ func getRequestData(ctx context.Context) *request_data.RequestData {
 	return reqData
 }
 
-func (r *GetRequestResolvable) Resolve(ctx context.Context, optional ...any) (any, error) {
+func (r *GetRequestResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	return getRequestData(ctx).ReqBody, nil
 }
 
-func (r *GetResponseResolvable) Resolve(ctx context.Context, optional ...any) (any, error) {
+func (r *GetResponseResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	return maps.Clone(getRequestData(ctx).Response), nil
 }
 
-func (a *GetApiResultsResolvable) Resolve(ctx context.Context, optional ...any) (any, error) {
+func (a *GetApiResultsResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	return getRequestData(ctx).ApiRes, nil
 }
 
-func (s *GetStoreResolvable) Resolve(ctx context.Context, optional ...any) (any, error) {
+func (s *GetStoreResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	return getRequestData(ctx).Store, nil
 }
 
-func (q *GetQueryResultsResolvable) Resolve(ctx context.Context, optional ...any) (any, error) {
+func (q *GetQueryResultsResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	return getRequestData(ctx).QueryRes, nil
 }
 
-func (c *GetConstResolvable) Resolve(ctx context.Context, optional ...any) (any, error) {
+func (c *GetConstResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	return c.Value, nil
 }

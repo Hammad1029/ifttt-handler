@@ -11,15 +11,15 @@ import (
 )
 
 type RawQueryRepository interface {
-	RawQueryPositional(queryString string, parameters []any) (*[]common.JsonObject, error)
-	RawQueryNamed(queryString string, parameters common.JsonObject) (*[]common.JsonObject, error)
+	RawQueryPositional(queryString string, parameters []any) (*[]map[string]any, error)
+	RawQueryNamed(queryString string, parameters map[string]any) (*[]map[string]any, error)
 
 	RawExecPositional(queryString string, parameters []any) error
-	RawExecNamed(queryString string, parameters common.JsonObject) error
+	RawExecNamed(queryString string, parameters map[string]any) error
 }
 
 type QueryExecutor interface {
-	Execute(rawQueryRepo RawQueryRepository, q *QueryResolvable, ctx context.Context, optional []any) (*[]common.JsonObject, error)
+	Execute(rawQueryRepo RawQueryRepository, q *QueryResolvable, ctx context.Context, dependencies map[string]any) (*[]map[string]any, error)
 }
 
 type NamedQueryExecutor struct{}
@@ -29,29 +29,29 @@ type PositionalQueryExecutor struct{}
 type QueryResolvable struct {
 	QueryString          string                `json:"queryString" mapstructure:"queryString"`
 	QueryHash            string                `json:"queryHash" mapstructure:"queryHash"`
-	Exec                 bool                  `json:"exec" mapstructure:"exec"`
+	Return               bool                  `json:"return" mapstructure:"return"`
 	Named                bool                  `json:"named" mapstructure:"named"`
 	NamedParameters      map[string]Resolvable `json:"namedParameters" mapstructure:"namedParameters"`
 	PositionalParameters []Resolvable          `json:"positionalParameters" mapstructure:"positionalParameters"`
 }
 
-func (e *NamedQueryExecutor) Execute(rawQueryRepo RawQueryRepository, q *QueryResolvable, ctx context.Context, optional []any) (*[]common.JsonObject, error) {
-	parametersResolved, err := resolveIfNested(q.NamedParameters, ctx, optional)
+func (e *NamedQueryExecutor) Execute(rawQueryRepo RawQueryRepository, q *QueryResolvable, ctx context.Context, dependencies map[string]any) (*[]map[string]any, error) {
+	parametersResolved, err := resolveIfNested(q.NamedParameters, ctx, dependencies)
 	if err != nil {
 		return nil, fmt.Errorf("could not resolve named parameters: %s", err)
 	}
-	var namedParametersMap common.JsonObject
+	var namedParametersMap map[string]any
 	if err := mapstructure.Decode(parametersResolved, &namedParametersMap); err != nil {
-		return nil, fmt.Errorf("could not decode resolved named parameters to JsonObject: %s", err)
+		return nil, fmt.Errorf("could not decode resolved named parameters to map[string]any: %s", err)
 	}
-	if q.Exec {
-		return nil, rawQueryRepo.RawExecNamed(q.QueryString, namedParametersMap)
+	if q.Return {
+		return rawQueryRepo.RawQueryNamed(q.QueryString, namedParametersMap)
 	}
-	return rawQueryRepo.RawQueryNamed(q.QueryString, namedParametersMap)
+	return nil, rawQueryRepo.RawExecNamed(q.QueryString, namedParametersMap)
 }
 
-func (e *PositionalQueryExecutor) Execute(rawQueryRepo RawQueryRepository, q *QueryResolvable, ctx context.Context, optional []any) (*[]common.JsonObject, error) {
-	parametersResolved, err := resolveIfNested(q.PositionalParameters, ctx, optional)
+func (e *PositionalQueryExecutor) Execute(rawQueryRepo RawQueryRepository, q *QueryResolvable, ctx context.Context, dependencies map[string]any) (*[]map[string]any, error) {
+	parametersResolved, err := resolveIfNested(q.PositionalParameters, ctx, dependencies)
 	if err != nil {
 		return nil, fmt.Errorf("could not resolve positional parameters: %s", err)
 	}
@@ -60,17 +60,17 @@ func (e *PositionalQueryExecutor) Execute(rawQueryRepo RawQueryRepository, q *Qu
 		return nil, fmt.Errorf("could not decode resolved positional parameters to []any: %s", err)
 	}
 
-	if q.Exec {
-		return nil, rawQueryRepo.RawExecPositional(q.QueryString, positionalParametersSlice)
+	if q.Return {
+		return rawQueryRepo.RawQueryPositional(q.QueryString, positionalParametersSlice)
 	}
-	return rawQueryRepo.RawQueryPositional(q.QueryString, positionalParametersSlice)
+	return nil, rawQueryRepo.RawExecPositional(q.QueryString, positionalParametersSlice)
 }
 
-func (q *QueryResolvable) Resolve(ctx context.Context, optional ...any) (any, error) {
+func (q *QueryResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	var queryResult request_data.QueryResult
 	queryResult.Start = time.Now()
 
-	rawQueryRepo, ok := optional[0].(RawQueryRepository)
+	rawQueryRepo, ok := dependencies[common.DependencyRawQueryRepo].(RawQueryRepository)
 	if !ok {
 		return nil, fmt.Errorf("method *QueryResolvable: could not cast raw query repo")
 	}
@@ -82,7 +82,7 @@ func (q *QueryResolvable) Resolve(ctx context.Context, optional ...any) (any, er
 		queryExecutor = &PositionalQueryExecutor{}
 	}
 
-	results, err := queryExecutor.Execute(rawQueryRepo, q, ctx, optional)
+	results, err := queryExecutor.Execute(rawQueryRepo, q, ctx, dependencies)
 	if err != nil {
 		return nil, fmt.Errorf("method resolveQuery: could not run query %s: %s", q.QueryHash, err.Error())
 	}

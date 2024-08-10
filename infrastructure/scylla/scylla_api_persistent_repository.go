@@ -15,14 +15,13 @@ type scyllaApi struct {
 	ApiDescription string   `cql:"api_description"`
 	ApiPath        string   `cql:"api_path"`
 	ApiRequest     string   `cql:"api_request"`
-	StartRules     []string `cql:"start_rules"`
 	Rules          string   `cql:"rules"`
-	Queries        string   `cql:"queries"`
+	StartRules     []string `cql:"start_rules"`
 }
 
 var scyllaApisMetadata = table.Metadata{
-	Name:    "Apis",
-	Columns: []string{"api_group", "api_name", "api_description", "api_path", "api_request", "start_rules", "rules", "queries"},
+	Name:    "apis",
+	Columns: []string{"api_group", "api_name", "api_description", "api_path", "api_request", "rules", "start_rules"},
 	PartKey: []string{"api_group"},
 	SortKey: []string{"api_name", "api_description"},
 }
@@ -45,16 +44,16 @@ func (s *ScyllaApiPersistentRepository) getTable() *table.Table {
 }
 
 func (s *ScyllaApiPersistentRepository) GetAllApis(ctx context.Context) (*[]api.Api, error) {
-	var scyllaApis *[]scyllaApi
-	var apis *[]api.Api
+	var scyllaApis []scyllaApi
+	apis := &([]api.Api{})
 
 	apisTable := s.getTable()
-	query := apisTable.SelectQuery(*s.session)
-	if err := query.SelectRelease(&scyllaApis); err != nil {
+	stmt, names := apisTable.SelectAll()
+	if err := s.session.Query(stmt, names).SelectRelease(&scyllaApis); err != nil {
 		return nil, fmt.Errorf("method *ScyllaApiPersistentRepository.GetAllApis: could not get apis: %s", err)
 	}
 
-	for _, v := range *scyllaApis {
+	for _, v := range scyllaApis {
 		deserializedApi, err := v.deserialize()
 		if err != nil {
 			return nil, fmt.Errorf("method *ScyllaApiPersistentRepository.GetAllApis: failed to deserialize apis: %s", err)

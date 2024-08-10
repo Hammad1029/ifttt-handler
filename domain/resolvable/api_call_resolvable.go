@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"handler/common"
 	"handler/domain/request_data"
 	"io"
 	"net/http"
@@ -16,23 +15,23 @@ import (
 )
 
 type ApiCallResolvable struct {
-	Method  string            `json:"method" mapstructure:"method"`
-	Url     string            `json:"url" mapstructure:"url"`
-	Headers common.JsonObject `json:"headers" mapstructure:"headers"`
-	Body    common.JsonObject `json:"body" mapstructure:"body"`
-	Start   time.Time         `json:"start" mapstructure:"start"`
+	Method  string         `json:"method" mapstructure:"method"`
+	Url     string         `json:"url" mapstructure:"url"`
+	Headers map[string]any `json:"headers" mapstructure:"headers"`
+	Body    map[string]any `json:"body" mapstructure:"body"`
+	Start   time.Time      `json:"start" mapstructure:"start"`
 }
 
 type apiCallResponse struct {
 	StatusCode int                 `json:"statusCode" mapstructure:"statusCode"`
 	Status     string              `json:"status" mapstructure:"status"`
 	Headers    map[string][]string `json:"headers" mapstructure:"headers"`
-	Body       common.JsonObject   `json:"body" mapstructure:"body"`
+	Body       map[string]any      `json:"body" mapstructure:"body"`
 	End        time.Time           `json:"end" mapstructure:"end"`
 	TimeTaken  int64               `json:"timeTaken" mapstructure:"timeTaken"`
 }
 
-func (a *ApiCallResolvable) Resolve(ctx context.Context, optional ...any) (any, error) {
+func (a *ApiCallResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	var response apiCallResponse
 	reqData := ctx.Value("request").(*request_data.RequestData)
 
@@ -47,7 +46,7 @@ func (a *ApiCallResolvable) Resolve(ctx context.Context, optional ...any) (any, 
 	}
 
 	var callBodyReader io.Reader
-	if callBodyResolved, err := resolveIfNested(callBody, ctx); err != nil {
+	if callBodyResolved, err := resolveIfNested(callBody, ctx, dependencies); err != nil {
 		return nil, fmt.Errorf("method resolveApi: could not resolve map: %s", err)
 	} else {
 		if err := mapstructure.Decode(callBodyResolved, &a.Body); err != nil {
@@ -84,7 +83,7 @@ func (a *ApiCallResolvable) Resolve(ctx context.Context, optional ...any) (any, 
 	defer resp.Body.Close()
 
 	respHeadersMap := make(map[string][]string)
-	respBodyMap := common.JsonObject{}
+	respBodyMap := map[string]any{}
 
 	for key, arr := range resp.Header {
 		respHeadersMap[key] = arr
@@ -99,7 +98,7 @@ func (a *ApiCallResolvable) Resolve(ctx context.Context, optional ...any) (any, 
 	response.Headers = respHeadersMap
 	response.Body = respBodyMap
 
-	apiResponseStructured := common.JsonObject{
+	apiResponseStructured := map[string]any{
 		"request":  a,
 		"response": response,
 	}
