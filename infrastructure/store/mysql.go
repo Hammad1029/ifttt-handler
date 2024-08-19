@@ -9,6 +9,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const mysqlDb = "mysql"
+
 type mysqlStore struct {
 	store  *gorm.DB
 	config mysqlConfig

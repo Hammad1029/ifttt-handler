@@ -2,7 +2,7 @@ package infrastructure
 
 import (
 	"fmt"
-	"handler/config"
+	"handler/application/config"
 	"handler/domain/api"
 	"handler/domain/audit_log"
 	"handler/domain/configuration"
@@ -90,7 +90,7 @@ func configStoreFactory(connectionSettings map[string]any) (*ConfigStore, error)
 	}
 
 	switch strings.ToLower(fmt.Sprint(dbName)) {
-	case "scylla":
+	case scyllaDb:
 		storer = &scyllaStore{}
 	default:
 		return nil, fmt.Errorf("method configStoreFactory: db not found %s", dbName)
@@ -111,11 +111,11 @@ func dataStoreFactory(connectionSettings map[string]any) (*DataStore, error) {
 	}
 
 	switch strings.ToLower(fmt.Sprint(dbName)) {
-	case "scylla":
+	case scyllaDb:
 		storer = &scyllaStore{}
-	case "postgres":
+	case postgresDb:
 		storer = &postgresStore{}
-	case "mysql":
+	case mysqlDb:
 		storer = &mysqlStore{}
 	default:
 		return nil, fmt.Errorf("method dataStoreFactory: db not found %s", dbName)
@@ -135,7 +135,7 @@ func cacheStoreFactory(connectionSettings map[string]any) (*CacheStore, error) {
 	}
 
 	switch strings.ToLower(fmt.Sprint(dbName)) {
-	case "redis":
+	case redisCache:
 		storer = &RedisStore{}
 	default:
 		return nil, fmt.Errorf("method cacheStoreFactory: db not found %s", dbName)

@@ -10,6 +10,8 @@ import (
 	"github.com/scylladb/gocqlx/v3"
 )
 
+const scyllaDb = "scylla"
+
 type scyllaStore struct {
 	session *gocqlx.Session
 	cluster *gocql.ClusterConfig

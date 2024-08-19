@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
-	"handler/app"
-	"handler/config"
+	"handler/application"
+	"handler/application/config"
 )
 
 func main() {
 	fmt.Println("Starting handler")
 	config.Init()
-	app.Init()
+	application.Init()
 }

@@ -2,8 +2,8 @@ package audit_log
 
 import (
 	"fmt"
+	"handler/application/config"
 	"handler/common"
-	"handler/config"
 	"handler/domain/request_data"
 	"strconv"
 	"time"

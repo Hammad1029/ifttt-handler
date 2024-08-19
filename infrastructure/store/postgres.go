@@ -9,6 +9,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const postgresDb = "postgres"
+
 type postgresStore struct {
 	store  *gorm.DB
 	config postgresConfig

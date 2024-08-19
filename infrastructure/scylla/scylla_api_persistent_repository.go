@@ -2,28 +2,31 @@ package infrastructure
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"handler/domain/api"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/scylladb/gocqlx/v3/table"
 )
 
-type scyllaApi struct {
-	ApiGroup       string   `cql:"api_group"`
-	ApiName        string   `cql:"api_name"`
-	ApiDescription string   `cql:"api_description"`
-	ApiPath        string   `cql:"api_path"`
-	ApiRequest     string   `cql:"api_request"`
-	Rules          string   `cql:"rules"`
-	StartRules     []string `cql:"start_rules"`
+type scyllaApiSerialized struct {
+	Group       string   `cql:"group" mapstructure:"group"`
+	Name        string   `cql:"name" mapstructure:"name"`
+	Method      string   `cql:"method" mapstructure:"method"`
+	Type        string   `cql:"type" mapstructure:"type"`
+	Path        string   `cql:"path" mapstructure:"path"`
+	Description string   `cql:"description" mapstructure:"description"`
+	Request     string   `cql:"request" mapstructure:"request"`
+	Dumping     string   `cql:"dumping" mapstructure:"dumping"`
+	StartRules  []string `cql:"start_rules" mapstructure:"rules"`
+	Rules       string   `cql:"rules" mapstructure:"startRules"`
 }
 
 var scyllaApisMetadata = table.Metadata{
 	Name:    "apis",
-	Columns: []string{"api_group", "api_name", "api_description", "api_path", "api_request", "rules", "start_rules"},
-	PartKey: []string{"api_group"},
-	SortKey: []string{"api_name", "api_description"},
+	Columns: []string{"group", "name", "method", "type", "path", "description", "request", "dumping", "start_rules", "rules"},
+	PartKey: []string{"group"},
+	SortKey: []string{"name"},
 }
 
 var scyllaApisTable *table.Table
@@ -43,9 +46,9 @@ func (s *ScyllaApiPersistentRepository) getTable() *table.Table {
 	return scyllaApisTable
 }
 
-func (s *ScyllaApiPersistentRepository) GetAllApis(ctx context.Context) (*[]api.Api, error) {
-	var scyllaApis []scyllaApi
-	apis := &([]api.Api{})
+func (s *ScyllaApiPersistentRepository) GetAllApis(ctx context.Context) (*[]api.ApiSerialized, error) {
+	var scyllaApis []scyllaApiSerialized
+	serializedApis := &([]api.ApiSerialized{})
 
 	apisTable := s.getTable()
 	stmt, names := apisTable.SelectAll()
@@ -53,32 +56,9 @@ func (s *ScyllaApiPersistentRepository) GetAllApis(ctx context.Context) (*[]api.
 		return nil, fmt.Errorf("method *ScyllaApiPersistentRepository.GetAllApis: could not get apis: %s", err)
 	}
 
-	for _, v := range scyllaApis {
-		deserializedApi, err := v.deserialize()
-		if err != nil {
-			return nil, fmt.Errorf("method *ScyllaApiPersistentRepository.GetAllApis: failed to deserialize apis: %s", err)
-		}
-		*apis = append(*apis, *deserializedApi)
+	if err := mapstructure.Decode(scyllaApis, &serializedApis); err != nil {
+		return nil, fmt.Errorf("method *ScyllaApiPersistentRepository.GetAllApis: failed to decode apis: %s", err)
 	}
 
-	return apis, nil
-}
-
-func (a *scyllaApi) deserialize() (*api.Api, error) {
-	deserializedApi := api.Api{}
-	deserializedApi.ApiDescription = a.ApiDescription
-	deserializedApi.ApiGroup = a.ApiGroup
-	deserializedApi.ApiName = a.ApiName
-	deserializedApi.ApiPath = a.ApiPath
-	deserializedApi.StartRules = a.StartRules
-
-	err := json.Unmarshal([]byte(a.ApiRequest), &deserializedApi.ApiRequest)
-	if err != nil {
-		return nil, fmt.Errorf("method ScyllaApi.deserialize: could not deserialize api request: %s", err)
-	}
-	err = json.Unmarshal([]byte(a.Rules), &deserializedApi.Rules)
-	if err != nil {
-		return nil, fmt.Errorf("method ScyllaApi.deserialize: could not deserialize rules: %s", err)
-	}
-	return &deserializedApi, nil
+	return serializedApis, nil
 }

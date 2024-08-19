@@ -9,6 +9,8 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+const redisCache = "redis"
+
 type RedisStore struct {
 	client *redis.Client
 	config redisConfig

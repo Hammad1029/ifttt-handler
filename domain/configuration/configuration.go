@@ -2,7 +2,7 @@ package configuration
 
 import (
 	"context"
-	"handler/config"
+	"handler/application/config"
 	"time"
 )
 

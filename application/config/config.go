@@ -2,7 +2,7 @@ package config
 
 import (
 	"bytes"
-	"log"
+	"fmt"
 
 	"github.com/spf13/viper"
 )
@@ -17,7 +17,7 @@ var userConfig *viper.Viper
 func viperInit() {
 	config = viper.New()
 	userConfig = viper.New()
-	readEnv(config, "env", "json", "./config")
+	readEnv(config, "env", "json", "./application/config")
 }
 
 func readEnv(config *viper.Viper, fileName string, fileType string, location string) {
@@ -27,8 +27,7 @@ func readEnv(config *viper.Viper, fileName string, fileType string, location str
 	(*config).AddConfigPath(location)
 
 	if err := (*config).ReadInConfig(); err != nil {
-		log.Fatal("fatal error config file")
-		panic(err)
+		panic(fmt.Errorf("could not read config: %s", err))
 	}
 }
 
