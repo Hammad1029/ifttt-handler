@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -79,4 +80,15 @@ func ArrayIncludes(a, b any) bool {
 	return lo.ContainsBy(arr, func(x any) bool {
 		return EqualityCheck(x, b)
 	})
+}
+
+func RegexpArrayMatch(patterns []string, input string) (bool, error) {
+	for _, p := range patterns {
+		if matched, err := regexp.MatchString(p, input); err != nil {
+			return false, fmt.Errorf("method RegexpArrayMatch: error in checking regexp match: %s", err)
+		} else if matched {
+			return true, nil
+		}
+	}
+	return false, nil
 }

@@ -6,6 +6,7 @@ import (
 	"handler/application/config"
 	"handler/application/controllers"
 	"handler/application/core"
+	"handler/common"
 	"handler/domain/api"
 	"strings"
 
@@ -41,9 +42,11 @@ func Init() {
 	controllers.NewTestDumpingController(app, currCore)
 	if unserializedApis != nil {
 		for _, currApi := range *unserializedApis {
-			if currApi.Path == controllers.TestDumpingRoute || currApi.Path == controllers.TestRulesRoute {
-				fmt.Printf("ServerInit: skipping api name: %s group %s due to unusable path %s",
-					currApi.Name, currApi.Group, currApi.Path)
+			if matched, err := common.RegexpArrayMatch(common.ReservedPaths, currApi.Path); err != nil {
+				panic(err)
+			} else if matched {
+				fmt.Printf("ServerInit: skipping api name: %s group %s due to unusable path %s | paths not allowed: %s",
+					currApi.Name, currApi.Group, currApi.Path, strings.Join(common.ReservedPaths, ", "))
 				continue
 			}
 			fmt.Printf("attempting to attach %s api %s to routes\n", currApi.Type, currApi.Path)

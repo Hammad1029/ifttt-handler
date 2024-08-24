@@ -8,8 +8,8 @@ import (
 )
 
 type Dumping struct {
-	Table    string            `json:"table" mapstructure:"table"`
-	Mappings map[string]string `json:"mappings" mapstructure:"mappings"`
+	Table    string                           `json:"table" mapstructure:"table"`
+	Mappings map[string]resolvable.Resolvable `json:"mappings" mapstructure:"mappings"`
 }
 
 func (d *Dumping) CreateInsertQuery(ctx context.Context, dependencies map[string]any) (string, []any, error) {
@@ -18,17 +18,8 @@ func (d *Dumping) CreateInsertQuery(ctx context.Context, dependencies map[string
 	var positional []string
 	queryString := fmt.Sprintf("INSERT INTO %s", d.Table)
 
-	jqResolvable := &resolvable.Resolvable{
-		ResolveType: "jq",
-		ResolveData: map[string]any{
-			"input": resolvable.Resolvable{
-				ResolveType: resolvable.AccessorGetRequestResolvable,
-				ResolveData: map[string]any{},
-			},
-		}}
-	for accessor, tableCol := range d.Mappings {
-		jqResolvable.ResolveData["query"] = accessor
-		resolved, err := jqResolvable.Resolve(ctx, dependencies)
+	for tableCol, accessor := range d.Mappings {
+		resolved, err := accessor.Resolve(ctx, dependencies)
 		if err != nil {
 			return queryString, nil, fmt.Errorf("method *Dumping.CreateInsertQuery: error in resolving: %s", err)
 		}

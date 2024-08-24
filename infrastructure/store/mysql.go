@@ -2,7 +2,8 @@ package infrastructure
 
 import (
 	"fmt"
-	postgresInfra "handler/infrastructure/postgres"
+
+	mysqlInfra "handler/infrastructure/mysql"
 
 	"github.com/mitchellh/mapstructure"
 	"gorm.io/driver/mysql"
@@ -41,9 +42,9 @@ func (m *mysqlStore) init(config map[string]any) error {
 }
 
 func (m *mysqlStore) createDataStore() *DataStore {
-	postgresBase := postgresInfra.NewPostgresBaseRepository(m.store)
+	postgresBase := mysqlInfra.NewMySqlBaseRepository(m.store)
 	return &DataStore{
 		Store:        m,
-		RawQueryRepo: postgresInfra.NewPostgresRawQueryRepository(*postgresBase),
+		RawQueryRepo: mysqlInfra.NewMySqlRawQueryRepository(*postgresBase),
 	}
 }

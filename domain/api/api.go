@@ -69,5 +69,9 @@ func (a *ApiSerialized) Unserialize() (*Api, error) {
 	if err != nil {
 		return nil, fmt.Errorf("method ScyllaApi.unserialize: could not unserialize rules: %s", err)
 	}
+	err = json.Unmarshal([]byte(a.Dumping), &unserializedApi.Dumping)
+	if err != nil {
+		return nil, fmt.Errorf("method ScyllaApi.unserialize: could not unserialize dumping: %s", err)
+	}
 	return &unserializedApi, nil
 }

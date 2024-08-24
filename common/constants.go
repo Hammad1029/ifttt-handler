@@ -14,3 +14,5 @@ const (
 	RestMethodPut    = "PUT"
 	RestMethodDelete = "DELETE"
 )
+
+var ReservedPaths = []string{"^/test/.*", "^/auth/.*"}

@@ -48,13 +48,6 @@ type CacheStore struct {
 	APICacheRepo api.CacheRepository
 }
 
-type MainStore struct {
-	ConfigStore   ConfigStore
-	DataStore     DataStore
-	CacheStore    CacheStore
-	Configuration configuration.Configuration
-}
-
 func NewConfigStore() (*ConfigStore, error) {
 	connectionSettings := config.GetConfig().GetStringMap("configStore")
 	if store, err := configStoreFactory(connectionSettings); err != nil {
