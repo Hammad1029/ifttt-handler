@@ -2,7 +2,7 @@ package infrastructure
 
 import (
 	"fmt"
-	redisInfra "handler/infrastructure/redis"
+	redisInfra "ifttt/handler/infrastructure/redis"
 	"strconv"
 
 	"github.com/mitchellh/mapstructure"

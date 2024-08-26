@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"handler/domain/api"
+	"ifttt/handler/domain/api"
 
 	"github.com/redis/go-redis/v9"
 )

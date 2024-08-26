@@ -2,7 +2,7 @@ package infrastructure
 
 import (
 	"fmt"
-	postgresInfra "handler/infrastructure/postgres"
+	postgresInfra "ifttt/handler/infrastructure/postgres"
 
 	"github.com/mitchellh/mapstructure"
 	"gorm.io/driver/postgres"

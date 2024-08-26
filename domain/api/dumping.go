@@ -3,7 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
-	"handler/domain/resolvable"
+	"ifttt/handler/domain/resolvable"
 	"strings"
 )
 

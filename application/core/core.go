@@ -3,12 +3,12 @@ package core
 import (
 	"context"
 	"fmt"
-	"handler/common"
-	"handler/domain/api"
-	"handler/domain/audit_log"
-	"handler/domain/configuration"
-	"handler/domain/resolvable"
-	infraStore "handler/infrastructure/store"
+	"ifttt/handler/common"
+	"ifttt/handler/domain/api"
+	"ifttt/handler/domain/audit_log"
+	"ifttt/handler/domain/configuration"
+	"ifttt/handler/domain/resolvable"
+	infraStore "ifttt/handler/infrastructure/store"
 	"sync"
 
 	"github.com/mitchellh/mapstructure"

@@ -3,7 +3,7 @@ package infrastructure
 import (
 	"fmt"
 
-	mysqlInfra "handler/infrastructure/mysql"
+	mysqlInfra "ifttt/handler/infrastructure/mysql"
 
 	"github.com/mitchellh/mapstructure"
 	"gorm.io/driver/mysql"

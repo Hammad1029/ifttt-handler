@@ -2,12 +2,12 @@ package controllers
 
 import (
 	"fmt"
-	"handler/application/core"
-	"handler/common"
-	"handler/domain/api"
-	"handler/domain/audit_log"
-	"handler/domain/request_data"
-	"handler/domain/resolvable"
+	"ifttt/handler/application/core"
+	"ifttt/handler/common"
+	"ifttt/handler/domain/api"
+	"ifttt/handler/domain/audit_log"
+	"ifttt/handler/domain/request_data"
+	"ifttt/handler/domain/resolvable"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"

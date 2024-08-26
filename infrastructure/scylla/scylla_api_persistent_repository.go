@@ -3,7 +3,7 @@ package infrastructure
 import (
 	"context"
 	"fmt"
-	"handler/domain/api"
+	"ifttt/handler/domain/api"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/scylladb/gocqlx/v3/table"

@@ -2,12 +2,12 @@ package infrastructure
 
 import (
 	"fmt"
-	"handler/application/config"
-	"handler/domain/api"
-	"handler/domain/audit_log"
-	"handler/domain/configuration"
-	"handler/domain/resolvable"
-	"handler/domain/tables"
+	"ifttt/handler/application/config"
+	"ifttt/handler/domain/api"
+	"ifttt/handler/domain/audit_log"
+	"ifttt/handler/domain/configuration"
+	"ifttt/handler/domain/resolvable"
+	"ifttt/handler/domain/tables"
 	"strings"
 )
 

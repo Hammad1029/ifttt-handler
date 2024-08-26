@@ -3,7 +3,7 @@ package infrastructure
 import (
 	"context"
 	"fmt"
-	"handler/domain/audit_log"
+	"ifttt/handler/domain/audit_log"
 	"time"
 
 	"github.com/scylladb/gocqlx/v3/table"

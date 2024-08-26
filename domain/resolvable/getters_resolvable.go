@@ -2,7 +2,7 @@ package resolvable
 
 import (
 	"context"
-	"handler/domain/request_data"
+	"ifttt/handler/domain/request_data"
 	"maps"
 )
 

@@ -3,7 +3,7 @@ package resolvable
 import (
 	"context"
 	"fmt"
-	"handler/common"
+	"ifttt/handler/common"
 )
 
 type Arithmetic struct {

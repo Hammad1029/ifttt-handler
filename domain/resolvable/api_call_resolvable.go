@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"handler/domain/request_data"
+	"ifttt/handler/domain/request_data"
 	"io"
 	"net/http"
 	"strings"

@@ -2,7 +2,7 @@ package configuration
 
 import (
 	"context"
-	"handler/application/config"
+	"ifttt/handler/application/config"
 	"time"
 )
 

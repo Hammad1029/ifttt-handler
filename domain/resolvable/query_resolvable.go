@@ -3,8 +3,8 @@ package resolvable
 import (
 	"context"
 	"fmt"
-	"handler/common"
-	"handler/domain/request_data"
+	"ifttt/handler/common"
+	"ifttt/handler/domain/request_data"
 	"time"
 
 	"github.com/mitchellh/mapstructure"

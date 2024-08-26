@@ -3,8 +3,8 @@ package resolvable
 import (
 	"context"
 	"fmt"
-	"handler/domain/audit_log"
-	"handler/domain/request_data"
+	"ifttt/handler/domain/audit_log"
+	"ifttt/handler/domain/request_data"
 )
 
 type SetResResolvable map[string]any

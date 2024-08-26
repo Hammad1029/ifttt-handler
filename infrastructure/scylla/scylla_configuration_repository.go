@@ -2,7 +2,7 @@ package infrastructure
 
 import (
 	"fmt"
-	"handler/domain/configuration"
+	"ifttt/handler/domain/configuration"
 	"time"
 
 	"github.com/scylladb/gocqlx/v3/table"

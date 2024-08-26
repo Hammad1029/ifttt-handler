@@ -3,7 +3,7 @@ package resolvable
 import (
 	"context"
 	"fmt"
-	"handler/domain/audit_log"
+	"ifttt/handler/domain/audit_log"
 )
 
 type ResponseResolvable struct {

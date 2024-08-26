@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"handler/application"
-	"handler/application/config"
+	"ifttt/handler/application"
+	"ifttt/handler/application/config"
 )
 
 func main() {

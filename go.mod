@@ -1,4 +1,4 @@
-module handler
+module ifttt/handler
 
 go 1.21.5
 

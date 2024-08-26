@@ -3,11 +3,11 @@ package application
 import (
 	"context"
 	"fmt"
-	"handler/application/config"
-	"handler/application/controllers"
-	"handler/application/core"
-	"handler/common"
-	"handler/domain/api"
+	"ifttt/handler/application/config"
+	"ifttt/handler/application/controllers"
+	"ifttt/handler/application/core"
+	"ifttt/handler/common"
+	"ifttt/handler/domain/api"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
