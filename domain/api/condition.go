@@ -8,14 +8,6 @@ import (
 	"strings"
 )
 
-type Rule struct {
-	Id          string                  `json:"id" mapstructure:"id"`
-	Description string                  `json:"description" mapstructure:"description"`
-	Conditions  Condition               `json:"conditions" mapstructure:"conditions"`
-	Then        []resolvable.Resolvable `json:"then" mapstructure:"then"`
-	Else        []resolvable.Resolvable `json:"else" mapstructure:"else"`
-}
-
 type Condition struct {
 	ConditionType string                `json:"conditionType" mapstructure:"conditionType"`
 	Conditions    []Condition           `json:"conditions" mapstructure:"conditions"`
@@ -29,22 +21,21 @@ func (c *Condition) EvaluateCondition(ctx context.Context, resolvableDependencie
 	if c.Group {
 		return false, fmt.Errorf("method EvaluateCondition: object is a set")
 	}
-	evaluators := common.GetEvaluators()
-
-	if evalFunc, ok := evaluators[c.Operand]; ok {
-		op1Res, err := c.Operator1.Resolve(ctx, resolvableDependencies)
-		if err != nil {
-			return false, fmt.Errorf("method EvaluateCondition: %s", err)
-		}
-		op2Res, err := c.Operator2.Resolve(ctx, resolvableDependencies)
-		if err != nil {
-			return false, fmt.Errorf("method EvaluateCondition: %s", err)
-		}
-		ev := evalFunc(op1Res, op2Res)
-		return ev, nil
-	} else {
+	evaluator := common.GetEvaluator(c.Operand)
+	if evaluator == nil {
 		return false, fmt.Errorf("method EvaluateCondition: operand not found")
 	}
+
+	op1Res, err := c.Operator1.Resolve(ctx, resolvableDependencies)
+	if err != nil {
+		return false, fmt.Errorf("method EvaluateCondition: %s", err)
+	}
+	op2Res, err := c.Operator2.Resolve(ctx, resolvableDependencies)
+	if err != nil {
+		return false, fmt.Errorf("method EvaluateCondition: %s", err)
+	}
+	ev := (*evaluator)(op1Res, op2Res)
+	return ev, nil
 }
 
 func (group *Condition) EvaluateGroup(ctx context.Context, resolvableDependencies map[string]any) (bool, error) {

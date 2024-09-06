@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"ifttt/handler/domain/request_data"
 	"io"
 	"net/http"
 	"strings"
@@ -33,7 +32,7 @@ type apiCallResponse struct {
 
 func (a *ApiCallResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	var response apiCallResponse
-	reqData := ctx.Value("request").(*request_data.RequestData)
+	reqData := getRequestData(ctx)
 
 	callMethod := strings.ToUpper(a.Method)
 	callURL := a.Url

@@ -14,10 +14,8 @@ type Arithmetic struct {
 }
 
 func (a *Arithmetic) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
-	opFuncs := common.GetArithmeticOperators()
-	currFunc, ok := opFuncs[a.Operation]
-
-	if !ok {
+	opFunc := common.GetArithmeticOperator(a.Operation)
+	if opFunc == nil {
 		return nil, fmt.Errorf("method Arithmetic: operation %s not found", a.Operation)
 	}
 
@@ -28,7 +26,7 @@ func (a *Arithmetic) Resolve(ctx context.Context, dependencies map[string]any) (
 		var val any
 		var e error
 		if op.Group {
-			val, e = a.Resolve(ctx, dependencies)
+			val, e = op.Resolve(ctx, dependencies)
 		} else {
 			val, e = op.Value.Resolve(ctx, dependencies)
 		}
@@ -39,7 +37,7 @@ func (a *Arithmetic) Resolve(ctx context.Context, dependencies map[string]any) (
 		if result == nil {
 			result = val
 		} else {
-			result = currFunc(result, val)
+			result = (*opFunc)(result, val)
 		}
 	}
 

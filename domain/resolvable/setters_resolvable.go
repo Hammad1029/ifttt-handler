@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"ifttt/handler/domain/audit_log"
-	"ifttt/handler/domain/request_data"
 )
 
 type SetResResolvable map[string]any
@@ -17,33 +16,28 @@ type SetLogResolvable struct {
 }
 
 func (s *SetResResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
-	if reqData, ok := ctx.Value("request").(*request_data.RequestData); ok {
-		responseData := reqData.Response
-		for key, value := range *s {
-			resVal, err := resolveIfNested(value, ctx, dependencies)
-			if err != nil {
-				return nil, err
-			}
-			responseData[key] = resVal
+	responseData := getRequestData(ctx).Response
+	for key, value := range *s {
+		resVal, err := resolveIfNested(value, ctx, dependencies)
+		if err != nil {
+			return nil, err
 		}
-		return nil, nil
+		responseData[key] = resVal
 	}
+	return nil, nil
 	return nil, fmt.Errorf("method setRes: setRes resolveType assertion failed")
 }
 
 func (s *SetStoreResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
-	if reqData, ok := ctx.Value("request").(*request_data.RequestData); ok {
-		store := reqData.Store
-		for key, value := range *s {
-			resVal, err := resolveIfNested(value, ctx, dependencies)
-			if err != nil {
-				return nil, err
-			}
-			store[key] = resVal
+	store := getRequestData(ctx).Store
+	for key, value := range *s {
+		resVal, err := resolveIfNested(value, ctx, dependencies)
+		if err != nil {
+			return nil, err
 		}
-		return nil, nil
+		store[key] = resVal
 	}
-	return nil, fmt.Errorf("method store: setRes resolveType assertion failed")
+	return nil, nil
 }
 
 func (s *SetLogResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {

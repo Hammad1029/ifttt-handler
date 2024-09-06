@@ -30,6 +30,12 @@ func (s *ResponseResolvable) Resolve(ctx context.Context, dependencies map[strin
 		s.Response.Errors.User = log.GetUserErrorLogs()
 	}
 
+	if s.ResponseCode == "" {
+		s.ResponseCode = "00"
+	}
+	if s.ResponseDescription == "" {
+		s.ResponseDescription = "SUCCESS"
+	}
 	s.Response.Data = getRequestData(ctx).Response
 
 	if responseChannel, ok := ctx.Value("resChan").(chan ResponseResolvable); ok {

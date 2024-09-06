@@ -104,8 +104,8 @@ func dataStoreFactory(connectionSettings map[string]any) (*DataStore, error) {
 	}
 
 	switch strings.ToLower(fmt.Sprint(dbName)) {
-	case scyllaDb:
-		storer = &scyllaStore{}
+	// case scyllaDb:
+	// 	storer = &scyllaStore{}
 	case postgresDb:
 		storer = &postgresStore{}
 	case mysqlDb:

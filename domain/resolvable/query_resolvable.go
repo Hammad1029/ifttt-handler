@@ -90,7 +90,7 @@ func (q *QueryResolvable) Resolve(ctx context.Context, dependencies map[string]a
 	queryResult.End = time.Now()
 	queryResult.TimeTaken = queryResult.End.Sub(queryResult.Start).Milliseconds()
 
-	queryRes := ctx.Value("request").(*request_data.RequestData).QueryRes
+	queryRes := getRequestData(ctx).QueryRes
 	queryRes[q.QueryHash] = append(queryRes[q.QueryHash], queryResult)
 	return results, nil
 }

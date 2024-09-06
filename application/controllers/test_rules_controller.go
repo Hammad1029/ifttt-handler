@@ -15,7 +15,7 @@ import (
 const TestRulesRoute = "/test/rules"
 
 func NewTestRulesController(router fiber.Router, core *core.ServerCore) {
-	controller := testDumpingController(core)
+	controller := testRulesController(core)
 	router.Post(TestRulesRoute, controller)
 }
 

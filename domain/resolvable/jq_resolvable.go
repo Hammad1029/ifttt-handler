@@ -3,6 +3,7 @@ package resolvable
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"github.com/itchyny/gojq"
 )
@@ -26,7 +27,7 @@ func (j *JqResolvable) Resolve(ctx context.Context, dependencies map[string]any)
 }
 
 func runJQQuery(queryString string, input any) (any, error) {
-	input = convertToGoJQCompatible(input)
+	jqInput := convertToGoJQCompatible(input)
 
 	query, err := gojq.Parse(queryString)
 	if err != nil {
@@ -34,7 +35,7 @@ func runJQQuery(queryString string, input any) (any, error) {
 	}
 
 	var resultVals []any
-	resultIter := query.Run(input)
+	resultIter := query.Run(jqInput)
 
 	for {
 		v, ok := resultIter.Next()
@@ -46,6 +47,7 @@ func runJQQuery(queryString string, input any) (any, error) {
 				break
 			}
 			return nil, fmt.Errorf("method runJQQuery: error in running gojq iter: %s", err)
+
 		}
 		resultVals = append(resultVals, v)
 	}
@@ -61,27 +63,33 @@ func runJQQuery(queryString string, input any) (any, error) {
 }
 
 func convertToGoJQCompatible(input any) any {
-	switch v := input.(type) {
-	case map[string]any:
+	v := reflect.Indirect(reflect.ValueOf(input))
+
+	switch v.Kind() {
+	case reflect.Map:
 		return convertMapToGoJQCompatible(v)
-	case []any:
+	case reflect.Slice:
 		return convertSliceToGoJQCompatible(v)
 	default:
 		return input
 	}
 }
 
-func convertMapToGoJQCompatible(m map[string]any) map[string]any {
+func convertMapToGoJQCompatible(v reflect.Value) map[string]any {
 	compatibleMap := make(map[string]any)
-	for key, value := range m {
-		compatibleMap[key] = convertToGoJQCompatible(value)
+	for _, key := range v.MapKeys() {
+		value := v.MapIndex(key).Interface()
+		if keyStr, ok := key.Interface().(string); ok {
+			compatibleMap[keyStr] = convertToGoJQCompatible(value)
+		}
 	}
 	return compatibleMap
 }
 
-func convertSliceToGoJQCompatible(slice []any) []any {
-	compatibleSlice := make([]any, len(slice))
-	for i, value := range slice {
+func convertSliceToGoJQCompatible(v reflect.Value) []any {
+	compatibleSlice := make([]any, v.Len())
+	for i := 0; i < v.Len(); i++ {
+		value := v.Index(i).Interface()
 		compatibleSlice[i] = convertToGoJQCompatible(value)
 	}
 	return compatibleSlice
