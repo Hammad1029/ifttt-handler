@@ -2,17 +2,14 @@ package audit_log
 
 import (
 	"fmt"
-	"ifttt/handler/application/config"
-	"ifttt/handler/common"
 	"ifttt/handler/domain/request_data"
-	"strconv"
 	"time"
 )
 
 type AuditLog struct {
 	ApiGroup       string                    `json:"apiGroup" mapstructure:"apiGroup"`
 	ApiName        string                    `json:"apiName" mapstructure:"apiName"`
-	ExecutionOrder []string                  `json:"executionOrder" mapstructure:"executionOrder"`
+	ExecutionOrder []uint                    `json:"executionOrder" mapstructure:"executionOrder"`
 	ExecutionLogs  []ExecLog                 `json:"executionLogs" mapstructure:"executionLogs"`
 	RequestData    *request_data.RequestData `json:"requestData" mapstructure:"requestData"`
 	Start          time.Time                 `json:"start" mapstructure:"start"`
@@ -46,45 +43,46 @@ func (l *AuditLog) StartLog() {
 }
 
 func (l *AuditLog) Initialize(r *request_data.RequestData, apiGroup string, apiName string) {
-	l.ApiGroup = apiGroup
-	l.ApiName = apiName
-	l.ExecutionOrder = []string{}
-	l.RequestData = r
+	// l.ApiGroup = apiGroup
+	// l.ApiName = apiName
+	// l.ExecutionOrder = []string{}
+	// l.RequestData = r
 
-	timeSlot, err := strconv.Atoi(config.GetConfigProp("app.logPartitionSeconds"))
-	if err != nil {
-		l.AddExecLog("system", "error", err.Error())
-	}
-	l.StartPartition = common.GetTimeSlot(l.Start, timeSlot)
+	// timeSlot, err := strconv.Atoi(config.GetConfigProp("app.logPartitionSeconds"))
+	// if err != nil {
+	// 	l.AddExecLog("system", "error", err.Error())
+	// }
+	// l.StartPartition = common.GetTimeSlot(l.Start, timeSlot)
 }
 
-func (l *AuditLog) Post() (PostableAuditLog, error) {
-	postableLog := PostableAuditLog{
-		ApiGroup:       l.ApiGroup,
-		ApiName:        l.ApiName,
-		ExecutionOrder: l.ExecutionOrder,
-		ExecutionLogs:  l.ExecutionLogs,
-		Start:          l.Start,
-		StartPartition: l.StartPartition,
-	}
+func (l *AuditLog) Post() (*PostableAuditLog, error) {
+	return nil, nil
+	// postableLog := PostableAuditLog{
+	// 	ApiGroup:       l.ApiGroup,
+	// 	ApiName:        l.ApiName,
+	// 	ExecutionOrder: l.ExecutionOrder,
+	// 	ExecutionLogs:  l.ExecutionLogs,
+	// 	Start:          l.Start,
+	// 	StartPartition: l.StartPartition,
+	// }
 
-	if serializedRequestData, err := l.RequestData.Serialize(); err == nil {
-		postableLog.RequestData = request_data.SerializedRequestData{
-			ReqBody:  serializedRequestData.ReqBody,
-			Store:    serializedRequestData.Store,
-			Response: serializedRequestData.Response,
-			QueryRes: serializedRequestData.QueryRes,
-			ApiRes:   serializedRequestData.ApiRes,
-		}
-	} else {
-		return postableLog, fmt.Errorf("method ScyllaAuditLogRepository.InsertLog: error in serializing request data, %s", err)
-	}
+	// if serializedRequestData, err := l.RequestData.Serialize(); err == nil {
+	// 	postableLog.RequestData = request_data.SerializedRequestData{
+	// 		ReqBody:  serializedRequestData.ReqBody,
+	// 		Store:    serializedRequestData.Store,
+	// 		Response: serializedRequestData.Response,
+	// 		QueryRes: serializedRequestData.QueryRes,
+	// 		ApiRes:   serializedRequestData.ApiRes,
+	// 	}
+	// } else {
+	// 	return postableLog, fmt.Errorf("method ScyllaAuditLogRepository.InsertLog: error in serializing request data, %s", err)
+	// }
 
-	postableLog.End = time.Now()
-	timeSubtracted := postableLog.End.Sub(l.Start)
-	postableLog.TimeTaken = int(timeSubtracted.Microseconds())
+	// postableLog.End = time.Now()
+	// timeSubtracted := postableLog.End.Sub(l.Start)
+	// postableLog.TimeTaken = int(timeSubtracted.Microseconds())
 
-	return postableLog, nil
+	// return postableLog, nil
 }
 
 func (l *AuditLog) AddExecLog(logUser string, logType string, AuditLog string) {

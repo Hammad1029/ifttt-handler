@@ -8,11 +8,4 @@ const (
 	DependencyRawQueryRepo = "rawQueryRepo"
 )
 
-const (
-	RestMethodGet    = "GET"
-	RestMethodPost   = "POST"
-	RestMethodPut    = "PUT"
-	RestMethodDelete = "DELETE"
-)
-
 var ReservedPaths = []string{"^/test/.*", "^/auth/.*"}

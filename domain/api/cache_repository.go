@@ -3,7 +3,7 @@ package api
 import "context"
 
 type CacheRepository interface {
-	StoreApis(apis *[]ApiSerialized, ctx context.Context) error
-	GetAllApis(ctx context.Context) (*[]ApiSerialized, error)
-	GetApiByPath(path string, ctx context.Context) (*ApiSerialized, error)
+	StoreApis(apis *[]Api, ctx context.Context) error
+	GetAllApis(ctx context.Context) (*[]Api, error)
+	GetApiByPath(path string, ctx context.Context) (*Api, error)
 }

@@ -4,10 +4,7 @@ import (
 	"fmt"
 	"ifttt/handler/application/config"
 	"ifttt/handler/domain/api"
-	"ifttt/handler/domain/audit_log"
-	"ifttt/handler/domain/configuration"
 	"ifttt/handler/domain/resolvable"
-	"ifttt/handler/domain/tables"
 	"strings"
 )
 
@@ -33,9 +30,9 @@ type cacheStorer interface {
 type ConfigStore struct {
 	Store             configStorer
 	APIPersistentRepo api.PersistentRepository
-	AuditLogRepo      audit_log.Repository
-	TablesRepo        tables.Repository
-	ConfigRepo        configuration.Repository
+	// AuditLogRepo      audit_log.Repository
+	// TablesRepo        tables.Repository
+	// ConfigRepo        configuration.Repository
 }
 
 type DataStore struct {
@@ -83,8 +80,10 @@ func configStoreFactory(connectionSettings map[string]any) (*ConfigStore, error)
 	}
 
 	switch strings.ToLower(fmt.Sprint(dbName)) {
-	case scyllaDb:
-		storer = &scyllaStore{}
+	case postgresDb:
+		storer = &postgresStore{}
+	// case scyllaDb:
+	// 	storer = &scyllaStore{}
 	default:
 		return nil, fmt.Errorf("method configStoreFactory: db not found %s", dbName)
 	}

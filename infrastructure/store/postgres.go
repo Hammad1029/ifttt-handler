@@ -41,9 +41,17 @@ func (p *postgresStore) init(config map[string]any) error {
 }
 
 func (p *postgresStore) createDataStore() *DataStore {
-	postgresBase := postgresInfra.NewPostgresBaseRepository(p.store)
+	postgresBase := postgresInfra.NewPostgresBaseRepository(p.store, false)
 	return &DataStore{
 		Store:        p,
-		RawQueryRepo: postgresInfra.NewPostgresRawQueryRepository(*postgresBase),
+		RawQueryRepo: postgresInfra.NewPostgresRawQueryRepository(postgresBase),
+	}
+}
+
+func (p *postgresStore) createConfigStore() *ConfigStore {
+	postgresBase := postgresInfra.NewPostgresBaseRepository(p.store, true)
+	return &ConfigStore{
+		Store:             p,
+		APIPersistentRepo: postgresInfra.NewPostgresApiRepository(postgresBase),
 	}
 }

@@ -32,7 +32,7 @@ type apiCallResponse struct {
 
 func (a *ApiCallResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	var response apiCallResponse
-	reqData := getRequestData(ctx)
+	reqData := GetRequestData(ctx)
 
 	callMethod := strings.ToUpper(a.Method)
 	callURL := a.Url

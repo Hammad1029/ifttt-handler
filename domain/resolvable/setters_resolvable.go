@@ -16,7 +16,7 @@ type SetLogResolvable struct {
 }
 
 func (s *SetResResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
-	responseData := getRequestData(ctx).Response
+	responseData := GetRequestData(ctx).Response
 	for key, value := range *s {
 		resVal, err := resolveIfNested(value, ctx, dependencies)
 		if err != nil {
@@ -25,11 +25,10 @@ func (s *SetResResolvable) Resolve(ctx context.Context, dependencies map[string]
 		responseData[key] = resVal
 	}
 	return nil, nil
-	return nil, fmt.Errorf("method setRes: setRes resolveType assertion failed")
 }
 
 func (s *SetStoreResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
-	store := getRequestData(ctx).Store
+	store := GetRequestData(ctx).Store
 	for key, value := range *s {
 		resVal, err := resolveIfNested(value, ctx, dependencies)
 		if err != nil {

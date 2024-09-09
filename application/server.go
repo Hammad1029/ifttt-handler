@@ -7,7 +7,6 @@ import (
 	"ifttt/handler/application/controllers"
 	"ifttt/handler/application/core"
 	"ifttt/handler/common"
-	"ifttt/handler/domain/api"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -26,38 +25,28 @@ func Init() {
 	app := fiber.New()
 	ctx := context.Background()
 
-	serializedApis, err := currCore.ConfigStore.APIPersistentRepo.GetAllApis(ctx)
+	apis, err := currCore.ConfigStore.APIPersistentRepo.GetAllApis(ctx)
 	if err != nil {
 		panic(fmt.Errorf("could not get apis from persistent config store: %s", err))
 	}
 
-	currCore.CacheStore.APICacheRepo.StoreApis(serializedApis, ctx)
-
-	unserializedApis, err := api.UnserializeApis(serializedApis)
-	if err != nil {
-		panic(fmt.Errorf("could not get unserialize apis: %s", err))
+	if err := currCore.CacheStore.APICacheRepo.StoreApis(apis, ctx); err != nil {
+		panic(fmt.Errorf("could not store apis in cache storage"))
 	}
 
-	controllers.NewTestRulesController(app, currCore)
-	controllers.NewTestDumpingController(app, currCore)
-	if unserializedApis != nil {
-		for _, currApi := range *unserializedApis {
+	// controllers.NewTestRulesController(app, currCore)
+	// controllers.NewTestDumpingController(app, currCore)
+	if apis != nil {
+		for _, currApi := range *apis {
 			if matched, err := common.RegexpArrayMatch(common.ReservedPaths, currApi.Path); err != nil {
 				panic(err)
 			} else if matched {
-				fmt.Printf("ServerInit: skipping api name: %s group %s due to unusable path %s | paths not allowed: %s",
-					currApi.Name, currApi.Group, currApi.Path, strings.Join(common.ReservedPaths, ", "))
+				fmt.Printf("ServerInit: skipping api path: %s | paths not allowed: %s",
+					currApi.Path, strings.Join(common.ReservedPaths, ", "))
 				continue
 			}
-			fmt.Printf("attempting to attach %s api %s to routes\n", currApi.Type, currApi.Path)
-			switch strings.ToLower(currApi.Type) {
-			case api.RulesApiType:
-				err = controllers.NewRulesController(app, currCore, &currApi)
-			case api.DumpingApiType:
-				controllers.NewDumpingController(app, currCore, &currApi)
-			default:
-				fmt.Printf("skipping api %s type %s not valid\n", currApi.Path, currApi.Type)
-			}
+			fmt.Printf("attempting to attach %s to routes\n", currApi.Path)
+			err = controllers.NewRulesController(app, currCore, &currApi)
 		}
 	}
 

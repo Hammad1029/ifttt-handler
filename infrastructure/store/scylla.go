@@ -55,13 +55,13 @@ func (s *scyllaStore) createDataStore() *DataStore {
 	}
 }
 
-func (s *scyllaStore) createConfigStore() *ConfigStore {
-	scyllaBase := scyllaInfra.NewScyllaBaseRepository(s.session, s.cluster)
-	return &ConfigStore{
-		Store:             s,
-		APIPersistentRepo: scyllaInfra.NewScyllaApiPersistentRepository(*scyllaBase),
-		AuditLogRepo:      scyllaInfra.NewScyllaAuditLogRepository(*scyllaBase),
-		TablesRepo:        scyllaInfra.NewScyllaTablesRepository(*scyllaBase),
-		ConfigRepo:        scyllaInfra.NewScyllaConfigurationRepository(*scyllaBase),
-	}
-}
+// func (s *scyllaStore) createConfigStore() *ConfigStore {
+// 	scyllaBase := scyllaInfra.NewScyllaBaseRepository(s.session, s.cluster)
+// 	return &ConfigStore{
+// 		Store:             s,
+// 		APIPersistentRepo: scyllaInfra.NewScyllaApiPersistentRepository(*scyllaBase),
+// 		AuditLogRepo:      scyllaInfra.NewScyllaAuditLogRepository(*scyllaBase),
+// 		TablesRepo:        scyllaInfra.NewScyllaTablesRepository(*scyllaBase),
+// 		ConfigRepo:        scyllaInfra.NewScyllaConfigurationRepository(*scyllaBase),
+// 	}
+// }

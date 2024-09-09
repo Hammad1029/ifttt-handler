@@ -16,35 +16,41 @@ type GetApiResultsResolvable map[string]map[string]any
 
 type GetQueryResultsResolvable map[string][]map[string]any
 
+type PreConfigResolvable map[string]any
+
 type GetConstResolvable struct {
 	Value any `json:"value" mapstructure:"value"`
 }
 
-func getRequestData(ctx context.Context) *request_data.RequestData {
+func GetRequestData(ctx context.Context) *request_data.RequestData {
 	reqData, _ := ctx.Value("request").(*request_data.RequestData)
 	return reqData
 }
 
 func (r *GetRequestResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
-	return getRequestData(ctx).ReqBody, nil
+	return GetRequestData(ctx).ReqBody, nil
 }
 
 func (r *GetResponseResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
-	return maps.Clone(getRequestData(ctx).Response), nil
+	return maps.Clone(GetRequestData(ctx).Response), nil
 }
 
 func (a *GetApiResultsResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
-	return getRequestData(ctx).ApiRes, nil
+	return GetRequestData(ctx).ApiRes, nil
 }
 
 func (s *GetStoreResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
-	return getRequestData(ctx).Store, nil
+	return GetRequestData(ctx).Store, nil
 }
 
 func (q *GetQueryResultsResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
-	return getRequestData(ctx).QueryRes, nil
+	return GetRequestData(ctx).QueryRes, nil
 }
 
 func (c *GetConstResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	return c.Value, nil
+}
+
+func (c *PreConfigResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+	return GetRequestData(ctx).PreConfig, nil
 }

@@ -5,10 +5,10 @@ import (
 )
 
 type PostgresRawQueryRepository struct {
-	PostgresBaseRepository
+	*PostgresBaseRepository
 }
 
-func NewPostgresRawQueryRepository(base PostgresBaseRepository) *PostgresRawQueryRepository {
+func NewPostgresRawQueryRepository(base *PostgresBaseRepository) *PostgresRawQueryRepository {
 	return &PostgresRawQueryRepository{PostgresBaseRepository: base}
 }
 

@@ -7,11 +7,12 @@ import (
 )
 
 type RequestData struct {
-	ReqBody  map[string]any            `json:"reqBody" mapstructure:"reqBody"`
-	Store    map[string]any            `json:"store" mapstructure:"store"`
-	Response map[string]any            `json:"response" mapstructure:"response"`
-	QueryRes map[string][]QueryResult  `json:"queryRes" mapstructure:"queryRes"`
-	ApiRes   map[string]map[string]any `json:"apiRes" mapstructure:"apiRes"`
+	PreConfig map[string]any            `json:"preConfig" mapstructure:"preConfig"`
+	ReqBody   map[string]any            `json:"reqBody" mapstructure:"reqBody"`
+	Store     map[string]any            `json:"store" mapstructure:"store"`
+	Response  map[string]any            `json:"response" mapstructure:"response"`
+	QueryRes  map[string][]QueryResult  `json:"queryRes" mapstructure:"queryRes"`
+	ApiRes    map[string]map[string]any `json:"apiRes" mapstructure:"apiRes"`
 }
 
 type SerializedRequestData struct {
@@ -30,6 +31,7 @@ type QueryResult struct {
 }
 
 func (r *RequestData) Initialize() {
+	r.PreConfig = make(map[string]any)
 	r.ReqBody = make(map[string]any)
 	r.Store = make(map[string]any)
 	r.Response = make(map[string]any)

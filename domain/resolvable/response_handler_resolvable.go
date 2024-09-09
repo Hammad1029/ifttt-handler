@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"ifttt/handler/domain/audit_log"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 type ResponseResolvable struct {
@@ -22,26 +24,30 @@ type errorsData struct {
 	System any `json:"system" mapstructure:"system"`
 }
 
-func (s *ResponseResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (r *ResponseResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	if log, ok := ctx.Value("log").(*audit_log.AuditLog); !ok {
 		return nil, fmt.Errorf("method Resolve: log model type assertion failed")
 	} else {
-		s.Response.Errors.System = log.GetSystemErrorLogs()
-		s.Response.Errors.User = log.GetUserErrorLogs()
+		r.Response.Errors.System = log.GetSystemErrorLogs()
+		r.Response.Errors.User = log.GetUserErrorLogs()
 	}
 
-	if s.ResponseCode == "" {
-		s.ResponseCode = "00"
+	if r.ResponseCode == "" {
+		r.ResponseCode = "00"
 	}
-	if s.ResponseDescription == "" {
-		s.ResponseDescription = "SUCCESS"
+	if r.ResponseDescription == "" {
+		r.ResponseDescription = "SUCCESS"
 	}
-	s.Response.Data = getRequestData(ctx).Response
+	r.Response.Data = GetRequestData(ctx).Response
 
 	if responseChannel, ok := ctx.Value("resChan").(chan ResponseResolvable); ok {
-		responseChannel <- *s
+		responseChannel <- *r
 		return nil, nil
 	} else {
 		return nil, fmt.Errorf("method Resolve: send res type assertion failed")
 	}
+}
+
+func (r *ResponseResolvable) SendResponse(ctx *fiber.Ctx) error {
+	return ctx.JSON(r)
 }

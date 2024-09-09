@@ -46,9 +46,9 @@ func (s *ScyllaApiPersistentRepository) getTable() *table.Table {
 	return scyllaApisTable
 }
 
-func (s *ScyllaApiPersistentRepository) GetAllApis(ctx context.Context) (*[]api.ApiSerialized, error) {
+func (s *ScyllaApiPersistentRepository) GetAllApis(ctx context.Context) (*[]api.Api, error) {
 	var scyllaApis []scyllaApiSerialized
-	serializedApis := &([]api.ApiSerialized{})
+	serializedApis := &([]api.Api{})
 
 	apisTable := s.getTable()
 	stmt, names := apisTable.SelectAll()

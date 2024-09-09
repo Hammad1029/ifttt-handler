@@ -24,6 +24,7 @@ const (
 	AccessorSetStoreResolvable        = "setStore"
 	AccessorSetLogResolvable          = "log"
 	AccessorResponseResolvable        = "sendRes"
+	AccessorPreConfigResolvable       = "getPreConfig"
 )
 
 type ResolvableInterface interface {
@@ -81,6 +82,10 @@ func resolvableFactory(rType string) ResolvableInterface {
 		return &SetLogResolvable{}
 	case AccessorResponseResolvable:
 		return &ResponseResolvable{}
+	case AccessorRuleResolvable:
+		return &CallRuleResolvable{}
+	case AccessorPreConfigResolvable:
+		return &PreConfigResolvable{}
 	default:
 		return nil
 	}

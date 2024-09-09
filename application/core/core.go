@@ -10,8 +10,6 @@ import (
 	"ifttt/handler/domain/resolvable"
 	infraStore "ifttt/handler/infrastructure/store"
 	"sync"
-
-	"github.com/mitchellh/mapstructure"
 )
 
 type ServerCore struct {
@@ -40,11 +38,7 @@ func NewServerCore() (*ServerCore, error) {
 	} else {
 		serverCore.CacheStore = cacheStore
 	}
-	if config, err := serverCore.ConfigStore.ConfigRepo.GetConfigFromDb(); err != nil {
-		return nil, fmt.Errorf("method newCore: could not get user configuration: %s", err)
-	} else {
-		serverCore.Configuration = config
-	}
+
 	serverCore.ResolvableDependencies = map[string]any{
 		common.DependencyRawQueryRepo: serverCore.DataStore.RawQueryRepo,
 	}
@@ -52,22 +46,79 @@ func NewServerCore() (*ServerCore, error) {
 	return &serverCore, nil
 }
 
-func (c *ServerCore) InitExec(startRules []string, ctx context.Context) {
-	var wg sync.WaitGroup
-	for _, startId := range startRules {
+func (c *ServerCore) PreparePreConfig(config map[string]resolvable.Resolvable, ctx context.Context) error {
+	preConfig := resolvable.GetRequestData(ctx).PreConfig
+	var (
+		mu    sync.Mutex
+		wg    sync.WaitGroup
+		errCh = make(chan error, 1)
+	)
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	for key, r := range config {
 		wg.Add(1)
-		go c.prepRule(startId, &wg, ctx)
+		go func(key string, r resolvable.Resolvable) {
+			defer wg.Done()
+
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				if val, err := r.Resolve(ctx, c.ResolvableDependencies); err != nil {
+					mu.Lock()
+					select {
+					case errCh <- err:
+						cancel()
+					default:
+					}
+					mu.Unlock()
+				} else {
+					mu.Lock()
+					preConfig[key] = val
+					mu.Unlock()
+				}
+			}
+		}(key, r)
 	}
+
 	wg.Wait()
+
+	select {
+	case err := <-errCh:
+		return err
+	default:
+		return nil
+	}
 }
 
-func (c *ServerCore) prepRule(ruleId string, wg *sync.WaitGroup, ctx context.Context) error {
-	defer wg.Done()
+func (c *ServerCore) InitExec(triggerFlows *[]api.TriggerFlow, ctx context.Context) {
+	var fwg sync.WaitGroup
+	for _, flow := range *triggerFlows {
+		go c.startTriggerFlow(&flow, &fwg, ctx)
+	}
+	fwg.Wait()
+}
 
-	rules := ctx.Value("rules").(map[string]*api.Rule)
-	currRule, ok := rules[ruleId]
+func (c *ServerCore) startTriggerFlow(tFlow *api.TriggerFlow, fwg *sync.WaitGroup, ctx context.Context) {
+	fwg.Add(1)
+	defer fwg.Done()
+
+	var rwg sync.WaitGroup
+	for _, startRule := range tFlow.StartRules {
+		go c.prepRule(startRule, &rwg, tFlow, ctx)
+	}
+	rwg.Wait()
+}
+
+func (c *ServerCore) prepRule(ruleId uint, rwg *sync.WaitGroup, tFlow *api.TriggerFlow, ctx context.Context) error {
+	rwg.Add(1)
+	defer rwg.Done()
+
+	currRule, ok := tFlow.AllRules[ruleId]
 	if !ok {
-		return c.AddErrorToContext(fmt.Errorf("method *core.prepRule: rule %s not found", ruleId), ctx)
+		return c.AddErrorToContext(fmt.Errorf("method *core.prepRule: rule %d not found", ruleId), ctx)
 	}
 
 	if l, ok := ctx.Value("log").(*audit_log.AuditLog); ok {
@@ -76,64 +127,54 @@ func (c *ServerCore) prepRule(ruleId string, wg *sync.WaitGroup, ctx context.Con
 		return c.AddErrorToContext(fmt.Errorf("method *core.prepRule: could not type cast log model"), ctx)
 	}
 
-	if err := c.execRule(currRule, ctx); err != nil {
-		return c.AddErrorToContext(fmt.Errorf("method *core.prepRule: error in rule %s execution: %s", ruleId, err), ctx)
+	if err := c.execRule(currRule, tFlow, ctx); err != nil {
+		return c.AddErrorToContext(fmt.Errorf("method *core.prepRule: error in rule %d execution: %s", ruleId, err), ctx)
 	}
 
 	return nil
 }
 
-func (c *ServerCore) execRule(rule *api.Rule, ctx context.Context) error {
+func (c *ServerCore) execRule(rule *api.Rule, tFlow *api.TriggerFlow, ctx context.Context) error {
 	if ev, err := rule.Conditions.EvaluateGroup(ctx, c.ResolvableDependencies); err != nil {
 		return err
 	} else if ev {
-		return c.handleResolvableArray(rule.Then, ctx)
+		return c.handleResolvableArray(rule.Then, tFlow, ctx)
 	} else {
-		return c.handleResolvableArray(rule.Else, ctx)
+		return c.handleResolvableArray(rule.Else, tFlow, ctx)
 	}
 }
 
 func (c *ServerCore) AddErrorToContext(err error, ctx context.Context) error {
 	if l, ok := ctx.Value("log").(*audit_log.AuditLog); ok {
 		l.AddExecLog("system", "error", err.Error())
-		errorResponse := &resolvable.Resolvable{
-			ResolveType: resolvable.AccessorResponseResolvable,
-			ResolveData: map[string]any{
-				"responseCode": "500", "responseDescription": "Server Errror",
-			}}
-		c.callResolvable(errorResponse, ctx)
+		errorResponse := resolvable.ResponseResolvable{
+			ResponseCode:        "500",
+			ResponseDescription: "Server Errror",
+		}
+		errorResponse.Resolve(ctx, c.ResolvableDependencies)
 	} else {
 		return fmt.Errorf("method *ServerCore.AddErrorToContext: could not type cast log model")
 	}
 	return nil
 }
 
-func (c *ServerCore) handleResolvableArray(resolvables []resolvable.Resolvable, ctx context.Context) error {
+func (c *ServerCore) handleResolvableArray(resolvables []resolvable.Resolvable, tFlow *api.TriggerFlow, ctx context.Context) error {
+	var rwg sync.WaitGroup
 	for _, r := range resolvables {
-		if _, err := c.callResolvable(&r, ctx); err != nil {
-			return fmt.Errorf("method *core.handleResolvableArray: error in resolving: %s", err)
+		switch r.ResolveType {
+		case resolvable.AccessorRuleResolvable:
+			ruleId, _ := r.Resolve(ctx, c.ResolvableDependencies)
+			if ruleIdUint, ok := ruleId.(uint); ok {
+				go c.prepRule(ruleIdUint, &rwg, tFlow, ctx)
+				return nil
+			}
+			return fmt.Errorf("method *core.handleResolvableArray: error getting/casting rule id")
+		default:
+			if _, err := r.Resolve(ctx, c.ResolvableDependencies); err != nil {
+				return fmt.Errorf("method *core.handleResolvableArray: error in resolving: %s", err)
+			}
 		}
 	}
-	return nil
-}
-
-func (c *ServerCore) callResolvable(r *resolvable.Resolvable, ctx context.Context) (any, error) {
-	switch r.ResolveType {
-	case resolvable.AccessorRuleResolvable:
-		return nil, c.handleActionRule(ctx, r.ResolveData)
-	default:
-		return r.Resolve(ctx, c.ResolvableDependencies)
-	}
-}
-
-func (c *ServerCore) handleActionRule(ctx context.Context, data map[string]any) error {
-	var ruleRes resolvable.CallRuleResolvable
-	if err := mapstructure.Decode(data, &ruleRes); err != nil {
-		return fmt.Errorf("method *core.handleActionRule: could not decode resolvable data to resolvable.CallRuleResolvable: %s", err)
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go c.prepRule(ruleRes.RuleId, &wg, ctx)
+	rwg.Wait()
 	return nil
 }

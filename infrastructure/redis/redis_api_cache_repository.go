@@ -17,7 +17,7 @@ func NewRedisApiCacheRepository(base RedisBaseRepository) *RedisApiCacheReposito
 	return &RedisApiCacheRepository{RedisBaseRepository: base}
 }
 
-func (r *RedisApiCacheRepository) StoreApis(apis *[]api.ApiSerialized, ctx context.Context) error {
+func (r *RedisApiCacheRepository) StoreApis(apis *[]api.Api, ctx context.Context) error {
 	if apis == nil {
 		return nil
 	}
@@ -34,8 +34,8 @@ func (r *RedisApiCacheRepository) StoreApis(apis *[]api.ApiSerialized, ctx conte
 	return nil
 }
 
-func (r *RedisApiCacheRepository) GetAllApis(ctx context.Context) (*[]api.ApiSerialized, error) {
-	var apis *[]api.ApiSerialized
+func (r *RedisApiCacheRepository) GetAllApis(ctx context.Context) (*[]api.Api, error) {
+	var apis *[]api.Api
 	apiJSONs, err := r.client.HGetAll(context.Background(), "apis").Result()
 	if err == redis.Nil {
 		return nil, nil
@@ -44,7 +44,7 @@ func (r *RedisApiCacheRepository) GetAllApis(ctx context.Context) (*[]api.ApiSer
 		return nil, fmt.Errorf("method RedisApiCacheRepository.GetAllApis: could not get apis from redis: %s", err)
 	}
 
-	var apiUnmarshalled *api.ApiSerialized
+	var apiUnmarshalled *api.Api
 	for _, api := range apiJSONs {
 		if err := json.Unmarshal([]byte(api), &apiUnmarshalled); err != nil {
 			return nil, fmt.Errorf("method RedisApiCacheRepository.GetAllApis: could not unmarshall api: %s", err)
@@ -55,18 +55,17 @@ func (r *RedisApiCacheRepository) GetAllApis(ctx context.Context) (*[]api.ApiSer
 	return apis, nil
 }
 
-func (r *RedisApiCacheRepository) GetApiByPath(path string, ctx context.Context) (*api.ApiSerialized, error) {
-	var api *api.ApiSerialized
+func (r *RedisApiCacheRepository) GetApiByPath(path string, ctx context.Context) (*api.Api, error) {
+	var api *api.Api
 	apiJSON, err := r.client.HGet(ctx, "apis", path).Result()
-	if err == redis.Nil {
-		return api, fmt.Errorf("method RedisApiCacheRepository.GetApiByGroupAndName: no api found by path %s", path)
-	}
 	if err != nil {
-		return api, fmt.Errorf("method RedisApiCacheRepository.GetApiByGroupAndName: error in getting api: %s", err)
+		if err == redis.Nil {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("method RedisApiCacheRepository.GetApiByGroupAndName: error in getting api: %s", err)
 	}
-	err = json.Unmarshal([]byte(apiJSON), &api)
-	if err != nil {
-		return api, fmt.Errorf("method RedisApiCacheRepository.GetApiByGroupAndName: error in unmarshalling api: %s", err)
+	if err := json.Unmarshal([]byte(apiJSON), &api); err != nil {
+		return nil, fmt.Errorf("method RedisApiCacheRepository.GetApiByGroupAndName: error in unmarshalling api: %s", err)
 	}
 	return api, nil
 }

@@ -1,77 +1,25 @@
 package api
 
 import (
-	"encoding/json"
-	"fmt"
+	"ifttt/handler/domain/resolvable"
 )
-
-const (
-	RulesApiType   = "rules"
-	DumpingApiType = "dumping"
-)
-
-type ApiSerialized struct {
-	Group       string   `json:"group" mapstructure:"group"`
-	Name        string   `json:"name" mapstructure:"name"`
-	Method      string   `json:"method" mapstructure:"method"`
-	Type        string   `json:"type" mapstructure:"type"`
-	Path        string   `json:"path" mapstructure:"path"`
-	Description string   `json:"description" mapstructure:"description"`
-	Request     string   `json:"request" mapstructure:"request"`
-	Dumping     string   `json:"dumping" mapstructure:"dumping"`
-	StartRules  []string `json:"rules" mapstructure:"rules"`
-	Rules       string   `json:"startRules" mapstructure:"startRules"`
-}
 
 type Api struct {
-	Group       string           `json:"group" mapstructure:"group"`
-	Name        string           `json:"name" mapstructure:"name"`
-	Method      string           `json:"method" mapstructure:"method"`
-	Type        string           `json:"type" mapstructure:"type"`
-	Path        string           `json:"path" mapstructure:"path"`
-	Description string           `json:"description" mapstructure:"description"`
-	Request     map[string]any   `json:"request" mapstructure:"request"`
-	Dumping     Dumping          `json:"dumping" mapstructure:"dumping"`
-	StartRules  []string         `json:"startRules" mapstructure:"startRules"`
-	Rules       map[string]*Rule `json:"rules" mapstructure:"rules"`
+	Name         string                           `json:"name" mapstructure:"name"`
+	Path         string                           `json:"path" mapstructure:"path"`
+	Method       string                           `json:"method" mapstructure:"method"`
+	Request      map[string]any                   `json:"request" mapstructure:"request"`
+	PreConfig    map[string]resolvable.Resolvable `json:"preConfig" mapstructure:"preConfig"`
+	TriggerFlows *[]TriggerFlow                   `json:"triggerFlows" mapstructure:"triggerFlows"`
 }
 
-func UnserializeApis(serializedApis *[]ApiSerialized) (*[]Api, error) {
-	if serializedApis == nil {
-		return nil, nil
-	}
-	unserializedApis := &([]Api{})
-	for _, v := range *serializedApis {
-		unserialized, err := v.Unserialize()
-		if err != nil {
-			return nil, fmt.Errorf("method *ScyllaApiPersistentRepository.UnserializeApis: failed to unserialize apis: %s", err)
-		}
-		*unserializedApis = append(*unserializedApis, *unserialized)
-	}
-	return unserializedApis, nil
+type TriggerFlow struct {
+	StartRules []uint         `json:"startRules" mapstructure:"startRules"`
+	AllRules   map[uint]*Rule `json:"allRules" mapstructure:"allRules"`
 }
 
-func (a *ApiSerialized) Unserialize() (*Api, error) {
-	unserializedApi := Api{}
-	unserializedApi.Group = a.Group
-	unserializedApi.Name = a.Name
-	unserializedApi.Method = a.Method
-	unserializedApi.Type = a.Type
-	unserializedApi.Path = a.Path
-	unserializedApi.Description = a.Description
-	unserializedApi.StartRules = a.StartRules
-
-	err := json.Unmarshal([]byte(a.Request), &unserializedApi.Request)
-	if err != nil {
-		return nil, fmt.Errorf("method ScyllaApi.unserialize: could not unserialize api request: %s", err)
-	}
-	err = json.Unmarshal([]byte(a.Rules), &unserializedApi.Rules)
-	if err != nil {
-		return nil, fmt.Errorf("method ScyllaApi.unserialize: could not unserialize rules: %s", err)
-	}
-	err = json.Unmarshal([]byte(a.Dumping), &unserializedApi.Dumping)
-	if err != nil {
-		return nil, fmt.Errorf("method ScyllaApi.unserialize: could not unserialize dumping: %s", err)
-	}
-	return &unserializedApi, nil
+type Rule struct {
+	Conditions Condition               `json:"conditions" mapstructure:"conditions"`
+	Then       []resolvable.Resolvable `json:"then" mapstructure:"then"`
+	Else       []resolvable.Resolvable `json:"else" mapstructure:"else"`
 }

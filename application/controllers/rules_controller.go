@@ -3,11 +3,11 @@ package controllers
 import (
 	"fmt"
 	"ifttt/handler/application/core"
-	"ifttt/handler/common"
 	"ifttt/handler/domain/api"
 	"ifttt/handler/domain/audit_log"
 	"ifttt/handler/domain/request_data"
 	"ifttt/handler/domain/resolvable"
+	"net/http"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -16,13 +16,13 @@ import (
 func NewRulesController(router fiber.Router, core *core.ServerCore, api *api.Api) error {
 	controller := rulesController(core)
 	switch strings.ToUpper(api.Method) {
-	case common.RestMethodGet:
+	case http.MethodGet:
 		router.Get(api.Path, controller)
-	case common.RestMethodPost:
+	case http.MethodPost:
 		router.Post(api.Path, controller)
-	case common.RestMethodPut:
+	case http.MethodPut:
 		router.Put(api.Path, controller)
-	case common.RestMethodDelete:
+	case http.MethodDelete:
 		router.Delete(api.Path, controller)
 	default:
 		return fmt.Errorf("method NewRulesController: method %s not found", api.Method)
@@ -38,39 +38,50 @@ func rulesController(core *core.ServerCore) func(c *fiber.Ctx) error {
 		ctx.SetUserValue("log", &log)
 		log.StartLog()
 
-		serializedApi, err := core.CacheStore.APICacheRepo.GetApiByPath(c.Path(), ctx)
-		if err != nil {
-			return core.AddErrorToContext(err, ctx)
-		}
-
-		api, err := serializedApi.Unserialize()
-		if err != nil {
-			return core.AddErrorToContext(err, ctx)
+		api, err := core.CacheStore.APICacheRepo.GetApiByPath(c.Path(), ctx)
+		if api == nil || err != nil {
+			res := &resolvable.ResponseResolvable{
+				ResponseCode:        "404",
+				ResponseDescription: "API not found",
+			}
+			return res.SendResponse(c)
 		}
 
 		requestData := request_data.RequestData{}
 		requestData.Initialize()
-		log.Initialize(&requestData, api.Group, api.Name)
+		// log.Initialize(&requestData, api.Group, api.Name)
 
 		err = c.BodyParser(&requestData.ReqBody)
 		if err != nil {
-			return core.AddErrorToContext(err, ctx)
+			res := &resolvable.ResponseResolvable{
+				ResponseCode:        "400",
+				ResponseDescription: "Error in parsing body",
+			}
+			return res.SendResponse(c)
 		}
 
 		resChan := make(chan resolvable.ResponseResolvable)
 		ctx.SetUserValue("request", &requestData)
 		ctx.SetUserValue("resChan", resChan)
-		ctx.SetUserValue("rules", api.Rules)
+		ctx.SetUserValue("api", api)
 
-		go core.InitExec(api.StartRules, ctx)
+		if err := core.PreparePreConfig(api.PreConfig, ctx); err != nil {
+			res := &resolvable.ResponseResolvable{
+				ResponseCode:        "500",
+				ResponseDescription: "Could not prepare pre config",
+			}
+			return res.SendResponse(c)
+		}
+
+		go core.InitExec(api.TriggerFlows, ctx)
 
 		res := <-resChan
-		if postableLog, err := log.Post(); err != nil {
-			fmt.Println(err)
-		} else {
-			core.ConfigStore.AuditLogRepo.InsertLog(postableLog, ctx)
-			fmt.Printf("execution time: %v\n", postableLog.TimeTaken)
-		}
-		return c.JSON(res)
+		// if postableLog, err := log.Post(); err != nil {
+		// 	fmt.Println(err)
+		// } else {
+		// 	core.ConfigStore.AuditLogRepo.InsertLog(postableLog, ctx)
+		// 	fmt.Printf("execution time: %v\n", postableLog.TimeTaken)
+		// }
+		return res.SendResponse(c)
 	}
 }
