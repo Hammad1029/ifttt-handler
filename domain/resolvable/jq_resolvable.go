@@ -9,12 +9,12 @@ import (
 )
 
 type JqResolvable struct {
-	Query string `json:"query" mapstructure:"query"`
-	Input any    `json:"input" mapstructure:"input"`
+	Query Resolvable `json:"query" mapstructure:"query"`
+	Input any        `json:"input" mapstructure:"input"`
 }
 
 func (j *JqResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
-	queryResolved, err := resolveIfNested(j.Query, ctx, dependencies)
+	queryResolved, err := j.Query.Resolve(ctx, dependencies)
 	if err != nil {
 		return nil, fmt.Errorf("method resolveJq: couldn't resolve input: %s", err)
 	}

@@ -9,22 +9,23 @@ import (
 )
 
 const (
-	AccessorRuleResolvable            = "rule"
-	AccessorJqResolvable              = "jq"
-	AccessorGetRequestResolvable      = "getReq"
-	AccessorGetResponseResolvable     = "getRes"
-	AccessorGetQueryResultsResolvable = "getQueryRes"
-	AccessorGetApiResultsResolvable   = "getApiRes"
-	AccessorGetStoreResolvable        = "getStore"
-	AccessorGetConstResolvable        = "const"
-	AccessorArithmetic                = "arithmetic"
-	AccessorQueryResolvable           = "query"
-	AccessorApiCallResolvable         = "api"
-	AccessorSetResResolvable          = "setRes"
-	AccessorSetStoreResolvable        = "setStore"
-	AccessorSetLogResolvable          = "log"
-	AccessorResponseResolvable        = "sendRes"
-	AccessorPreConfigResolvable       = "getPreConfig"
+	AccessorRuleResolvable                = "rule"
+	AccessorJqResolvable                  = "jq"
+	AccessorGetRequestResolvable          = "getReq"
+	AccessorGetResponseResolvable         = "getRes"
+	AccessorGetQueryResultsResolvable     = "getQueryRes"
+	AccessorGetApiResultsResolvable       = "getApiRes"
+	AccessorGetStoreResolvable            = "getStore"
+	AccessorGetConstResolvable            = "const"
+	AccessorArithmetic                    = "arithmetic"
+	AccessorQueryResolvable               = "query"
+	AccessorApiCallResolvable             = "api"
+	AccessorSetResResolvable              = "setRes"
+	AccessorSetStoreResolvable            = "setStore"
+	AccessorSetLogResolvable              = "log"
+	AccessorResponseResolvable            = "sendRes"
+	AccessorPreConfigResolvable           = "getPreConfig"
+	AccessorStringInterpolationResolvable = "stringInterpolation"
 )
 
 type ResolvableInterface interface {
@@ -86,6 +87,8 @@ func resolvableFactory(rType string) ResolvableInterface {
 		return &CallRuleResolvable{}
 	case AccessorPreConfigResolvable:
 		return &PreConfigResolvable{}
+	case AccessorStringInterpolationResolvable:
+		return &StringInterpolationResolvable{}
 	default:
 		return nil
 	}
