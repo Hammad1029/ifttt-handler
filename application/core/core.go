@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"ifttt/handler/common"
 	"ifttt/handler/domain/api"
-	"ifttt/handler/domain/audit_log"
 	"ifttt/handler/domain/configuration"
 	"ifttt/handler/domain/resolvable"
 	infraStore "ifttt/handler/infrastructure/store"
@@ -49,132 +48,158 @@ func NewServerCore() (*ServerCore, error) {
 func (c *ServerCore) PreparePreConfig(config map[string]resolvable.Resolvable, ctx context.Context) error {
 	preConfig := resolvable.GetRequestData(ctx).PreConfig
 	var (
-		mu    sync.Mutex
-		wg    sync.WaitGroup
-		errCh = make(chan error, 1)
+		once sync.Once
+		wg   sync.WaitGroup
 	)
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	cancelCtx, cancel := context.WithCancelCause(ctx)
 
 	for key, r := range config {
 		wg.Add(1)
 		go func(key string, r resolvable.Resolvable) {
 			defer wg.Done()
-
 			select {
-			case <-ctx.Done():
+			case <-cancelCtx.Done():
 				return
 			default:
-				if val, err := r.Resolve(ctx, c.ResolvableDependencies); err != nil {
-					mu.Lock()
-					select {
-					case errCh <- err:
-						cancel()
-					default:
-					}
-					mu.Unlock()
+				if val, err := r.Resolve(cancelCtx, c.ResolvableDependencies); err != nil {
+					once.Do(func() {
+						cancel(err)
+					})
+					return
 				} else {
-					mu.Lock()
 					preConfig[key] = val
-					mu.Unlock()
 				}
 			}
 		}(key, r)
 	}
 
+	<-cancelCtx.Done()
 	wg.Wait()
-
-	select {
-	case err := <-errCh:
-		return err
-	default:
-		return nil
-	}
+	return context.Cause(ctx)
 }
 
-func (c *ServerCore) InitExec(triggerFlows *[]api.TriggerFlow, ctx context.Context) {
-	var fwg sync.WaitGroup
+func (c *ServerCore) InitExec(triggerFlows *[]api.TriggerCondition, ctx context.Context) {
+	var flowWG sync.WaitGroup
 	for _, flow := range *triggerFlows {
-		go c.startTriggerFlow(&flow, &fwg, ctx)
+		flowWG.Add(1)
+		go c.initTriggerFlow(&flow, &flowWG, ctx)
 	}
-	fwg.Wait()
+	flowWG.Wait()
+	res := &resolvable.ResponseResolvable{}
+	if _, err := res.Resolve(ctx, c.ResolvableDependencies); err != nil {
+		c.AddErrorToContext(fmt.Errorf("method initTriggerFlow: error in resolving response: %s", err), ctx)
+	}
 }
 
-func (c *ServerCore) startTriggerFlow(tFlow *api.TriggerFlow, fwg *sync.WaitGroup, ctx context.Context) {
-	fwg.Add(1)
-	defer fwg.Done()
+func (c *ServerCore) initTriggerFlow(tFlow *api.TriggerCondition, flowWG *sync.WaitGroup, ctx context.Context) {
+	defer flowWG.Done()
 
-	var rwg sync.WaitGroup
-	for _, startRule := range tFlow.StartRules {
-		go c.prepRule(startRule, &rwg, tFlow, ctx)
+	if ev, err := tFlow.If.EvaluateGroup(ctx, c.ResolvableDependencies); err != nil {
+		c.AddErrorToContext(fmt.Errorf("method initTriggerFlow: error in solving tFlow if: %s", err), ctx)
+		return
+	} else if !ev {
+		return
 	}
-	rwg.Wait()
+
+	startRules := []*api.Rule{}
+
+	for _, rId := range tFlow.Trigger.StartRules {
+		rIdUint := uint(rId)
+		currRule, ok := tFlow.Trigger.AllRules[rIdUint]
+		if !ok {
+			c.AddErrorToContext(fmt.Errorf("method *core.prepRule: rule %d not found", rId), ctx)
+			return
+		}
+		startRules = append(startRules, currRule)
+	}
+
+	var ruleWG sync.WaitGroup
+	for _, rule := range startRules {
+		ruleWG.Add(1)
+		go func(r *api.Rule) {
+			defer ruleWG.Done()
+			c.execRule(r, tFlow.Trigger.BranchFlows, tFlow.Trigger.AllRules, ctx)
+		}(rule)
+	}
+	ruleWG.Wait()
 }
 
-func (c *ServerCore) prepRule(ruleId uint, rwg *sync.WaitGroup, tFlow *api.TriggerFlow, ctx context.Context) error {
-	rwg.Add(1)
-	defer rwg.Done()
-
-	currRule, ok := tFlow.AllRules[ruleId]
+func (c *ServerCore) execRule(
+	rule *api.Rule, branchMap map[uint]*[]api.BranchFlow, allRules map[uint]*api.Rule, ctx context.Context,
+) {
+	if err := c.resolveArray(rule.Pre, ctx); err != nil {
+		c.AddErrorToContext(fmt.Errorf("method *core.execRule: could not resolve pre: %s", err), ctx)
+		return
+	}
+	rVal, err := c.solveRuleSwitch(&rule.Switch, ctx)
+	if err != nil {
+		c.AddErrorToContext(fmt.Errorf("method *core.execRule: could not solve switch: %s", err), ctx)
+		return
+	}
+	branchFlow, ok := branchMap[rule.Id]
 	if !ok {
-		return c.AddErrorToContext(fmt.Errorf("method *core.prepRule: rule %d not found", ruleId), ctx)
+		c.AddErrorToContext(fmt.Errorf("method *core.execRule: branch flow for rule %d not found", rule.Id), ctx)
+		return
 	}
-
-	if l, ok := ctx.Value("log").(*audit_log.AuditLog); ok {
-		l.ExecutionOrder = append(l.ExecutionOrder, ruleId)
-	} else {
-		return c.AddErrorToContext(fmt.Errorf("method *core.prepRule: could not type cast log model"), ctx)
-	}
-
-	if err := c.execRule(currRule, tFlow, ctx); err != nil {
-		return c.AddErrorToContext(fmt.Errorf("method *core.prepRule: error in rule %d execution: %s", ruleId, err), ctx)
-	}
-
-	return nil
-}
-
-func (c *ServerCore) execRule(rule *api.Rule, tFlow *api.TriggerFlow, ctx context.Context) error {
-	if ev, err := rule.Conditions.EvaluateGroup(ctx, c.ResolvableDependencies); err != nil {
-		return err
-	} else if ev {
-		return c.handleResolvableArray(rule.Then, tFlow, ctx)
-	} else {
-		return c.handleResolvableArray(rule.Else, tFlow, ctx)
-	}
-}
-
-func (c *ServerCore) AddErrorToContext(err error, ctx context.Context) error {
-	if l, ok := ctx.Value("log").(*audit_log.AuditLog); ok {
-		l.AddExecLog("system", "error", err.Error())
-		errorResponse := resolvable.ResponseResolvable{
-			ResponseCode:        "500",
-			ResponseDescription: "Server Errror",
+	for _, bF := range *branchFlow {
+		if requiredRVal, err := bF.IfReturn.Resolve(ctx, c.ResolvableDependencies); err != nil {
+			c.AddErrorToContext(fmt.Errorf("method *core.execRule: could not resolve IfReturn for branch: %s", err), ctx)
+			return
+		} else if rVal == requiredRVal {
+			if nextRule, ok := allRules[bF.Jump]; !ok {
+				c.AddErrorToContext(fmt.Errorf("method *core.execRule: rule %d not found", bF.Jump), ctx)
+				return
+			} else {
+				c.execRule(nextRule, branchMap, allRules, ctx)
+			}
 		}
-		errorResponse.Resolve(ctx, c.ResolvableDependencies)
-	} else {
-		return fmt.Errorf("method *ServerCore.AddErrorToContext: could not type cast log model")
 	}
-	return nil
 }
 
-func (c *ServerCore) handleResolvableArray(resolvables []resolvable.Resolvable, tFlow *api.TriggerFlow, ctx context.Context) error {
-	var rwg sync.WaitGroup
+func (c *ServerCore) solveRuleSwitch(s *api.RuleSwitch, ctx context.Context) (any, error) {
+	for _, currCase := range s.Cases {
+		if ev, err := currCase.Condition.EvaluateGroup(ctx, c.ResolvableDependencies); err != nil {
+			return nil, fmt.Errorf("method solveRuleSwitch: error in solving case: %s", err)
+		} else if ev {
+			if rVal, err := c.doRuleCase(&currCase, ctx); err != nil {
+				return nil, fmt.Errorf("method solveRuleSwitch: error in solving case: %s", err)
+			} else {
+				return rVal, nil
+			}
+		}
+	}
+	if rVal, err := c.doRuleCase(&s.Default, ctx); err != nil {
+		return nil, fmt.Errorf("method solveRuleSwitch: error in solving default: %s", err)
+	} else {
+		return rVal, nil
+	}
+}
+
+func (c *ServerCore) doRuleCase(s *api.RuleSwitchCase, ctx context.Context) (any, error) {
+	if err := c.resolveArray(s.Do, ctx); err != nil {
+		return nil, fmt.Errorf("method solveRuleSwitch: error in resolving do: %s", err)
+	}
+	if rVal, err := s.Return.Resolve(ctx, c.ResolvableDependencies); err != nil {
+		return nil, fmt.Errorf("method solveRuleSwitch: error in resolving return: %s", err)
+	} else {
+		return rVal, nil
+	}
+}
+
+func (c *ServerCore) AddErrorToContext(err error, ctx context.Context) {
+	errorResponse := resolvable.ResponseResolvable{
+		ResponseCode:        "500",
+		ResponseDescription: "Server Errror",
+	}
+	errorResponse.Resolve(ctx, c.ResolvableDependencies)
+}
+
+func (c *ServerCore) resolveArray(resolvables []resolvable.Resolvable, ctx context.Context) error {
 	for _, r := range resolvables {
-		switch r.ResolveType {
-		case resolvable.AccessorRuleResolvable:
-			ruleId, _ := r.Resolve(ctx, c.ResolvableDependencies)
-			if ruleIdUint, ok := ruleId.(uint); ok {
-				go c.prepRule(ruleIdUint, &rwg, tFlow, ctx)
-				return nil
-			}
-			return fmt.Errorf("method *core.handleResolvableArray: error getting/casting rule id")
-		default:
-			if _, err := r.Resolve(ctx, c.ResolvableDependencies); err != nil {
-				return fmt.Errorf("method *core.handleResolvableArray: error in resolving: %s", err)
-			}
+		if _, err := r.Resolve(ctx, c.ResolvableDependencies); err != nil {
+			return fmt.Errorf("method *core.resolveArray: error in resolving: %s", err)
 		}
 	}
-	rwg.Wait()
 	return nil
 }

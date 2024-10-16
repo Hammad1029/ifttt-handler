@@ -9,7 +9,6 @@ import (
 )
 
 const (
-	AccessorRuleResolvable                = "rule"
 	AccessorJqResolvable                  = "jq"
 	AccessorGetRequestResolvable          = "getReq"
 	AccessorGetResponseResolvable         = "getRes"
@@ -83,8 +82,6 @@ func resolvableFactory(rType string) ResolvableInterface {
 		return &SetLogResolvable{}
 	case AccessorResponseResolvable:
 		return &ResponseResolvable{}
-	case AccessorRuleResolvable:
-		return &CallRuleResolvable{}
 	case AccessorPreConfigResolvable:
 		return &PreConfigResolvable{}
 	case AccessorStringInterpolationResolvable:

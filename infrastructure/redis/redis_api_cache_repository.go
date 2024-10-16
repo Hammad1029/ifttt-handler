@@ -26,7 +26,6 @@ func (r *RedisApiCacheRepository) StoreApis(apis *[]api.Api, ctx context.Context
 		if err != nil {
 			return fmt.Errorf("method RedisApiCacheRepository.StoreApis: could not marshall api: %s", err)
 		}
-
 		if err := r.client.HSet(ctx, "apis", api.Path, string(marshalled)).Err(); err != nil {
 			return fmt.Errorf("method RedisApiCacheRepository.StoreApis: could not store api in redis: %s", err)
 		}

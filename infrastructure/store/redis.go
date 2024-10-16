@@ -1,6 +1,7 @@
 package infrastructure
 
 import (
+	"context"
 	"fmt"
 	redisInfra "ifttt/handler/infrastructure/redis"
 	"strconv"
@@ -34,6 +35,9 @@ func (r *RedisStore) init(config map[string]any) error {
 		Password: r.config.Password,
 		DB:       dbIndex,
 	})
+	if err := r.client.Ping(context.Background()).Err(); err != nil {
+		return fmt.Errorf("method: *RedisStore.Init: could not connect to redis: %s", err)
+	}
 	return nil
 }
 

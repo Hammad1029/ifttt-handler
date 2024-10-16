@@ -60,7 +60,7 @@ func rulesController(core *core.ServerCore) func(c *fiber.Ctx) error {
 			return res.SendResponse(c)
 		}
 
-		resChan := make(chan resolvable.ResponseResolvable)
+		resChan := make(chan resolvable.ResponseResolvable, 1)
 		ctx.SetUserValue("request", &requestData)
 		ctx.SetUserValue("resChan", resChan)
 		ctx.SetUserValue("api", api)
@@ -76,6 +76,7 @@ func rulesController(core *core.ServerCore) func(c *fiber.Ctx) error {
 		go core.InitExec(api.TriggerFlows, ctx)
 
 		res := <-resChan
+		close(resChan)
 		// if postableLog, err := log.Post(); err != nil {
 		// 	fmt.Println(err)
 		// } else {

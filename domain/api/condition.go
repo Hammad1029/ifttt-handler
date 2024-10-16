@@ -8,6 +8,11 @@ import (
 	"strings"
 )
 
+const (
+	conditionAnd = "AND"
+	conditionOr  = "OR"
+)
+
 type Condition struct {
 	ConditionType string                `json:"conditionType" mapstructure:"conditionType"`
 	Conditions    []Condition           `json:"conditions" mapstructure:"conditions"`
@@ -15,6 +20,42 @@ type Condition struct {
 	Operator1     resolvable.Resolvable `json:"op1" mapstructure:"op1"`
 	Operand       string                `json:"opnd" mapstructure:"opnd"`
 	Operator2     resolvable.Resolvable `json:"op2" mapstructure:"op2"`
+}
+
+func (group *Condition) EvaluateGroup(ctx context.Context, resolvableDependencies map[string]any) (bool, error) {
+	if !group.Group {
+		return false, fmt.Errorf("method EvaluateGroup: object is not a group")
+	}
+	condType := strings.ToUpper(group.ConditionType)
+	var ev bool
+	var err error
+	for _, cond := range group.Conditions {
+		switch cond.Group {
+		case true:
+			ev, err = cond.EvaluateGroup(ctx, resolvableDependencies)
+		case false:
+			ev, err = cond.EvaluateCondition(ctx, resolvableDependencies)
+		}
+
+		if err != nil {
+			return false, fmt.Errorf("method EvaluateGroup: %s", err)
+		}
+
+		switch strings.ToUpper(condType) {
+		case conditionAnd:
+			if !ev {
+				return false, nil
+			}
+		case conditionOr:
+			if ev {
+				return true, nil
+			}
+		default:
+			return false,
+				fmt.Errorf("method EvaluateGroup: condition type not in (%s,%s)", conditionAnd, conditionOr)
+		}
+	}
+	return condType == conditionAnd, nil
 }
 
 func (c *Condition) EvaluateCondition(ctx context.Context, resolvableDependencies map[string]any) (bool, error) {
@@ -36,35 +77,4 @@ func (c *Condition) EvaluateCondition(ctx context.Context, resolvableDependencie
 	}
 	ev := (*evaluator)(op1Res, op2Res)
 	return ev, nil
-}
-
-func (group *Condition) EvaluateGroup(ctx context.Context, resolvableDependencies map[string]any) (bool, error) {
-	if !group.Group {
-		return false, fmt.Errorf("method EvaluateGroup: object is not a group")
-	}
-	condType := strings.ToLower(group.ConditionType)
-	var ev bool
-	var err error
-	for _, cond := range group.Conditions {
-		switch cond.Group {
-		case true:
-			ev, err = cond.EvaluateGroup(ctx, resolvableDependencies)
-		case false:
-			ev, err = cond.EvaluateCondition(ctx, resolvableDependencies)
-		}
-
-		if err != nil {
-			return false, fmt.Errorf("method EvaluateGroup: %s", err)
-		}
-
-		switch {
-		case condType == "and" && !ev:
-			return false, nil
-		case condType == "or" && ev:
-			return true, nil
-		case condType != "and" && condType != "or":
-			return false, fmt.Errorf("method EvaluateGroup: condition type not in (and,or)")
-		}
-	}
-	return condType == "and", nil
 }

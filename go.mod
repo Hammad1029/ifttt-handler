@@ -6,7 +6,7 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.2
 	github.com/itchyny/gojq v0.12.16
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/redis/go-redis/v9 v9.5.1
+	github.com/redis/go-redis/v9 v9.6.1
 	github.com/samber/lo v1.44.0
 	github.com/spf13/viper v1.18.2
 	gorm.io/driver/postgres v1.5.9

@@ -6,14 +6,6 @@ import (
 	"strings"
 )
 
-type CallRuleResolvable struct {
-	RuleId uint `json:"ruleId" mapstructure:"ruleId"`
-}
-
-func (c *CallRuleResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
-	return c.RuleId, nil
-}
-
 type StringInterpolationResolvable struct {
 	Template   string       `json:"template" mapstructure:"template"`
 	Parameters []Resolvable `json:"parameters" mapstructure:"parameters"`
