@@ -6,14 +6,14 @@ import (
 	"ifttt/handler/common"
 )
 
-type Arithmetic struct {
+type arithmetic struct {
 	Group     bool         `json:"group" mapstructure:"group"`
 	Operation string       `json:"operation" mapstructure:"operation"`
-	Operators []Arithmetic `json:"operators" mapstructure:"operators"`
+	Operators []arithmetic `json:"operators" mapstructure:"operators"`
 	Value     Resolvable   `json:"value" mapstructure:"value"`
 }
 
-func (a *Arithmetic) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (a *arithmetic) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	opFunc := common.GetArithmeticOperator(a.Operation)
 	if opFunc == nil {
 		return nil, fmt.Errorf("method Arithmetic: operation %s not found", a.Operation)

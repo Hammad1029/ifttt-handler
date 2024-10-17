@@ -6,19 +6,19 @@ import (
 	"maps"
 )
 
-type GetRequestResolvable map[string]any
+type getRequestResolvable map[string]any
 
-type GetResponseResolvable map[string]any
+type getResponseResolvable map[string]any
 
-type GetStoreResolvable map[string]any
+type getStoreResolvable map[string]any
 
-type GetApiResultsResolvable map[string]map[string]any
+type getApiResultsResolvable map[string]map[string]any
 
-type GetQueryResultsResolvable map[string][]map[string]any
+type getQueryResultsResolvable map[string][]map[string]any
 
-type PreConfigResolvable map[string]any
+type preConfigResolvable map[string]any
 
-type GetConstResolvable struct {
+type getConstResolvable struct {
 	Value any `json:"value" mapstructure:"value"`
 }
 
@@ -27,30 +27,30 @@ func GetRequestData(ctx context.Context) *request_data.RequestData {
 	return reqData
 }
 
-func (r *GetRequestResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (r *getRequestResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	return GetRequestData(ctx).ReqBody, nil
 }
 
-func (r *GetResponseResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (r *getResponseResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	return maps.Clone(GetRequestData(ctx).Response), nil
 }
 
-func (a *GetApiResultsResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (a *getApiResultsResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	return GetRequestData(ctx).ApiRes, nil
 }
 
-func (s *GetStoreResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (s *getStoreResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	return GetRequestData(ctx).Store, nil
 }
 
-func (q *GetQueryResultsResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (q *getQueryResultsResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	return GetRequestData(ctx).QueryRes, nil
 }
 
-func (c *GetConstResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (c *getConstResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	return c.Value, nil
 }
 
-func (c *PreConfigResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (c *preConfigResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	return GetRequestData(ctx).PreConfig, nil
 }

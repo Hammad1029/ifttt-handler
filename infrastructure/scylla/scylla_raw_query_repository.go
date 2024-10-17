@@ -1,6 +1,7 @@
 package infrastructure
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/mitchellh/mapstructure"
@@ -15,9 +16,9 @@ func NewScyllaRawQueryRepository(base ScyllaBaseRepository) *ScyllaRawQueryRepos
 	return &ScyllaRawQueryRepository{ScyllaBaseRepository: base}
 }
 
-func (s *ScyllaRawQueryRepository) RawQueryPositional(queryString string, parameters []any) (*[]map[string]any, error) {
+func (s *ScyllaRawQueryRepository) RawQueryPositional(queryString string, parameters []any, ctx context.Context) (*[]map[string]any, error) {
 	var results *[]map[string]any
-	query := s.session.Query(queryString, nil)
+	query := s.session.Query(queryString, nil).WithContext(ctx)
 	defer query.Release()
 	if rows, err := query.Bind(parameters...).Iter().SliceMap(); err != nil {
 		return nil, fmt.Errorf("method *ScyllaRawQueryRepository.RawQueryPositional: could not get slice map: %s", err)
@@ -30,13 +31,13 @@ func (s *ScyllaRawQueryRepository) RawQueryPositional(queryString string, parame
 	return results, nil
 }
 
-func (s *ScyllaRawQueryRepository) RawQueryNamed(queryString string, parameters map[string]any) (*[]map[string]any, error) {
+func (s *ScyllaRawQueryRepository) RawQueryNamed(queryString string, parameters map[string]any, ctx context.Context) (*[]map[string]any, error) {
 	var results *[]map[string]any
 	stmt, names, err := gocqlx.CompileNamedQueryString(queryString)
 	if err != nil {
 		return nil, fmt.Errorf("method *ScyllaRawQueryRepository.RawQueryNamed: could not compile named query string: %s", err)
 	}
-	query := s.session.Query(stmt, names)
+	query := s.session.Query(stmt, names).WithContext(ctx)
 	defer query.Release()
 	if rows, err := query.BindMap(parameters).Iter().SliceMap(); err != nil {
 		return nil, fmt.Errorf("method *ScyllaRawQueryRepository.RawQueryNamed: could not get slice map: %s", err)
@@ -49,20 +50,20 @@ func (s *ScyllaRawQueryRepository) RawQueryNamed(queryString string, parameters 
 	return results, nil
 }
 
-func (s *ScyllaRawQueryRepository) RawExecPositional(queryString string, parameters []any) error {
-	query := s.session.Query(queryString, nil)
+func (s *ScyllaRawQueryRepository) RawExecPositional(queryString string, parameters []any, ctx context.Context) error {
+	query := s.session.Query(queryString, nil).WithContext(ctx)
 	if err := query.Bind(parameters...).ExecRelease(); err != nil {
 		return fmt.Errorf("method *ScyllaRawQueryRepository.RawExecPositional: could not get slice map: %s", err)
 	}
 	return nil
 }
 
-func (s *ScyllaRawQueryRepository) RawExecNamed(queryString string, parameters map[string]any) error {
+func (s *ScyllaRawQueryRepository) RawExecNamed(queryString string, parameters map[string]any, ctx context.Context) error {
 	stmt, names, err := gocqlx.CompileNamedQueryString(queryString)
 	if err != nil {
 		return fmt.Errorf("method *ScyllaRawQueryRepository.RawExecNamed: could not compile named query string: %s", err)
 	}
-	query := s.session.Query(stmt, names)
+	query := s.session.Query(stmt, names).WithContext(ctx)
 	if err := query.BindMap(parameters).ExecRelease(); err != nil {
 		return fmt.Errorf("method *ScyllaRawQueryRepository.RawExecNamed: could not get slice map: %s", err)
 	}

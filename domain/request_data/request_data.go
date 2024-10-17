@@ -3,16 +3,15 @@ package request_data
 import (
 	"encoding/json"
 	"fmt"
-	"time"
 )
 
 type RequestData struct {
-	PreConfig map[string]any            `json:"preConfig" mapstructure:"preConfig"`
-	ReqBody   map[string]any            `json:"reqBody" mapstructure:"reqBody"`
-	Store     map[string]any            `json:"store" mapstructure:"store"`
-	Response  map[string]any            `json:"response" mapstructure:"response"`
-	QueryRes  map[string][]QueryResult  `json:"queryRes" mapstructure:"queryRes"`
-	ApiRes    map[string]map[string]any `json:"apiRes" mapstructure:"apiRes"`
+	PreConfig map[string]any              `json:"preConfig" mapstructure:"preConfig"`
+	ReqBody   map[string]any              `json:"reqBody" mapstructure:"reqBody"`
+	Store     map[string]any              `json:"store" mapstructure:"store"`
+	Response  map[string]any              `json:"response" mapstructure:"response"`
+	QueryRes  map[string][]map[string]any `json:"queryRes" mapstructure:"queryRes"`
+	ApiRes    map[string]map[string]any   `json:"apiRes" mapstructure:"apiRes"`
 }
 
 type SerializedRequestData struct {
@@ -23,19 +22,12 @@ type SerializedRequestData struct {
 	ApiRes   string `json:"apiRes" mapstructure:"apiRes"`
 }
 
-type QueryResult struct {
-	Start     time.Time         `json:"start" mapstructure:"start"`
-	End       time.Time         `json:"end" mapstructure:"end"`
-	TimeTaken int64             `json:"timeTaken" mapstructure:"timeTaken"`
-	Results   *[]map[string]any `json:"results" mapstructure:"results"`
-}
-
 func (r *RequestData) Initialize() {
 	r.PreConfig = make(map[string]any)
 	r.ReqBody = make(map[string]any)
 	r.Store = make(map[string]any)
 	r.Response = make(map[string]any)
-	r.QueryRes = make(map[string][]QueryResult)
+	r.QueryRes = make(map[string][]map[string]any)
 	r.ApiRes = make(map[string]map[string]any)
 }
 

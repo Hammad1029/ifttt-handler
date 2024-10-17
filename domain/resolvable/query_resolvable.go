@@ -2,95 +2,170 @@ package resolvable
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"ifttt/handler/common"
-	"ifttt/handler/domain/request_data"
 	"time"
 
+	"github.com/fatih/structs"
 	"github.com/mitchellh/mapstructure"
 )
 
-type RawQueryRepository interface {
-	RawQueryPositional(queryString string, parameters []any) (*[]map[string]any, error)
-	RawQueryNamed(queryString string, parameters map[string]any) (*[]map[string]any, error)
-
-	RawExecPositional(queryString string, parameters []any) error
-	RawExecNamed(queryString string, parameters map[string]any) error
-}
-
-type QueryExecutor interface {
-	Execute(rawQueryRepo RawQueryRepository, q *QueryResolvable, ctx context.Context, dependencies map[string]any) (*[]map[string]any, error)
-}
-
-type NamedQueryExecutor struct{}
-
-type PositionalQueryExecutor struct{}
-
-type QueryResolvable struct {
+type queryResolvable struct {
 	QueryString          string                `json:"queryString" mapstructure:"queryString"`
 	QueryHash            string                `json:"queryHash" mapstructure:"queryHash"`
 	Return               bool                  `json:"return" mapstructure:"return"`
 	Named                bool                  `json:"named" mapstructure:"named"`
 	NamedParameters      map[string]Resolvable `json:"namedParameters" mapstructure:"namedParameters"`
 	PositionalParameters []Resolvable          `json:"positionalParameters" mapstructure:"positionalParameters"`
+	Async                bool                  `json:"async" mapstructure:"async"`
+	Timeout              uint                  `json:"timeout" mapstructure:"timeout"`
 }
 
-func (e *NamedQueryExecutor) Execute(rawQueryRepo RawQueryRepository, q *QueryResolvable, ctx context.Context, dependencies map[string]any) (*[]map[string]any, error) {
-	parametersResolved, err := resolveIfNested(q.NamedParameters, ctx, dependencies)
+type queryData struct {
+	Request  *queryRequest     `json:"queryRequest" mapstructure:"queryRequest"`
+	Metadata *queryMetadata    `json:"queryMetadata" mapstructure:"queryMetadata"`
+	Results  *[]map[string]any `json:"results" mapstructure:"results"`
+}
+
+type queryRequest struct {
+	QueryString          string         `json:"queryString" mapstructure:"queryString"`
+	QueryHash            string         `json:"queryHash" mapstructure:"queryHash"`
+	Return               bool           `json:"return" mapstructure:"return"`
+	Named                bool           `json:"named" mapstructure:"named"`
+	NamedParameters      map[string]any `json:"namedParameters" mapstructure:"namedParameters"`
+	PositionalParameters []any          `json:"positionalParameters" mapstructure:"positionalParameters"`
+}
+
+type queryMetadata struct {
+	Start      time.Time `json:"start" mapstructure:"start"`
+	End        time.Time `json:"end" mapstructure:"end"`
+	TimeTaken  uint64    `json:"timeTaken" mapstructure:"timeTaken"`
+	Timeout    uint      `json:"timeOut" mapstructure:"timeOut"`
+	DidTimeout bool      `json:"didTimeout" mapstructure:"didTimeout"`
+	Async      bool      `json:"async" mapstructure:"async"`
+	Error      error     `json:"error" mapstructure:"error"`
+}
+
+type RawQueryRepository interface {
+	RawQueryPositional(queryString string, parameters []any, ctx context.Context) (*[]map[string]any, error)
+	RawQueryNamed(queryString string, parameters map[string]any, ctx context.Context) (*[]map[string]any, error)
+
+	RawExecPositional(queryString string, parameters []any, ctx context.Context) error
+	RawExecNamed(queryString string, parameters map[string]any, ctx context.Context) error
+}
+
+func (q *queryResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+	queryData, err := q.createQueryData(ctx, dependencies)
 	if err != nil {
-		return nil, fmt.Errorf("could not resolve named parameters: %s", err)
+		return nil, fmt.Errorf("queryResolvable: could not create query data: %s", err)
 	}
-	var namedParametersMap map[string]any
-	if err := mapstructure.Decode(parametersResolved, &namedParametersMap); err != nil {
-		return nil, fmt.Errorf("could not decode resolved named parameters to map[string]any: %s", err)
+
+	if q.Async {
+		go queryData.execute(dependencies, ctx)
+	} else if err := queryData.execute(dependencies, ctx); err != nil {
+		return nil, fmt.Errorf("queryResolvable: could not execute query: %s", err)
 	}
-	if q.Return {
-		return rawQueryRepo.RawQueryNamed(q.QueryString, namedParametersMap)
-	}
-	return nil, rawQueryRepo.RawExecNamed(q.QueryString, namedParametersMap)
+
+	return queryData, nil
 }
 
-func (e *PositionalQueryExecutor) Execute(rawQueryRepo RawQueryRepository, q *QueryResolvable, ctx context.Context, dependencies map[string]any) (*[]map[string]any, error) {
-	parametersResolved, err := resolveIfNested(q.PositionalParameters, ctx, dependencies)
+func (q *queryResolvable) createQueryData(ctx context.Context, dependencies map[string]any) (*queryData, error) {
+	var queryData queryData
+	queryRequest, err := q.createQueryRequest(ctx, dependencies)
 	if err != nil {
-		return nil, fmt.Errorf("could not resolve positional parameters: %s", err)
+		return nil, fmt.Errorf("could not create query request: %s", err)
 	}
-	var positionalParametersSlice []any
-	if err := mapstructure.Decode(parametersResolved, &positionalParametersSlice); err != nil {
-		return nil, fmt.Errorf("could not decode resolved positional parameters to []any: %s", err)
-	}
-
-	if q.Return {
-		return rawQueryRepo.RawQueryPositional(q.QueryString, positionalParametersSlice)
-	}
-	return nil, rawQueryRepo.RawExecPositional(q.QueryString, positionalParametersSlice)
+	queryData.Request = queryRequest
+	queryData.Metadata = q.createQueryMetadata()
+	queryData.Results = &[]map[string]any{}
+	return &queryData, nil
 }
 
-func (q *QueryResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
-	var queryResult request_data.QueryResult
-	queryResult.Start = time.Now()
+func (q *queryResolvable) createQueryRequest(ctx context.Context, dependencies map[string]any) (*queryRequest, error) {
+	var req queryRequest
+
+	req.QueryString = q.QueryString
+	req.QueryHash = q.QueryHash
+	req.Return = q.Return
+	req.Named = q.Named
+
+	if req.Named {
+		parametersResolved, err := resolveIfNested(q.NamedParameters, ctx, dependencies)
+		if err != nil {
+			return nil, fmt.Errorf("could not resolve named parameters: %s", err)
+		}
+		if err := mapstructure.Decode(parametersResolved, &req.NamedParameters); err != nil {
+			return nil, fmt.Errorf("could not decode resolved named parameters to map[string]any: %s", err)
+		}
+	} else {
+		parametersResolved, err := resolveIfNested(q.PositionalParameters, ctx, dependencies)
+		if err != nil {
+			return nil, fmt.Errorf("could not resolve positional parameters: %s", err)
+		}
+		if err := mapstructure.Decode(parametersResolved, &q.PositionalParameters); err != nil {
+			return nil, fmt.Errorf("could not decode resolved positional parameters to []any: %s", err)
+		}
+	}
+
+	return &req, nil
+}
+
+func (q *queryResolvable) createQueryMetadata() *queryMetadata {
+	return &queryMetadata{Timeout: q.Timeout, Async: q.Async}
+}
+
+func (q *queryData) execute(dependencies map[string]any, ctx context.Context) error {
+	q.Metadata.Start = time.Now()
 
 	rawQueryRepo, ok := dependencies[common.DependencyRawQueryRepo].(RawQueryRepository)
 	if !ok {
-		return nil, fmt.Errorf("method *QueryResolvable: could not cast raw query repo")
+		return fmt.Errorf("method *QueryResolvable: could not cast raw query repo")
 	}
 
-	var queryExecutor QueryExecutor
-	if q.Named {
-		queryExecutor = &NamedQueryExecutor{}
+	var (
+		results *[]map[string]any
+		err     error
+	)
+	if q.Metadata.Timeout > 0 {
+		timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(q.Metadata.Timeout)*time.Millisecond)
+		defer cancel()
+		results, err = q.Request.RunQuery(rawQueryRepo, timeoutCtx)
 	} else {
-		queryExecutor = &PositionalQueryExecutor{}
+		results, err = q.Request.RunQuery(rawQueryRepo, ctx)
 	}
-
-	results, err := queryExecutor.Execute(rawQueryRepo, q, ctx, dependencies)
 	if err != nil {
-		return nil, fmt.Errorf("method resolveQuery: could not run query %s: %s", q.QueryHash, err.Error())
+		if errors.Is(err, context.DeadlineExceeded) {
+			q.Metadata.DidTimeout = true
+		} else {
+			q.Metadata.Error = err
+		}
+		return nil
 	}
-	queryResult.Results = results
-	queryResult.End = time.Now()
-	queryResult.TimeTaken = queryResult.End.Sub(queryResult.Start).Milliseconds()
 
+	q.Results = results
+	q.Metadata.End = time.Now()
+	q.Metadata.TimeTaken = uint64(q.Metadata.End.Sub(q.Metadata.Start).Milliseconds())
+
+	q.createLog(ctx)
+
+	return nil
+}
+
+func (q *queryData) createLog(ctx context.Context) {
 	queryRes := GetRequestData(ctx).QueryRes
-	queryRes[q.QueryHash] = append(queryRes[q.QueryHash], queryResult)
-	return results, nil
+	queryRes[q.Request.QueryHash] = append(queryRes[q.Request.QueryHash], structs.Map(q))
+}
+
+func (q *queryRequest) RunQuery(rawQueryRepo RawQueryRepository, ctx context.Context) (*[]map[string]any, error) {
+	switch {
+	case q.Named && q.Return:
+		return rawQueryRepo.RawQueryNamed(q.QueryString, q.NamedParameters, ctx)
+	case q.Named && !q.Return:
+		return nil, rawQueryRepo.RawExecNamed(q.QueryString, q.NamedParameters, ctx)
+	case !q.Named && q.Return:
+		return rawQueryRepo.RawQueryPositional(q.QueryString, q.PositionalParameters, ctx)
+	default:
+		return nil, rawQueryRepo.RawExecPositional(q.QueryString, q.PositionalParameters, ctx)
+	}
 }

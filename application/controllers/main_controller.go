@@ -9,12 +9,13 @@ import (
 	"ifttt/handler/domain/resolvable"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-func NewRulesController(router fiber.Router, core *core.ServerCore, api *api.Api) error {
-	controller := rulesController(core)
+func NewMainController(router fiber.Router, core *core.ServerCore, api *api.Api) error {
+	controller := mainController(core)
 	switch strings.ToUpper(api.Method) {
 	case http.MethodGet:
 		router.Get(api.Path, controller)
@@ -25,13 +26,14 @@ func NewRulesController(router fiber.Router, core *core.ServerCore, api *api.Api
 	case http.MethodDelete:
 		router.Delete(api.Path, controller)
 	default:
-		return fmt.Errorf("method NewRulesController: method %s not found", api.Method)
+		return fmt.Errorf("method NewMainController: method %s not found", api.Method)
 	}
 	return nil
 }
 
-func rulesController(core *core.ServerCore) func(c *fiber.Ctx) error {
+func mainController(core *core.ServerCore) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
+
 		ctx := c.Context()
 
 		log := audit_log.AuditLog{}
@@ -51,8 +53,7 @@ func rulesController(core *core.ServerCore) func(c *fiber.Ctx) error {
 		requestData.Initialize()
 		// log.Initialize(&requestData, api.Group, api.Name)
 
-		err = c.BodyParser(&requestData.ReqBody)
-		if err != nil {
+		if err := c.BodyParser(&requestData.ReqBody); err != nil {
 			res := &resolvable.ResponseResolvable{
 				ResponseCode:        "400",
 				ResponseDescription: "Error in parsing body",
@@ -73,10 +74,12 @@ func rulesController(core *core.ServerCore) func(c *fiber.Ctx) error {
 			return res.SendResponse(c)
 		}
 
-		go core.InitExec(api.TriggerFlows, ctx)
+		start := time.Now()
+		go core.InitExec(api.TriggerFlows, ctx, c)
 
 		res := <-resChan
 		close(resChan)
+		fmt.Printf("execution time: %+v\n", time.Since(start))
 		// if postableLog, err := log.Post(); err != nil {
 		// 	fmt.Println(err)
 		// } else {

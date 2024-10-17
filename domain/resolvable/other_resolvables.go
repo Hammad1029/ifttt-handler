@@ -6,12 +6,12 @@ import (
 	"strings"
 )
 
-type StringInterpolationResolvable struct {
+type stringInterpolationResolvable struct {
 	Template   string       `json:"template" mapstructure:"template"`
 	Parameters []Resolvable `json:"parameters" mapstructure:"parameters"`
 }
 
-func (s *StringInterpolationResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (s *stringInterpolationResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	resolvedString := s.Template
 	for _, r := range s.Parameters {
 		if val, err := r.Resolve(ctx, dependencies); err != nil {

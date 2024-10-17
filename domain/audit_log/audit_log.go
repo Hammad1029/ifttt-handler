@@ -2,32 +2,29 @@ package audit_log
 
 import (
 	"fmt"
-	"ifttt/handler/domain/request_data"
 	"time"
 )
 
 type AuditLog struct {
-	ApiGroup       string                    `json:"apiGroup" mapstructure:"apiGroup"`
-	ApiName        string                    `json:"apiName" mapstructure:"apiName"`
-	ExecutionOrder []uint                    `json:"executionOrder" mapstructure:"executionOrder"`
-	ExecutionLogs  []ExecLog                 `json:"executionLogs" mapstructure:"executionLogs"`
-	RequestData    *request_data.RequestData `json:"requestData" mapstructure:"requestData"`
-	Start          time.Time                 `json:"start" mapstructure:"start"`
-	StartPartition time.Time                 `json:"startPartition" mapstructure:"startPartition"`
-	End            time.Time                 `json:"end" mapstructure:"end"`
-	TimeTaken      int                       `json:"timeTaken" mapstructure:"timeTaken"`
+	ApiGroup       string    `json:"apiGroup" mapstructure:"apiGroup"`
+	ApiName        string    `json:"apiName" mapstructure:"apiName"`
+	ExecutionOrder []uint    `json:"executionOrder" mapstructure:"executionOrder"`
+	ExecutionLogs  []ExecLog `json:"executionLogs" mapstructure:"executionLogs"`
+	Start          time.Time `json:"start" mapstructure:"start"`
+	StartPartition time.Time `json:"startPartition" mapstructure:"startPartition"`
+	End            time.Time `json:"end" mapstructure:"end"`
+	TimeTaken      int       `json:"timeTaken" mapstructure:"timeTaken"`
 }
 
 type PostableAuditLog struct {
-	ApiGroup       string                             `json:"apiGroup" mapstructure:"apiGroup"`
-	ApiName        string                             `json:"apiName" mapstructure:"apiName"`
-	ExecutionOrder []string                           `json:"executionOrder" mapstructure:"executionOrder"`
-	ExecutionLogs  []ExecLog                          `json:"executionLogs" mapstructure:"executionLogs"`
-	RequestData    request_data.SerializedRequestData `json:"requestData" mapstructure:"requestData"`
-	Start          time.Time                          `json:"start" mapstructure:"start"`
-	StartPartition time.Time                          `json:"startPartition" mapstructure:"startPartition"`
-	End            time.Time                          `json:"end" mapstructure:"end"`
-	TimeTaken      int                                `json:"timeTaken" mapstructure:"timeTaken"`
+	ApiGroup       string    `json:"apiGroup" mapstructure:"apiGroup"`
+	ApiName        string    `json:"apiName" mapstructure:"apiName"`
+	ExecutionOrder []string  `json:"executionOrder" mapstructure:"executionOrder"`
+	ExecutionLogs  []ExecLog `json:"executionLogs" mapstructure:"executionLogs"`
+	Start          time.Time `json:"start" mapstructure:"start"`
+	StartPartition time.Time `json:"startPartition" mapstructure:"startPartition"`
+	End            time.Time `json:"end" mapstructure:"end"`
+	TimeTaken      int       `json:"timeTaken" mapstructure:"timeTaken"`
 }
 
 type ExecLog struct {
@@ -42,7 +39,7 @@ func (l *AuditLog) StartLog() {
 	l.Start = now
 }
 
-func (l *AuditLog) Initialize(r *request_data.RequestData, apiGroup string, apiName string) {
+func (l *AuditLog) Initialize(apiGroup string, apiName string) {
 	// l.ApiGroup = apiGroup
 	// l.ApiName = apiName
 	// l.ExecutionOrder = []string{}

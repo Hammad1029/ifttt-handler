@@ -34,8 +34,6 @@ func Init() {
 		panic(fmt.Errorf("could not store apis in cache storage"))
 	}
 
-	// controllers.NewTestRulesController(app, currCore)
-	// controllers.NewTestDumpingController(app, currCore)
 	if apis != nil {
 		for _, currApi := range *apis {
 			if matched, err := common.RegexpArrayMatch(common.ReservedPaths, currApi.Path); err != nil {
@@ -46,7 +44,7 @@ func Init() {
 				continue
 			}
 			fmt.Printf("attempting to attach %s to routes\n", currApi.Path)
-			err = controllers.NewRulesController(app, currCore, &currApi)
+			err = controllers.NewMainController(app, currCore, &currApi)
 		}
 	}
 

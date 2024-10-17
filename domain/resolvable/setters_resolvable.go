@@ -7,23 +7,21 @@ import (
 	"sync"
 )
 
-type SetResResolvable map[string]any
+type setResResolvable map[string]any
 
-type SetStoreResolvable map[string]any
+type setStoreResolvable map[string]any
 
-type SetLogResolvable struct {
+type setLogResolvable struct {
 	LogData string `json:"logData" mapstructure:"logData"`
 	LogType string `json:"logType" mapstructure:"logType"`
 }
 
-func (s *SetResResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (s *setResResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	responseData := GetRequestData(ctx).Response
-	var (
-		once sync.Once
-		wg   sync.WaitGroup
-	)
+	var wg sync.WaitGroup
 
 	cancelCtx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
 
 	for key, value := range *s {
 		wg.Add(1)
@@ -34,9 +32,7 @@ func (s *SetResResolvable) Resolve(ctx context.Context, dependencies map[string]
 				return
 			default:
 				if resVal, err := resolveIfNested(v, cancelCtx, dependencies); err != nil {
-					once.Do(func() {
-						cancel(err)
-					})
+					cancel(err)
 				} else {
 					responseData[k] = resVal
 				}
@@ -44,19 +40,16 @@ func (s *SetResResolvable) Resolve(ctx context.Context, dependencies map[string]
 		}(key, value)
 	}
 
-	<-cancelCtx.Done()
 	wg.Wait()
 	return nil, context.Cause(cancelCtx)
 }
 
-func (s *SetStoreResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (s *setStoreResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	store := GetRequestData(ctx).Store
-	var (
-		once sync.Once
-		wg   sync.WaitGroup
-	)
+	var wg sync.WaitGroup
 
 	cancelCtx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
 
 	for key, value := range *s {
 		wg.Add(1)
@@ -67,9 +60,7 @@ func (s *SetStoreResolvable) Resolve(ctx context.Context, dependencies map[strin
 				return
 			default:
 				if resVal, err := resolveIfNested(v, cancelCtx, dependencies); err != nil {
-					once.Do(func() {
-						cancel(err)
-					})
+					cancel(err)
 				} else {
 					store[k] = resVal
 				}
@@ -77,12 +68,11 @@ func (s *SetStoreResolvable) Resolve(ctx context.Context, dependencies map[strin
 		}(key, value)
 	}
 
-	<-cancelCtx.Done()
 	wg.Wait()
 	return nil, context.Cause(cancelCtx)
 }
 
-func (s *SetLogResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (s *setLogResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	if l, ok := ctx.Value("log").(*audit_log.AuditLog); ok {
 		logTypeResolved, err := resolveIfNested(s.LogType, ctx, dependencies)
 		if err != nil {

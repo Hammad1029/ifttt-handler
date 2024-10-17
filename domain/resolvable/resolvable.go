@@ -8,6 +8,11 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
+type Resolvable struct {
+	ResolveType string         `json:"resolveType" mapstructure:"resolveType"`
+	ResolveData map[string]any `json:"resolveData" mapstructure:"resolveData"`
+}
+
 const (
 	AccessorJqResolvable                  = "jq"
 	AccessorGetRequestResolvable          = "getReq"
@@ -27,17 +32,12 @@ const (
 	AccessorStringInterpolationResolvable = "stringInterpolation"
 )
 
-type ResolvableInterface interface {
+type resolvableInterface interface {
 	Resolve(ctx context.Context, dependencies map[string]any) (any, error)
 }
 
-type Resolvable struct {
-	ResolveType string         `json:"resolveType" mapstructure:"resolveType"`
-	ResolveData map[string]any `json:"resolveData" mapstructure:"resolveData"`
-}
-
 func (r *Resolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
-	var genericResolvable ResolvableInterface
+	var genericResolvable resolvableInterface
 	var err error
 
 	if resolvableStruct := resolvableFactory(r.ResolveType); resolvableStruct != nil {
@@ -52,40 +52,40 @@ func (r *Resolvable) Resolve(ctx context.Context, dependencies map[string]any) (
 	return genericResolvable.Resolve(ctx, dependencies)
 }
 
-func resolvableFactory(rType string) ResolvableInterface {
+func resolvableFactory(rType string) resolvableInterface {
 	switch rType {
 	case AccessorJqResolvable:
-		return &JqResolvable{}
+		return &jqResolvable{}
 	case AccessorGetRequestResolvable:
-		return &GetRequestResolvable{}
+		return &getRequestResolvable{}
 	case AccessorGetResponseResolvable:
-		return &GetResponseResolvable{}
+		return &getResponseResolvable{}
 	case AccessorGetQueryResultsResolvable:
-		return &GetQueryResultsResolvable{}
+		return &getQueryResultsResolvable{}
 	case AccessorGetApiResultsResolvable:
-		return &GetApiResultsResolvable{}
+		return &getApiResultsResolvable{}
 	case AccessorGetStoreResolvable:
-		return &GetStoreResolvable{}
+		return &getStoreResolvable{}
 	case AccessorGetConstResolvable:
-		return &GetConstResolvable{}
+		return &getConstResolvable{}
 	case AccessorArithmetic:
-		return &Arithmetic{}
+		return &arithmetic{}
 	case AccessorQueryResolvable:
-		return &QueryResolvable{}
+		return &queryResolvable{}
 	case AccessorApiCallResolvable:
-		return &ApiCallResolvable{}
+		return &apiCallResolvable{}
 	case AccessorSetResResolvable:
-		return &SetResResolvable{}
+		return &setResResolvable{}
 	case AccessorSetStoreResolvable:
-		return &SetStoreResolvable{}
+		return &setStoreResolvable{}
 	case AccessorSetLogResolvable:
-		return &SetLogResolvable{}
+		return &setLogResolvable{}
 	case AccessorResponseResolvable:
 		return &ResponseResolvable{}
 	case AccessorPreConfigResolvable:
-		return &PreConfigResolvable{}
+		return &preConfigResolvable{}
 	case AccessorStringInterpolationResolvable:
-		return &StringInterpolationResolvable{}
+		return &stringInterpolationResolvable{}
 	default:
 		return nil
 	}

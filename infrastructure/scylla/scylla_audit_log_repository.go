@@ -77,13 +77,13 @@ func (s *ScyllaAuditLogRepository) InsertLog(log audit_log.PostableAuditLog, ctx
 		})
 	}
 	newLog.ExecutionLogs = scyllaExecAuditLogs
-	newLog.RequestData = scyllaSerizalizedRequestData{
-		ReqBody:  log.RequestData.ReqBody,
-		Store:    log.RequestData.Store,
-		Response: log.RequestData.Response,
-		QueryRes: log.RequestData.QueryRes,
-		ApiRes:   log.RequestData.ApiRes,
-	}
+	// newLog.RequestData = scyllaSerizalizedRequestData{
+	// 	ReqBody:  log.RequestData.ReqBody,
+	// 	Store:    log.RequestData.Store,
+	// 	Response: log.RequestData.Response,
+	// 	QueryRes: log.RequestData.QueryRes,
+	// 	ApiRes:   log.RequestData.ApiRes,
+	// }
 
 	LogsTable := s.getTable()
 	query := LogsTable.InsertQuery(*s.session).BindStruct(&newLog)

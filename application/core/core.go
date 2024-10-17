@@ -9,6 +9,8 @@ import (
 	"ifttt/handler/domain/resolvable"
 	infraStore "ifttt/handler/infrastructure/store"
 	"sync"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 type ServerCore struct {
@@ -47,12 +49,10 @@ func NewServerCore() (*ServerCore, error) {
 
 func (c *ServerCore) PreparePreConfig(config map[string]resolvable.Resolvable, ctx context.Context) error {
 	preConfig := resolvable.GetRequestData(ctx).PreConfig
-	var (
-		once sync.Once
-		wg   sync.WaitGroup
-	)
+	var wg sync.WaitGroup
 
 	cancelCtx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
 
 	for key, r := range config {
 		wg.Add(1)
@@ -63,9 +63,7 @@ func (c *ServerCore) PreparePreConfig(config map[string]resolvable.Resolvable, c
 				return
 			default:
 				if val, err := r.Resolve(cancelCtx, c.ResolvableDependencies); err != nil {
-					once.Do(func() {
-						cancel(err)
-					})
+					cancel(err)
 					return
 				} else {
 					preConfig[key] = val
@@ -74,42 +72,60 @@ func (c *ServerCore) PreparePreConfig(config map[string]resolvable.Resolvable, c
 		}(key, r)
 	}
 
-	<-cancelCtx.Done()
 	wg.Wait()
 	return context.Cause(ctx)
 }
 
-func (c *ServerCore) InitExec(triggerFlows *[]api.TriggerCondition, ctx context.Context) {
+func (c *ServerCore) InitExec(triggerFlows *[]api.TriggerCondition, ctx context.Context, fiberCtx *fiber.Ctx) {
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+
 	var flowWG sync.WaitGroup
+
 	for _, flow := range *triggerFlows {
 		flowWG.Add(1)
-		go c.initTriggerFlow(&flow, &flowWG, ctx)
+		go func(f *api.TriggerCondition) {
+			defer flowWG.Done()
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				if err := c.initTriggerFlow(f, ctx); err != nil {
+					cancel(err)
+				}
+			}
+		}(&flow)
 	}
+
 	flowWG.Wait()
-	res := &resolvable.ResponseResolvable{}
+
+	var res resolvable.ResponseResolvable
+	if err := context.Cause(ctx); err != nil {
+		res = resolvable.ResponseResolvable{
+			ResponseCode:        "500",
+			ResponseDescription: "Server Errror",
+		}
+	}
 	if _, err := res.Resolve(ctx, c.ResolvableDependencies); err != nil {
-		c.AddErrorToContext(fmt.Errorf("method initTriggerFlow: error in resolving response: %s", err), ctx)
+		fiberCtx.Send([]byte("something very bad happened"))
 	}
 }
 
-func (c *ServerCore) initTriggerFlow(tFlow *api.TriggerCondition, flowWG *sync.WaitGroup, ctx context.Context) {
-	defer flowWG.Done()
+func (c *ServerCore) initTriggerFlow(tFlow *api.TriggerCondition, ctx context.Context) error {
+	ctx, cancel := context.WithCancelCause(ctx)
 
 	if ev, err := tFlow.If.EvaluateGroup(ctx, c.ResolvableDependencies); err != nil {
-		c.AddErrorToContext(fmt.Errorf("method initTriggerFlow: error in solving tFlow if: %s", err), ctx)
-		return
+		return fmt.Errorf("method initTriggerFlow: error in solving tFlow if: %s", err)
 	} else if !ev {
-		return
+		return nil
 	}
 
 	startRules := []*api.Rule{}
-
 	for _, rId := range tFlow.Trigger.StartRules {
 		rIdUint := uint(rId)
 		currRule, ok := tFlow.Trigger.AllRules[rIdUint]
 		if !ok {
-			c.AddErrorToContext(fmt.Errorf("method *core.prepRule: rule %d not found", rId), ctx)
-			return
+			return fmt.Errorf("method *core.prepRule: rule %d not found", rId)
 		}
 		startRules = append(startRules, currRule)
 	}
@@ -119,42 +135,51 @@ func (c *ServerCore) initTriggerFlow(tFlow *api.TriggerCondition, flowWG *sync.W
 		ruleWG.Add(1)
 		go func(r *api.Rule) {
 			defer ruleWG.Done()
-			c.execRule(r, tFlow.Trigger.BranchFlows, tFlow.Trigger.AllRules, ctx)
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				if err := c.execRule(r, tFlow.Trigger.BranchFlows, tFlow.Trigger.AllRules, ctx); err != nil {
+					cancel(err)
+				}
+			}
 		}(rule)
 	}
+
 	ruleWG.Wait()
+	return context.Cause(ctx)
 }
 
 func (c *ServerCore) execRule(
 	rule *api.Rule, branchMap map[uint]*[]api.BranchFlow, allRules map[uint]*api.Rule, ctx context.Context,
-) {
+) error {
 	if err := c.resolveArray(rule.Pre, ctx); err != nil {
-		c.AddErrorToContext(fmt.Errorf("method *core.execRule: could not resolve pre: %s", err), ctx)
-		return
+		return fmt.Errorf("method *core.execRule: could not resolve pre: %s", err)
 	}
+
 	rVal, err := c.solveRuleSwitch(&rule.Switch, ctx)
 	if err != nil {
-		c.AddErrorToContext(fmt.Errorf("method *core.execRule: could not solve switch: %s", err), ctx)
-		return
+		return fmt.Errorf("method *core.execRule: could not solve switch: %s", err)
 	}
+
 	branchFlow, ok := branchMap[rule.Id]
 	if !ok {
-		c.AddErrorToContext(fmt.Errorf("method *core.execRule: branch flow for rule %d not found", rule.Id), ctx)
-		return
+		return fmt.Errorf("method *core.execRule: branch flow for rule %d not found", rule.Id)
 	}
+
 	for _, bF := range *branchFlow {
 		if requiredRVal, err := bF.IfReturn.Resolve(ctx, c.ResolvableDependencies); err != nil {
-			c.AddErrorToContext(fmt.Errorf("method *core.execRule: could not resolve IfReturn for branch: %s", err), ctx)
-			return
+			return fmt.Errorf("method *core.execRule: could not resolve IfReturn for branch: %s", err)
 		} else if rVal == requiredRVal {
 			if nextRule, ok := allRules[bF.Jump]; !ok {
-				c.AddErrorToContext(fmt.Errorf("method *core.execRule: rule %d not found", bF.Jump), ctx)
-				return
-			} else {
-				c.execRule(nextRule, branchMap, allRules, ctx)
+				return fmt.Errorf("method *core.execRule: rule %d not found", bF.Jump)
+			} else if err := c.execRule(nextRule, branchMap, allRules, ctx); err != nil {
+				return err
 			}
 		}
 	}
+
+	return nil
 }
 
 func (c *ServerCore) solveRuleSwitch(s *api.RuleSwitch, ctx context.Context) (any, error) {
@@ -185,14 +210,6 @@ func (c *ServerCore) doRuleCase(s *api.RuleSwitchCase, ctx context.Context) (any
 	} else {
 		return rVal, nil
 	}
-}
-
-func (c *ServerCore) AddErrorToContext(err error, ctx context.Context) {
-	errorResponse := resolvable.ResponseResolvable{
-		ResponseCode:        "500",
-		ResponseDescription: "Server Errror",
-	}
-	errorResponse.Resolve(ctx, c.ResolvableDependencies)
 }
 
 func (c *ServerCore) resolveArray(resolvables []resolvable.Resolvable, ctx context.Context) error {
