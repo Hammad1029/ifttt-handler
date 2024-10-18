@@ -44,7 +44,7 @@ func Init() {
 				continue
 			}
 			fmt.Printf("attempting to attach %s to routes\n", currApi.Path)
-			err = controllers.NewMainController(app, currCore, &currApi)
+			err = controllers.NewMainController(app, currCore, &currApi, ctx)
 		}
 	}
 

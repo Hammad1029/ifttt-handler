@@ -116,6 +116,8 @@ func (q *queryResolvable) createQueryMetadata() *queryMetadata {
 }
 
 func (q *queryData) execute(dependencies map[string]any, ctx context.Context) error {
+	defer q.createLog(ctx)
+
 	q.Metadata.Start = time.Now()
 
 	rawQueryRepo, ok := dependencies[common.DependencyRawQueryRepo].(RawQueryRepository)
@@ -146,8 +148,6 @@ func (q *queryData) execute(dependencies map[string]any, ctx context.Context) er
 	q.Results = results
 	q.Metadata.End = time.Now()
 	q.Metadata.TimeTaken = uint64(q.Metadata.End.Sub(q.Metadata.Start).Milliseconds())
-
-	q.createLog(ctx)
 
 	return nil
 }

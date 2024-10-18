@@ -15,7 +15,9 @@ func NewPostgresBaseRepository(client *gorm.DB, migrate bool) *PostgresBaseRepos
 		panic("missing postgres client")
 	}
 	if migrate {
-		if err := client.AutoMigrate(&apis{}, &classes{}, &trigger_flows{}, &rules{}); err != nil {
+		if err := client.AutoMigrate(
+			&apis{}, &classes{}, &trigger_flows{}, &rules{}, &audit_log{},
+		); err != nil {
 			panic(fmt.Errorf("could not automigrate gorm:%s", err))
 		}
 	}

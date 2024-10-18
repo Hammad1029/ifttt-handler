@@ -1,21 +1,23 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"ifttt/handler/application/core"
+	"ifttt/handler/common"
 	"ifttt/handler/domain/api"
 	"ifttt/handler/domain/audit_log"
 	"ifttt/handler/domain/request_data"
 	"ifttt/handler/domain/resolvable"
 	"net/http"
 	"strings"
-	"time"
+	"sync"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-func NewMainController(router fiber.Router, core *core.ServerCore, api *api.Api) error {
-	controller := mainController(core)
+func NewMainController(router fiber.Router, core *core.ServerCore, api *api.Api, ctx context.Context) error {
+	controller := mainController(core, ctx)
 	switch strings.ToUpper(api.Method) {
 	case http.MethodGet:
 		router.Get(api.Path, controller)
@@ -31,29 +33,45 @@ func NewMainController(router fiber.Router, core *core.ServerCore, api *api.Api)
 	return nil
 }
 
-func mainController(core *core.ServerCore) func(c *fiber.Ctx) error {
+func mainController(core *core.ServerCore, ctx context.Context) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 
-		ctx := c.Context()
+		var contextState sync.Map
+		ctx, cancel := context.WithCancel(ctx)
+		ctx = context.WithValue(ctx, common.ContextState, &contextState)
 
 		log := audit_log.AuditLog{}
-		ctx.SetUserValue("log", &log)
-		log.StartLog()
+		requestData := request_data.RequestData{}
+
+		log.Initialize(c.Path(), &requestData)
+		requestData.Initialize()
+
+		go func(l *audit_log.AuditLog) {
+			<-ctx.Done()
+			l.EndLog()
+			if err := core.ConfigStore.AuditLogRepo.InsertLog(l); err != nil {
+				fmt.Printf("error in inserting log: %s\n", err)
+			}
+		}(&log)
+
+		contextState.Store(common.ContextLog, &log)
 
 		api, err := core.CacheStore.APICacheRepo.GetApiByPath(c.Path(), ctx)
 		if api == nil || err != nil {
+			defer cancel()
 			res := &resolvable.ResponseResolvable{
 				ResponseCode:        "404",
 				ResponseDescription: "API not found",
 			}
 			return res.SendResponse(c)
+		} else {
+			log.ApiID = api.ID
+			log.ApiPath = api.Path
+			log.ApiName = api.Name
 		}
 
-		requestData := request_data.RequestData{}
-		requestData.Initialize()
-		// log.Initialize(&requestData, api.Group, api.Name)
-
 		if err := c.BodyParser(&requestData.ReqBody); err != nil {
+			defer cancel()
 			res := &resolvable.ResponseResolvable{
 				ResponseCode:        "400",
 				ResponseDescription: "Error in parsing body",
@@ -62,11 +80,12 @@ func mainController(core *core.ServerCore) func(c *fiber.Ctx) error {
 		}
 
 		resChan := make(chan resolvable.ResponseResolvable, 1)
-		ctx.SetUserValue("request", &requestData)
-		ctx.SetUserValue("resChan", resChan)
-		ctx.SetUserValue("api", api)
+		contextState.Store(common.ContextRequestData, &requestData)
+		contextState.Store(common.ContextResponseChannel, resChan)
+		contextState.Store(common.ContextApiData, api)
 
 		if err := core.PreparePreConfig(api.PreConfig, ctx); err != nil {
+			defer cancel()
 			res := &resolvable.ResponseResolvable{
 				ResponseCode:        "500",
 				ResponseDescription: "Could not prepare pre config",
@@ -74,18 +93,13 @@ func mainController(core *core.ServerCore) func(c *fiber.Ctx) error {
 			return res.SendResponse(c)
 		}
 
-		start := time.Now()
-		go core.InitExec(api.TriggerFlows, ctx, c)
+		go func() {
+			defer cancel()
+			core.InitExec(api.TriggerFlows, ctx, c)
+		}()
 
 		res := <-resChan
 		close(resChan)
-		fmt.Printf("execution time: %+v\n", time.Since(start))
-		// if postableLog, err := log.Post(); err != nil {
-		// 	fmt.Println(err)
-		// } else {
-		// 	core.ConfigStore.AuditLogRepo.InsertLog(postableLog, ctx)
-		// 	fmt.Printf("execution time: %v\n", postableLog.TimeTaken)
-		// }
 		return res.SendResponse(c)
 	}
 }

@@ -5,6 +5,7 @@ import (
 )
 
 type Api struct {
+	ID           uint                             `json:"id" mapstructure:"id"`
 	Name         string                           `json:"name" mapstructure:"name"`
 	Path         string                           `json:"path" mapstructure:"path"`
 	Method       string                           `json:"method" mapstructure:"method"`
@@ -24,6 +25,7 @@ type Class struct {
 }
 
 type TriggerFlow struct {
+	ID          uint                   `json:"id" mapstructure:"id"`
 	Name        string                 `json:"name" mapstructure:"name"`
 	Description string                 `json:"description" mapstructure:"description"`
 	Class       Class                  `json:"class" mapstructure:"class"`
@@ -38,7 +40,7 @@ type BranchFlow struct {
 }
 
 type Rule struct {
-	Id          uint                    `json:"id" mapstructure:"id"`
+	ID          uint                    `json:"id" mapstructure:"id"`
 	Name        string                  `json:"name" mapstructure:"name"`
 	Description string                  `json:"description" mapstructure:"description"`
 	Pre         []resolvable.Resolvable `json:"pre" mapstructure:"pre"`

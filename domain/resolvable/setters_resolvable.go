@@ -3,6 +3,7 @@ package resolvable
 import (
 	"context"
 	"fmt"
+	"ifttt/handler/common"
 	"ifttt/handler/domain/audit_log"
 	"sync"
 )
@@ -34,7 +35,7 @@ func (s *setResResolvable) Resolve(ctx context.Context, dependencies map[string]
 				if resVal, err := resolveIfNested(v, cancelCtx, dependencies); err != nil {
 					cancel(err)
 				} else {
-					responseData[k] = resVal
+					responseData.Store(k, resVal)
 				}
 			}
 		}(key, value)
@@ -62,7 +63,7 @@ func (s *setStoreResolvable) Resolve(ctx context.Context, dependencies map[strin
 				if resVal, err := resolveIfNested(v, cancelCtx, dependencies); err != nil {
 					cancel(err)
 				} else {
-					store[k] = resVal
+					store.Store(k, resVal)
 				}
 			}
 		}(key, value)
@@ -73,7 +74,12 @@ func (s *setStoreResolvable) Resolve(ctx context.Context, dependencies map[strin
 }
 
 func (s *setLogResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
-	if l, ok := ctx.Value("log").(*audit_log.AuditLog); ok {
+	logUncasted, ok := common.GetRequestState(ctx).Load(common.ContextLog)
+	if !ok {
+		return nil, fmt.Errorf("log data not found in map")
+	}
+
+	if l, ok := logUncasted.(*audit_log.AuditLog); ok {
 		logTypeResolved, err := resolveIfNested(s.LogType, ctx, dependencies)
 		if err != nil {
 			return nil, err
@@ -85,5 +91,6 @@ func (s *setLogResolvable) Resolve(ctx context.Context, dependencies map[string]
 		l.AddExecLog("user", fmt.Sprint(logTypeResolved), fmt.Sprint(logDataResolved))
 		return nil, nil
 	}
-	return nil, fmt.Errorf("method setUserLog: could not type cast log model")
+
+	return nil, fmt.Errorf("could not type cast log model")
 }

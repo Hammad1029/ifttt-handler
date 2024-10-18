@@ -53,5 +53,6 @@ func (p *postgresStore) createConfigStore() *ConfigStore {
 	return &ConfigStore{
 		Store:             p,
 		APIPersistentRepo: postgresInfra.NewPostgresApiRepository(postgresBase),
+		AuditLogRepo:      postgresInfra.NewPostgresAuditLogRepository(postgresBase),
 	}
 }

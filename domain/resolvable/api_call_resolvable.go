@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"ifttt/handler/common"
 	"io"
 	"net/http"
 	"strings"
@@ -139,6 +140,8 @@ func (a *apiRequest) createHttpRequest() (*http.Request, error) {
 }
 
 func (c *callData) doRequest(ctx context.Context) error {
+	defer c.createLog(ctx)
+
 	httpRequest, err := c.Request.createHttpRequest()
 	if err != nil {
 		return fmt.Errorf("error in creating http request: %s", err)
@@ -168,7 +171,6 @@ func (c *callData) doRequest(ctx context.Context) error {
 	c.Metadata.TimeTaken = uint64(c.Metadata.End.Sub(c.Metadata.Start).Milliseconds())
 	c.Response = localRes
 
-	c.createLog(ctx)
 	return nil
 }
 
@@ -217,6 +219,7 @@ func (a *apiCallResponse) readResponseBody(res *http.Response) error {
 
 func (c *callData) createLog(ctx context.Context) {
 	reqData := GetRequestData(ctx)
-	callSignature := fmt.Sprintf("%s|%s|%s", c.Request.Method, c.Request.URL, c.Metadata.Start)
+	callSignature := fmt.Sprintf("%s|%s|%s",
+		c.Request.Method, c.Request.URL, c.Metadata.Start.Format(common.DateTimeFormat))
 	reqData.ApiRes[callSignature] = structs.Map(c)
 }

@@ -3,13 +3,17 @@ package infrastructure
 import (
 	"encoding/json"
 	"fmt"
+	"ifttt/handler/common"
 	"ifttt/handler/domain/api"
+	domain_audit_log "ifttt/handler/domain/audit_log"
 	"ifttt/handler/domain/resolvable"
+
+	"github.com/jackc/pgtype"
 )
 
 func (pgRule *rules) toDomain() (*api.Rule, error) {
 	domainRule := api.Rule{
-		Id:          pgRule.ID,
+		ID:          pgRule.ID,
 		Name:        pgRule.Name,
 		Description: pgRule.Description,
 	}
@@ -29,6 +33,7 @@ func (pgRule *rules) toDomain() (*api.Rule, error) {
 
 func (t *trigger_flows) toDomain() (*api.TriggerFlow, error) {
 	domanTFlow := api.TriggerFlow{
+		ID:          t.ID,
 		Name:        t.Name,
 		Description: t.Description,
 		Class:       api.Class{Name: t.Class.Name},
@@ -58,6 +63,7 @@ func (t *trigger_flows) toDomain() (*api.TriggerFlow, error) {
 
 func (a *apis) toDomain() (*api.Api, error) {
 	domainApi := api.Api{
+		ID:           a.ID,
 		Name:         a.Name,
 		Path:         a.Path,
 		Method:       a.Method,
@@ -103,4 +109,40 @@ func (a *apis) toDomain() (*api.Api, error) {
 	}
 
 	return &domainApi, nil
+}
+
+func (a *audit_log) fromDomain(dLog *domain_audit_log.AuditLog) error {
+	a.ApiID = dLog.ApiID
+	a.ApiName = dLog.ApiName
+	a.ApiPath = dLog.ApiPath
+	a.Start = dLog.Start
+	a.End = dLog.End
+	a.TimeTaken = dLog.TimeTaken
+
+	if execOrderMarshalled, err := json.Marshal(common.UnSyncMap(dLog.ExecutionOrder)); err != nil {
+		return fmt.Errorf("method *PostgresAPIRepository.FromDomain: could not marshal execution order: %s", err)
+	} else {
+		a.ExecutionOrder = pgtype.JSONB{Bytes: execOrderMarshalled, Status: pgtype.Present}
+	}
+
+	if execLogsMarshalled, err := json.Marshal(dLog.ExecutionLogs); err != nil {
+		return fmt.Errorf("method *PostgresAPIRepository.FromDomain: could not marshal execution logs: %s", err)
+	} else {
+		a.ExecutionLogs = pgtype.JSONB{Bytes: execLogsMarshalled, Status: pgtype.Present}
+	}
+
+	reqDataMap := make(map[string]any)
+	reqDataMap["reqBody"] = dLog.RequestData.ReqBody
+	reqDataMap["preConfig"] = common.UnSyncMap(dLog.RequestData.PreConfig)
+	reqDataMap["store"] = common.UnSyncMap(dLog.RequestData.Store)
+	reqDataMap["response"] = common.UnSyncMap(dLog.RequestData.Response)
+	reqDataMap["queryRes"] = dLog.RequestData.QueryRes
+	reqDataMap["apiRes"] = dLog.RequestData.ApiRes
+	if reqDataMarshalled, err := json.Marshal(&reqDataMap); err != nil {
+		return fmt.Errorf("method *PostgresAPIRepository.FromDomain: could not marshal request data: %s", err)
+	} else {
+		a.RequestData = pgtype.JSONB{Bytes: reqDataMarshalled, Status: pgtype.Present}
+	}
+
+	return nil
 }

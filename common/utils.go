@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/samber/lo"
@@ -91,4 +92,13 @@ func RegexpArrayMatch(patterns []string, input string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+func UnSyncMap(s *sync.Map) map[string]any {
+	m := make(map[string]any)
+	s.Range(func(key, value any) bool {
+		m[fmt.Sprint(key)] = value
+		return true
+	})
+	return m
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"ifttt/handler/common"
 	"ifttt/handler/domain/api"
+	"ifttt/handler/domain/audit_log"
 	"ifttt/handler/domain/configuration"
 	"ifttt/handler/domain/resolvable"
 	infraStore "ifttt/handler/infrastructure/store"
@@ -66,7 +67,7 @@ func (c *ServerCore) PreparePreConfig(config map[string]resolvable.Resolvable, c
 					cancel(err)
 					return
 				} else {
-					preConfig[key] = val
+					preConfig.Store(key, val)
 				}
 			}
 		}(key, r)
@@ -90,8 +91,14 @@ func (c *ServerCore) InitExec(triggerFlows *[]api.TriggerCondition, ctx context.
 			case <-ctx.Done():
 				return
 			default:
-				if err := c.initTriggerFlow(f, ctx); err != nil {
-					cancel(err)
+				{
+					if logUncasted, ok := common.GetRequestState(ctx).Load(common.ContextLog); ok {
+						log := logUncasted.(*audit_log.AuditLog)
+						log.ExecutionOrder.Store(uint(f.Trigger.ID), map[uint][]uint{})
+					}
+					if err := c.initTriggerFlow(f, ctx); err != nil {
+						cancel(err)
+					}
 				}
 			}
 		}(&flow)
@@ -123,6 +130,11 @@ func (c *ServerCore) initTriggerFlow(tFlow *api.TriggerCondition, ctx context.Co
 	startRules := []*api.Rule{}
 	for _, rId := range tFlow.Trigger.StartRules {
 		rIdUint := uint(rId)
+		if logUncasted, ok := common.GetRequestState(ctx).Load(common.ContextLog); ok {
+			log := logUncasted.(*audit_log.AuditLog)
+			ruleFlow := map[uint][]uint{rIdUint: {}}
+			log.ExecutionOrder.Store(uint(tFlow.Trigger.ID), ruleFlow)
+		}
 		currRule, ok := tFlow.Trigger.AllRules[rIdUint]
 		if !ok {
 			return fmt.Errorf("method *core.prepRule: rule %d not found", rId)
@@ -139,7 +151,9 @@ func (c *ServerCore) initTriggerFlow(tFlow *api.TriggerCondition, ctx context.Co
 			case <-ctx.Done():
 				return
 			default:
-				if err := c.execRule(r, tFlow.Trigger.BranchFlows, tFlow.Trigger.AllRules, ctx); err != nil {
+				if err := c.execRule(
+					r, tFlow.Trigger.BranchFlows, tFlow.Trigger.AllRules, tFlow.Trigger.ID, r.ID, ctx,
+				); err != nil {
 					cancel(err)
 				}
 			}
@@ -151,8 +165,17 @@ func (c *ServerCore) initTriggerFlow(tFlow *api.TriggerCondition, ctx context.Co
 }
 
 func (c *ServerCore) execRule(
-	rule *api.Rule, branchMap map[uint]*[]api.BranchFlow, allRules map[uint]*api.Rule, ctx context.Context,
+	rule *api.Rule, branchMap map[uint]*[]api.BranchFlow, allRules map[uint]*api.Rule, flowId uint, startRule uint, ctx context.Context,
 ) error {
+	if logUncasted, ok := common.GetRequestState(ctx).Load(common.ContextLog); ok {
+		log := logUncasted.(*audit_log.AuditLog)
+		if currExecOrder, ok := log.ExecutionOrder.Load(flowId); ok {
+			currExecOrderCasted := currExecOrder.(map[uint][]uint)
+			currExecOrderCasted[startRule] = append(currExecOrderCasted[startRule], rule.ID)
+			log.ExecutionOrder.Store(flowId, currExecOrderCasted)
+		}
+	}
+
 	if err := c.resolveArray(rule.Pre, ctx); err != nil {
 		return fmt.Errorf("method *core.execRule: could not resolve pre: %s", err)
 	}
@@ -162,9 +185,9 @@ func (c *ServerCore) execRule(
 		return fmt.Errorf("method *core.execRule: could not solve switch: %s", err)
 	}
 
-	branchFlow, ok := branchMap[rule.Id]
+	branchFlow, ok := branchMap[rule.ID]
 	if !ok {
-		return fmt.Errorf("method *core.execRule: branch flow for rule %d not found", rule.Id)
+		return fmt.Errorf("method *core.execRule: branch flow for rule %d not found", rule.ID)
 	}
 
 	for _, bF := range *branchFlow {
@@ -173,7 +196,7 @@ func (c *ServerCore) execRule(
 		} else if rVal == requiredRVal {
 			if nextRule, ok := allRules[bF.Jump]; !ok {
 				return fmt.Errorf("method *core.execRule: rule %d not found", bF.Jump)
-			} else if err := c.execRule(nextRule, branchMap, allRules, ctx); err != nil {
+			} else if err := c.execRule(nextRule, branchMap, allRules, flowId, startRule, ctx); err != nil {
 				return err
 			}
 		}

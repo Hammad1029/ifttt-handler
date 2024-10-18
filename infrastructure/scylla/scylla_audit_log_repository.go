@@ -2,7 +2,6 @@ package infrastructure
 
 import (
 	"context"
-	"fmt"
 	"ifttt/handler/domain/audit_log"
 	"time"
 
@@ -59,37 +58,37 @@ func (s *ScyllaAuditLogRepository) getTable() *table.Table {
 	return scyllaAuditLogTable
 }
 
-func (s *ScyllaAuditLogRepository) InsertLog(log audit_log.PostableAuditLog, ctx context.Context) error {
-	newLog := scyllaAuditLog{
-		ApiGroup:       log.ApiGroup,
-		ApiName:        log.ApiName,
-		ExecutionOrder: log.ExecutionOrder,
-		Start:          log.Start,
-		StartPartition: log.StartPartition,
-	}
-
-	var scyllaExecAuditLogs []scyllaExecAuditLog
-	for _, eL := range log.ExecutionLogs {
-		scyllaExecAuditLogs = append(scyllaExecAuditLogs, scyllaExecAuditLog{
-			LogUser: eL.LogUser,
-			LogType: eL.LogType,
-			LogData: eL.LogData,
-		})
-	}
-	newLog.ExecutionLogs = scyllaExecAuditLogs
-	// newLog.RequestData = scyllaSerizalizedRequestData{
-	// 	ReqBody:  log.RequestData.ReqBody,
-	// 	Store:    log.RequestData.Store,
-	// 	Response: log.RequestData.Response,
-	// 	QueryRes: log.RequestData.QueryRes,
-	// 	ApiRes:   log.RequestData.ApiRes,
+func (s *ScyllaAuditLogRepository) InsertLog(log audit_log.AuditLog, ctx context.Context) error {
+	// newLog := scyllaAuditLog{
+	// 	ApiGroup:       log.ApiGroup,
+	// 	ApiName:        log.ApiName,
+	// 	ExecutionOrder: log.ExecutionOrder,
+	// 	Start:          log.Start,
+	// 	StartPartition: log.StartPartition,
 	// }
 
-	LogsTable := s.getTable()
-	query := LogsTable.InsertQuery(*s.session).BindStruct(&newLog)
-	if err := query.ExecRelease(); err != nil {
-		return fmt.Errorf("method ScyllaLogRepository.InsertLog: error in inserting log: %s", err)
-	}
+	// var scyllaExecAuditLogs []scyllaExecAuditLog
+	// for _, eL := range log.ExecutionLogs {
+	// 	scyllaExecAuditLogs = append(scyllaExecAuditLogs, scyllaExecAuditLog{
+	// 		LogUser: eL.LogUser,
+	// 		LogType: eL.LogType,
+	// 		LogData: eL.LogData,
+	// 	})
+	// }
+	// newLog.ExecutionLogs = scyllaExecAuditLogs
+	// // newLog.RequestData = scyllaSerizalizedRequestData{
+	// // 	ReqBody:  log.RequestData.ReqBody,
+	// // 	Store:    log.RequestData.Store,
+	// // 	Response: log.RequestData.Response,
+	// // 	QueryRes: log.RequestData.QueryRes,
+	// // 	ApiRes:   log.RequestData.ApiRes,
+	// // }
+
+	// LogsTable := s.getTable()
+	// query := LogsTable.InsertQuery(*s.session).BindStruct(&newLog)
+	// if err := query.ExecRelease(); err != nil {
+	// 	return fmt.Errorf("method ScyllaLogRepository.InsertLog: error in inserting log: %s", err)
+	// }
 
 	return nil
 }

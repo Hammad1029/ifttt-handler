@@ -2,8 +2,8 @@ package resolvable
 
 import (
 	"context"
+	"ifttt/handler/common"
 	"ifttt/handler/domain/request_data"
-	"maps"
 )
 
 type getRequestResolvable map[string]any
@@ -23,8 +23,10 @@ type getConstResolvable struct {
 }
 
 func GetRequestData(ctx context.Context) *request_data.RequestData {
-	reqData, _ := ctx.Value("request").(*request_data.RequestData)
-	return reqData
+	if reqData, ok := common.GetRequestState(ctx).Load(common.ContextRequestData); ok {
+		return reqData.(*request_data.RequestData)
+	}
+	return nil
 }
 
 func (r *getRequestResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
@@ -32,7 +34,7 @@ func (r *getRequestResolvable) Resolve(ctx context.Context, dependencies map[str
 }
 
 func (r *getResponseResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
-	return maps.Clone(GetRequestData(ctx).Response), nil
+	return common.UnSyncMap(GetRequestData(ctx).Response), nil
 }
 
 func (a *getApiResultsResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {

@@ -3,6 +3,7 @@ package resolvable
 import (
 	"context"
 	"fmt"
+	"ifttt/handler/common"
 	"ifttt/handler/domain/audit_log"
 
 	"github.com/gofiber/fiber/v2"
@@ -25,8 +26,14 @@ type errorsData struct {
 }
 
 func (r *ResponseResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
-	if log, ok := ctx.Value("log").(*audit_log.AuditLog); !ok {
-		return nil, fmt.Errorf("method Resolve: log model type assertion failed")
+	requestState := common.GetRequestState(ctx)
+
+	logUncasted, ok := requestState.Load(common.ContextLog)
+	if !ok {
+		return nil, fmt.Errorf("log data not found in map")
+	}
+	if log, ok := logUncasted.(*audit_log.AuditLog); !ok {
+		return nil, fmt.Errorf("log model type assertion failed")
 	} else {
 		r.Response.Errors.System = log.GetSystemErrorLogs()
 		r.Response.Errors.User = log.GetUserErrorLogs()
@@ -38,9 +45,13 @@ func (r *ResponseResolvable) Resolve(ctx context.Context, dependencies map[strin
 	if r.ResponseDescription == "" {
 		r.ResponseDescription = "SUCCESS"
 	}
-	r.Response.Data = GetRequestData(ctx).Response
+	r.Response.Data = common.UnSyncMap(GetRequestData(ctx).Response)
 
-	if responseChannel, ok := ctx.Value("resChan").(chan ResponseResolvable); ok {
+	resChanUncasted, ok := requestState.Load(common.ContextResponseChannel)
+	if !ok {
+		return nil, fmt.Errorf("log data not found in map")
+	}
+	if responseChannel, ok := resChanUncasted.(chan ResponseResolvable); ok {
 		responseChannel <- *r
 		return nil, nil
 	} else {

@@ -1,5 +1,10 @@
 package common
 
+import (
+	"context"
+	"sync"
+)
+
 var evaluators map[string]func(a, b any) bool = map[string]func(a, b any) bool{
 	"eq": func(a, b any) bool {
 		return EqualityCheck(a, b)
@@ -97,4 +102,8 @@ func GetArithmeticOperator(operator string) *func(a, b any) any {
 	} else {
 		return nil
 	}
+}
+
+func GetRequestState(ctx context.Context) *sync.Map {
+	return ctx.Value(ContextState).(*sync.Map)
 }
