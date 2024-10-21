@@ -15,5 +15,16 @@ const (
 	ContextLog
 	ContextRequestData
 	ContextResponseChannel
-	ContextApiData
+)
+
+const (
+	RedisApis  = "api"
+	RedisCrons = "cron"
+)
+
+const (
+	LogUser   = "user"
+	LogSystem = "system"
+	LogError  = "error"
+	LogInfo   = "info"
 )

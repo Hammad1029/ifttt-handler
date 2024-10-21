@@ -79,7 +79,7 @@ func (s *setLogResolvable) Resolve(ctx context.Context, dependencies map[string]
 		return nil, fmt.Errorf("log data not found in map")
 	}
 
-	if l, ok := logUncasted.(*audit_log.AuditLog); ok {
+	if l, ok := logUncasted.(*audit_log.APIAuditLog); ok {
 		logTypeResolved, err := resolveIfNested(s.LogType, ctx, dependencies)
 		if err != nil {
 			return nil, err

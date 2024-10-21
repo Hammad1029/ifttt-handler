@@ -31,7 +31,8 @@ type cacheStorer interface {
 type ConfigStore struct {
 	Store             configStorer
 	APIPersistentRepo api.PersistentRepository
-	AuditLogRepo      audit_log.Repository
+	APIAuditLogRepo   audit_log.ApiAuditLogRepository
+	CronAuditLogRepo  audit_log.CronAuditLogRepository
 	// TablesRepo        tables.Repository
 	// ConfigRepo        configuration.Repository
 }

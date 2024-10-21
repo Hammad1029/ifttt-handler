@@ -58,7 +58,7 @@ func (s *ScyllaAuditLogRepository) getTable() *table.Table {
 	return scyllaAuditLogTable
 }
 
-func (s *ScyllaAuditLogRepository) InsertLog(log audit_log.AuditLog, ctx context.Context) error {
+func (s *ScyllaAuditLogRepository) InsertLog(log audit_log.APIAuditLog, ctx context.Context) error {
 	// newLog := scyllaAuditLog{
 	// 	ApiGroup:       log.ApiGroup,
 	// 	ApiName:        log.ApiName,

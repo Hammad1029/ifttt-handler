@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/fatih/structs"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -33,73 +34,91 @@ func NewMainController(router fiber.Router, core *core.ServerCore, api *api.Api,
 	return nil
 }
 
-func mainController(core *core.ServerCore, ctx context.Context) func(c *fiber.Ctx) error {
+func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-
 		var contextState sync.Map
-		ctx, cancel := context.WithCancel(ctx)
+		ctx, cancel := context.WithCancelCause(parentCtx)
+		defer cancel(nil)
 		ctx = context.WithValue(ctx, common.ContextState, &contextState)
 
-		log := audit_log.AuditLog{}
+		go func() {
+			<-c.Context().Done()
+			cancel(nil)
+		}()
+
+		log := audit_log.APIAuditLog{}
 		requestData := request_data.RequestData{}
 
-		log.Initialize(c.Path(), &requestData)
-		requestData.Initialize()
-
-		go func(l *audit_log.AuditLog) {
+		go func(l *audit_log.APIAuditLog) {
 			<-ctx.Done()
 			l.EndLog()
-			if err := core.ConfigStore.AuditLogRepo.InsertLog(l); err != nil {
+			if err := core.ConfigStore.APIAuditLogRepo.InsertLog(l); err != nil {
 				fmt.Printf("error in inserting log: %s\n", err)
 			}
 		}(&log)
 
-		contextState.Store(common.ContextLog, &log)
+		log.Initialize(c.Path(), &requestData)
+		requestData.Initialize()
+
+		var interfaceLog audit_log.AuditLog = &log
+		contextState.Store(common.ContextLog, &interfaceLog)
 
 		api, err := core.CacheStore.APICacheRepo.GetApiByPath(c.Path(), ctx)
 		if api == nil || err != nil {
-			defer cancel()
+			defer cancel(err)
 			res := &resolvable.ResponseResolvable{
 				ResponseCode:        "404",
 				ResponseDescription: "API not found",
 			}
-			return res.SendResponse(c)
-		} else {
-			log.ApiID = api.ID
-			log.ApiPath = api.Path
-			log.ApiName = api.Name
+			log.SetFinalResponse(structs.Map(res))
+			return c.JSON(res)
 		}
 
+		log.ApiID = api.ID
+		log.ApiPath = api.Path
+		log.ApiName = api.Name
+
 		if err := c.BodyParser(&requestData.ReqBody); err != nil {
-			defer cancel()
+			defer cancel(err)
 			res := &resolvable.ResponseResolvable{
 				ResponseCode:        "400",
 				ResponseDescription: "Error in parsing body",
 			}
-			return res.SendResponse(c)
+			log.SetFinalResponse(structs.Map(res))
+			return c.JSON(res)
 		}
 
 		resChan := make(chan resolvable.ResponseResolvable, 1)
 		contextState.Store(common.ContextRequestData, &requestData)
 		contextState.Store(common.ContextResponseChannel, resChan)
-		contextState.Store(common.ContextApiData, api)
 
 		if err := core.PreparePreConfig(api.PreConfig, ctx); err != nil {
-			defer cancel()
+			defer cancel(err)
 			res := &resolvable.ResponseResolvable{
 				ResponseCode:        "500",
 				ResponseDescription: "Could not prepare pre config",
 			}
-			return res.SendResponse(c)
+			log.SetFinalResponse(structs.Map(res))
+			close(resChan)
+			return c.JSON(res)
 		}
 
 		go func() {
-			defer cancel()
-			core.InitExec(api.TriggerFlows, ctx, c)
+			defer cancel(nil)
+			core.InitExec(api.TriggerFlows, ctx)
+			res := &resolvable.ResponseResolvable{}
+			if _, err := res.Resolve(ctx, core.ResolvableDependencies); err != nil {
+				res = &resolvable.ResponseResolvable{
+					ResponseCode:        "500",
+					ResponseDescription: "Error in resolving response",
+				}
+				resChan <- *res
+				cancel(err)
+			}
 		}()
 
 		res := <-resChan
 		close(resChan)
-		return res.SendResponse(c)
+		return c.JSON(res)
 	}
 }

@@ -11,10 +11,11 @@ import (
 	infraStore "ifttt/handler/infrastructure/store"
 	"sync"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/robfig/cron/v3"
 )
 
 type ServerCore struct {
+	Cron                   *cron.Cron
 	ConfigStore            *infraStore.ConfigStore
 	DataStore              *infraStore.DataStore
 	CacheStore             *infraStore.CacheStore
@@ -25,6 +26,7 @@ type ServerCore struct {
 func NewServerCore() (*ServerCore, error) {
 	var serverCore ServerCore
 
+	serverCore.Cron = cron.New()
 	if configStore, err := infraStore.NewConfigStore(); err != nil {
 		return nil, fmt.Errorf("method newCore: could not create config store: %s", err)
 	} else {
@@ -40,7 +42,6 @@ func NewServerCore() (*ServerCore, error) {
 	} else {
 		serverCore.CacheStore = cacheStore
 	}
-
 	serverCore.ResolvableDependencies = map[string]any{
 		common.DependencyRawQueryRepo: serverCore.DataStore.RawQueryRepo,
 	}
@@ -77,12 +78,16 @@ func (c *ServerCore) PreparePreConfig(config map[string]resolvable.Resolvable, c
 	return context.Cause(ctx)
 }
 
-func (c *ServerCore) InitExec(triggerFlows *[]api.TriggerCondition, ctx context.Context, fiberCtx *fiber.Ctx) {
+func (c *ServerCore) InitExec(triggerFlows *[]api.TriggerCondition, ctx context.Context) {
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 
-	var flowWG sync.WaitGroup
+	var log *audit_log.AuditLog
+	if logUncasted, ok := common.GetRequestState(ctx).Load(common.ContextLog); ok {
+		log = logUncasted.(*audit_log.AuditLog)
+	}
 
+	var flowWG sync.WaitGroup
 	for _, flow := range *triggerFlows {
 		flowWG.Add(1)
 		go func(f *api.TriggerCondition) {
@@ -92,9 +97,8 @@ func (c *ServerCore) InitExec(triggerFlows *[]api.TriggerCondition, ctx context.
 				return
 			default:
 				{
-					if logUncasted, ok := common.GetRequestState(ctx).Load(common.ContextLog); ok {
-						log := logUncasted.(*audit_log.AuditLog)
-						log.ExecutionOrder.Store(uint(f.Trigger.ID), map[uint][]uint{})
+					if log != nil {
+						(*log).InitExecOrder(f.Trigger.ID)
 					}
 					if err := c.initTriggerFlow(f, ctx); err != nil {
 						cancel(err)
@@ -103,106 +107,68 @@ func (c *ServerCore) InitExec(triggerFlows *[]api.TriggerCondition, ctx context.
 			}
 		}(&flow)
 	}
-
 	flowWG.Wait()
 
-	var res resolvable.ResponseResolvable
-	if err := context.Cause(ctx); err != nil {
-		res = resolvable.ResponseResolvable{
-			ResponseCode:        "500",
-			ResponseDescription: "Server Errror",
-		}
-	}
-	if _, err := res.Resolve(ctx, c.ResolvableDependencies); err != nil {
-		fiberCtx.Send([]byte("something very bad happened"))
+	if err := context.Cause(ctx); err != nil && log != nil {
+		(*log).AddExecLog(common.LogSystem, common.LogError, err)
 	}
 }
 
 func (c *ServerCore) initTriggerFlow(tFlow *api.TriggerCondition, ctx context.Context) error {
-	ctx, cancel := context.WithCancelCause(ctx)
-
 	if ev, err := tFlow.If.EvaluateGroup(ctx, c.ResolvableDependencies); err != nil {
 		return fmt.Errorf("method initTriggerFlow: error in solving tFlow if: %s", err)
 	} else if !ev {
 		return nil
 	}
 
-	startRules := []*api.Rule{}
-	for _, rId := range tFlow.Trigger.StartRules {
-		rIdUint := uint(rId)
-		if logUncasted, ok := common.GetRequestState(ctx).Load(common.ContextLog); ok {
-			log := logUncasted.(*audit_log.AuditLog)
-			ruleFlow := map[uint][]uint{rIdUint: {}}
-			log.ExecutionOrder.Store(uint(tFlow.Trigger.ID), ruleFlow)
-		}
-		currRule, ok := tFlow.Trigger.AllRules[rIdUint]
-		if !ok {
-			return fmt.Errorf("method *core.prepRule: rule %d not found", rId)
-		}
-		startRules = append(startRules, currRule)
+	if err := c.execRule(
+		tFlow.Trigger.StartState, tFlow.Trigger.BranchFlows, tFlow.Trigger.Rules, tFlow.Trigger.ID, ctx,
+	); err != nil {
+		return err
 	}
 
-	var ruleWG sync.WaitGroup
-	for _, rule := range startRules {
-		ruleWG.Add(1)
-		go func(r *api.Rule) {
-			defer ruleWG.Done()
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				if err := c.execRule(
-					r, tFlow.Trigger.BranchFlows, tFlow.Trigger.AllRules, tFlow.Trigger.ID, r.ID, ctx,
-				); err != nil {
-					cancel(err)
-				}
-			}
-		}(rule)
-	}
-
-	ruleWG.Wait()
-	return context.Cause(ctx)
+	return nil
 }
 
 func (c *ServerCore) execRule(
-	rule *api.Rule, branchMap map[uint]*[]api.BranchFlow, allRules map[uint]*api.Rule, flowId uint, startRule uint, ctx context.Context,
+	state uint, branchMap map[uint]*api.BranchFlow, rules map[uint]*api.Rule, flowId uint, ctx context.Context,
 ) error {
+	execState := audit_log.ExecState{State: state}
+
+	branch, ok := branchMap[state]
+	if ok {
+		execState.Rule = branch.Rule
+	}
+
 	if logUncasted, ok := common.GetRequestState(ctx).Load(common.ContextLog); ok {
 		log := logUncasted.(*audit_log.AuditLog)
-		if currExecOrder, ok := log.ExecutionOrder.Load(flowId); ok {
-			currExecOrderCasted := currExecOrder.(map[uint][]uint)
-			currExecOrderCasted[startRule] = append(currExecOrderCasted[startRule], rule.ID)
-			log.ExecutionOrder.Store(flowId, currExecOrderCasted)
-		}
+		(*log).AddExecState(execState, flowId)
+	}
+
+	if !ok {
+		return nil
+	}
+
+	rule, ok := rules[branch.Rule]
+	if !ok {
+		return fmt.Errorf("rule %d for state %d not found", branch.Rule, state)
 	}
 
 	if err := c.resolveArray(rule.Pre, ctx); err != nil {
-		return fmt.Errorf("method *core.execRule: could not resolve pre: %s", err)
+		return fmt.Errorf("could not resolve pre: %s", err)
 	}
 
 	rVal, err := c.solveRuleSwitch(&rule.Switch, ctx)
 	if err != nil {
-		return fmt.Errorf("method *core.execRule: could not solve switch: %s", err)
+		return fmt.Errorf("could not solve switch: %s", err)
 	}
 
-	branchFlow, ok := branchMap[rule.ID]
+	nextState, ok := branch.States[rVal.(uint)]
 	if !ok {
-		return fmt.Errorf("method *core.execRule: branch flow for rule %d not found", rule.ID)
+		return fmt.Errorf("next state for return value %s not found", rVal)
 	}
 
-	for _, bF := range *branchFlow {
-		if requiredRVal, err := bF.IfReturn.Resolve(ctx, c.ResolvableDependencies); err != nil {
-			return fmt.Errorf("method *core.execRule: could not resolve IfReturn for branch: %s", err)
-		} else if rVal == requiredRVal {
-			if nextRule, ok := allRules[bF.Jump]; !ok {
-				return fmt.Errorf("method *core.execRule: rule %d not found", bF.Jump)
-			} else if err := c.execRule(nextRule, branchMap, allRules, flowId, startRule, ctx); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
+	return c.execRule(nextState, branchMap, rules, flowId, ctx)
 }
 
 func (c *ServerCore) solveRuleSwitch(s *api.RuleSwitch, ctx context.Context) (any, error) {
@@ -224,15 +190,11 @@ func (c *ServerCore) solveRuleSwitch(s *api.RuleSwitch, ctx context.Context) (an
 	}
 }
 
-func (c *ServerCore) doRuleCase(s *api.RuleSwitchCase, ctx context.Context) (any, error) {
+func (c *ServerCore) doRuleCase(s *api.RuleSwitchCase, ctx context.Context) (uint, error) {
 	if err := c.resolveArray(s.Do, ctx); err != nil {
-		return nil, fmt.Errorf("method solveRuleSwitch: error in resolving do: %s", err)
+		return 0, fmt.Errorf("method solveRuleSwitch: error in resolving do: %s", err)
 	}
-	if rVal, err := s.Return.Resolve(ctx, c.ResolvableDependencies); err != nil {
-		return nil, fmt.Errorf("method solveRuleSwitch: error in resolving return: %s", err)
-	} else {
-		return rVal, nil
-	}
+	return s.Return, nil
 }
 
 func (c *ServerCore) resolveArray(resolvables []resolvable.Resolvable, ctx context.Context) error {

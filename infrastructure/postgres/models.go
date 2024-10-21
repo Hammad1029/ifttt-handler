@@ -8,6 +8,16 @@ import (
 	"gorm.io/gorm"
 )
 
+type crons struct {
+	gorm.Model
+	Name           string          `gorm:"type:varchar(50);not null;unique" mapstructure:"name"`
+	Description    string          `gorm:"type:text;default:''" mapstructure:"description"`
+	Cron           string          `gorm:"type:varchar(30);default:''" mapstructure:"description"`
+	PreConfig      pgtype.JSONB    `gorm:"type:jsonb;default:'{}';not null" mapstructure:"preConfig"`
+	TriggerFlowRef []trigger_flows `gorm:"many2many:cron_trigger_flows;joinForeignKey:CronId;joinReferences:FlowId;" mapstructure:"triggerFlows"`
+	TriggerFlows   pgtype.JSONB    `gorm:"type:jsonb;default:'{}';not null" mapstructure:"triggerConditions"`
+}
+
 type apis struct {
 	gorm.Model
 	Name           string          `gorm:"type:varchar(50);not null;unique" mapstructure:"name"`
@@ -36,9 +46,9 @@ type trigger_flows struct {
 	Description string       `gorm:"type:text;default:''" mapstructure:"description"`
 	ClassId     uint         `gorm:"type:int;not null" mapstructure:"classId"`
 	Class       classes      `mapstructure:"class"`
-	StartRules  []rules      `gorm:"many2many:trigger_start_rules;joinForeignKey:FlowId;joinReferences:RuleId;" mapstructure:"startRules"`
-	AllRules    []rules      `gorm:"many2many:trigger_all_rules;joinForeignKey:FlowId;joinReferences:RuleId;" mapstructure:"allRules"`
-	BranchFlow  pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"branchFlows"`
+	StartState  uint         `gorm:"type:int;not null" mapstructure:"startState"`
+	Rules       []rules      `gorm:"many2many:trigger_rules;joinForeignKey:FlowId;joinReferences:RuleId;" mapstructure:"rules"`
+	BranchFlows pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"branchFlows"`
 }
 
 type rules struct {
@@ -49,9 +59,9 @@ type rules struct {
 	Switch      pgtype.JSONB `gorm:"type:jsonb;default:'{\"cases\":[],\"default\":{\"do\":[],\"return\":{\"resolveType\":\"const\",\"resolveData\":\"\"}}}';not null" mapstructure:"switch"`
 }
 
-type audit_log struct {
+type api_audit_log struct {
 	gorm.Model
-	ApiID          uint         `gorm:"not null"`
+	ApiID          uint         `gorm:"default:null"`
 	Api            apis         `gorm:"foreignKey:ApiID" mapstructure:"apiID"`
 	ApiName        string       `gorm:"type: varchar(50);not null" mapstructure:"apiName"`
 	ApiPath        string       `gorm:"type: varchar(50);not null" mapstructure:"apiPath"`
@@ -61,4 +71,19 @@ type audit_log struct {
 	Start          time.Time    `gorm:"type:timestamp;not null" mapstructure:"start"`
 	End            time.Time    `gorm:"type:timestamp;not null" mapstructure:"end"`
 	TimeTaken      uint64       `gorm:"type:int;not null" mapstructure:"timeTaken"`
+	FinalResponse  pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"finalResponse"`
+}
+
+type cron_audit_log struct {
+	gorm.Model
+	CronID         uint         `gorm:"default:null"`
+	Cron           crons        `gorm:"foreignKey:CronID" mapstructure:"cronID"`
+	CronName       string       `gorm:"type:varchar(50);not null" mapstructure:"cronName"`
+	ExecutionOrder pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"executionOrder"`
+	ExecutionLogs  pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"executionLogs"`
+	RequestData    pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"requestData"`
+	Start          time.Time    `gorm:"type:timestamp;not null" mapstructure:"start"`
+	End            time.Time    `gorm:"type:timestamp;not null" mapstructure:"end"`
+	TimeTaken      uint64       `gorm:"type:int;not null" mapstructure:"timeTaken"`
+	FinalResponse  pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"finalResponse"`
 }

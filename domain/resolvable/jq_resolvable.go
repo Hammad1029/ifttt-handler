@@ -3,7 +3,9 @@ package resolvable
 import (
 	"context"
 	"fmt"
+	"ifttt/handler/common"
 	"reflect"
+	"sync"
 
 	"github.com/itchyny/gojq"
 )
@@ -63,8 +65,12 @@ func runJQQuery(queryString string, input any) (any, error) {
 }
 
 func convertToGoJQCompatible(input any) any {
-	v := reflect.Indirect(reflect.ValueOf(input))
+	if syncMap, ok := input.(*sync.Map); ok {
+		unsyncedValue := common.UnSyncMap(syncMap)
+		return convertMapToGoJQCompatible(reflect.ValueOf(unsyncedValue))
+	}
 
+	v := reflect.Indirect(reflect.ValueOf(input))
 	switch v.Kind() {
 	case reflect.Map:
 		return convertMapToGoJQCompatible(v)

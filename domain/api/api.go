@@ -4,6 +4,15 @@ import (
 	"ifttt/handler/domain/resolvable"
 )
 
+type Cron struct {
+	ID           uint                             `json:"id" mapstructure:"id"`
+	Name         string                           `json:"name" mapstructure:"name"`
+	Description  string                           `json:"description" mapstructure:"description"`
+	Cron         string                           `json:"cron" mapstructure:"cron"`
+	PreConfig    map[string]resolvable.Resolvable `json:"preConfig" mapstructure:"preConfig"`
+	TriggerFlows *[]TriggerCondition              `json:"triggerFlows" mapstructure:"triggerFlows"`
+}
+
 type Api struct {
 	ID           uint                             `json:"id" mapstructure:"id"`
 	Name         string                           `json:"name" mapstructure:"name"`
@@ -25,18 +34,18 @@ type Class struct {
 }
 
 type TriggerFlow struct {
-	ID          uint                   `json:"id" mapstructure:"id"`
-	Name        string                 `json:"name" mapstructure:"name"`
-	Description string                 `json:"description" mapstructure:"description"`
-	Class       Class                  `json:"class" mapstructure:"class"`
-	StartRules  []uint                 `json:"startRules" mapstructure:"startRules"`
-	AllRules    map[uint]*Rule         `json:"allRules" mapstructure:"allRules"`
-	BranchFlows map[uint]*[]BranchFlow `json:"branchFlows" mapstructure:"branchFlows"`
+	ID          uint                 `json:"id" mapstructure:"id"`
+	Name        string               `json:"name" mapstructure:"name"`
+	Description string               `json:"description" mapstructure:"description"`
+	Class       Class                `json:"class" mapstructure:"class"`
+	StartState  uint                 `json:"startState" mapstructure:"startState"`
+	Rules       map[uint]*Rule       `json:"rules" mapstructure:"rules"`
+	BranchFlows map[uint]*BranchFlow `json:"branchFlows" mapstructure:"branchFlows"`
 }
 
 type BranchFlow struct {
-	IfReturn resolvable.Resolvable `json:"ifReturn" mapstructure:"ifReturn"`
-	Jump     uint                  `json:"jump" mapstructure:"jump"`
+	Rule   uint          `json:"rule" mapstructure:"rule"`
+	States map[uint]uint `json:"states" mapstructure:"states"`
 }
 
 type Rule struct {
@@ -55,5 +64,5 @@ type RuleSwitch struct {
 type RuleSwitchCase struct {
 	Condition Condition               `json:"condition" mapstructure:"condition"`
 	Do        []resolvable.Resolvable `json:"do" mapstructure:"do"`
-	Return    resolvable.Resolvable   `json:"return" mapstructure:"return"`
+	Return    uint                    `json:"return" mapstructure:"return"`
 }

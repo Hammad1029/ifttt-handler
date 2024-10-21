@@ -2,7 +2,6 @@ package infrastructure
 
 import (
 	"context"
-	"fmt"
 	"ifttt/handler/domain/api"
 )
 
@@ -18,18 +17,38 @@ func (p *PostgresApiRepository) GetAllApis(ctx context.Context) (*[]api.Api, err
 	var domainApis []api.Api
 	var postgresApis []apis
 	if err := p.client.
-		Preload("TriggerFlowRef").Preload("TriggerFlowRef.StartRules").Preload("TriggerFlowRef.AllRules").
+		Preload("TriggerFlowRef").Preload("TriggerFlowRef.Rules").
 		Find(&postgresApis).Error; err != nil {
-		return nil, fmt.Errorf("method *PostgresApiRepository.GetAllApis: could not get apis from postgres: %s", err)
+		return nil, err
 	}
 
 	for _, currPgApi := range postgresApis {
 		if dApi, err := currPgApi.toDomain(); err != nil {
-			return nil, fmt.Errorf("method *PostgresApiRepository.GetAllApis: could not convert to domain api: %s", err)
+			return nil, err
 		} else {
 			domainApis = append(domainApis, *dApi)
 		}
 	}
 
 	return &domainApis, nil
+}
+
+func (p *PostgresApiRepository) GetAllCronJobs(ctx context.Context) (*[]api.Cron, error) {
+	var domainCrons []api.Cron
+	var postgresCrons []crons
+	if err := p.client.
+		Preload("TriggerFlowRef").Preload("TriggerFlowRef.Rules").
+		Find(&postgresCrons).Error; err != nil {
+		return nil, err
+	}
+
+	for _, currPgCron := range postgresCrons {
+		if dCron, err := currPgCron.toDomain(); err != nil {
+			return nil, err
+		} else {
+			domainCrons = append(domainCrons, *dCron)
+		}
+	}
+
+	return &domainCrons, nil
 }

@@ -6,7 +6,7 @@ import (
 	"ifttt/handler/common"
 	"ifttt/handler/domain/audit_log"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/fatih/structs"
 )
 
 type ResponseResolvable struct {
@@ -28,17 +28,6 @@ type errorsData struct {
 func (r *ResponseResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
 	requestState := common.GetRequestState(ctx)
 
-	logUncasted, ok := requestState.Load(common.ContextLog)
-	if !ok {
-		return nil, fmt.Errorf("log data not found in map")
-	}
-	if log, ok := logUncasted.(*audit_log.AuditLog); !ok {
-		return nil, fmt.Errorf("log model type assertion failed")
-	} else {
-		r.Response.Errors.System = log.GetSystemErrorLogs()
-		r.Response.Errors.User = log.GetUserErrorLogs()
-	}
-
 	if r.ResponseCode == "" {
 		r.ResponseCode = "00"
 	}
@@ -46,6 +35,18 @@ func (r *ResponseResolvable) Resolve(ctx context.Context, dependencies map[strin
 		r.ResponseDescription = "SUCCESS"
 	}
 	r.Response.Data = common.UnSyncMap(GetRequestData(ctx).Response)
+
+	logUncasted, ok := requestState.Load(common.ContextLog)
+	if !ok {
+		return nil, fmt.Errorf("log data not found in map")
+	}
+	if log, ok := logUncasted.(*audit_log.AuditLog); !ok {
+		return nil, fmt.Errorf("log model type assertion failed")
+	} else {
+		r.Response.Errors.System = (*log).GetSystemErrorLogs()
+		r.Response.Errors.User = (*log).GetUserErrorLogs()
+		(*log).SetFinalResponse(structs.Map(r))
+	}
 
 	resChanUncasted, ok := requestState.Load(common.ContextResponseChannel)
 	if !ok {
@@ -57,8 +58,4 @@ func (r *ResponseResolvable) Resolve(ctx context.Context, dependencies map[strin
 	} else {
 		return nil, fmt.Errorf("method Resolve: send res type assertion failed")
 	}
-}
-
-func (r *ResponseResolvable) SendResponse(ctx *fiber.Ctx) error {
-	return ctx.JSON(r)
 }
