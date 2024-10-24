@@ -47,7 +47,7 @@ func cronController(cronJobName string, core *core.ServerCore, ctx context.Conte
 	var interfaceLog audit_log.AuditLog = &log
 	contextState.Store(common.ContextLog, &interfaceLog)
 
-	job, err := core.CacheStore.APICacheRepo.GetCronByName(cronJobName, ctx)
+	job, err := core.CacheStore.CronCacheRepo.GetCronByName(cronJobName, ctx)
 	if job == nil || err != nil {
 		defer cancel(err)
 		res := &resolvable.ResponseResolvable{
@@ -78,7 +78,7 @@ func cronController(cronJobName string, core *core.ServerCore, ctx context.Conte
 
 	go func() {
 		defer cancel(nil)
-		core.InitExec(job.TriggerFlows, ctx)
+		core.InitMainWare(job.TriggerFlows, ctx)
 		res := &resolvable.ResponseResolvable{}
 		if _, err := res.Resolve(ctx, core.ResolvableDependencies); err != nil {
 			res = &resolvable.ResponseResolvable{

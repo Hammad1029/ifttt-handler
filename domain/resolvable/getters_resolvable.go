@@ -6,17 +6,19 @@ import (
 	"ifttt/handler/domain/request_data"
 )
 
-type getRequestResolvable map[string]any
+type getRequestResolvable struct{}
 
-type getResponseResolvable map[string]any
+type getResponseResolvable struct{}
 
-type getStoreResolvable map[string]any
+type getStoreResolvable struct{}
 
-type getApiResultsResolvable map[string]map[string]any
+type getApiResultsResolvable struct{}
 
-type getQueryResultsResolvable map[string][]map[string]any
+type getQueryResultsResolvable struct{}
 
-type preConfigResolvable map[string]any
+type preConfigResolvable struct{}
+
+type headersResolvable struct{}
 
 type getConstResolvable struct {
 	Value any `json:"value" mapstructure:"value"`
@@ -29,30 +31,34 @@ func GetRequestData(ctx context.Context) *request_data.RequestData {
 	return nil
 }
 
-func (r *getRequestResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (r *getRequestResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	return GetRequestData(ctx).ReqBody, nil
 }
 
-func (r *getResponseResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (r *getResponseResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	return common.UnSyncMap(GetRequestData(ctx).Response), nil
 }
 
-func (a *getApiResultsResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (a *getApiResultsResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	return GetRequestData(ctx).ApiRes, nil
 }
 
-func (s *getStoreResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (s *getStoreResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	return GetRequestData(ctx).Store, nil
 }
 
-func (q *getQueryResultsResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (q *getQueryResultsResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	return GetRequestData(ctx).QueryRes, nil
 }
 
-func (c *getConstResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (c *getConstResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	return c.Value, nil
 }
 
-func (c *preConfigResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (c *preConfigResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	return GetRequestData(ctx).PreConfig, nil
+}
+
+func (h *headersResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
+	return GetRequestData(ctx).Headers, nil
 }

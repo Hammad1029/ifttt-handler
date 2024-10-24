@@ -5,13 +5,14 @@ const (
 )
 
 const (
-	DependencyRawQueryRepo = "rawQueryRepo"
+	DependencyRawQueryRepo = iota
+	DependencyAppCacheRepo
 )
 
 var ReservedPaths = []string{"^/test/.*", "^/auth/.*"}
 
 const (
-	ContextState contextStateKey = iota
+	ContextState IntIota = iota
 	ContextLog
 	ContextRequestData
 	ContextResponseChannel

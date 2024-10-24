@@ -3,6 +3,7 @@ package resolvable
 import (
 	"context"
 	"fmt"
+	"ifttt/handler/common"
 	"reflect"
 
 	"github.com/mitchellh/mapstructure"
@@ -30,13 +31,18 @@ const (
 	AccessorResponseResolvable            = "sendRes"
 	AccessorPreConfigResolvable           = "getPreConfig"
 	AccessorStringInterpolationResolvable = "stringInterpolation"
+	AccessorEncodeResolvable              = "encode"
+	AccessorSetCacheResolvable            = "setCache"
+	AccessorGetCacheResolvable            = "getCache"
+	AccessorUUIDResolvable                = "uuid"
+	AccessorHeadersResolvable             = "headers"
 )
 
 type resolvableInterface interface {
-	Resolve(ctx context.Context, dependencies map[string]any) (any, error)
+	Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error)
 }
 
-func (r *Resolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (r *Resolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	var genericResolvable resolvableInterface
 	var err error
 
@@ -86,12 +92,22 @@ func resolvableFactory(rType string) resolvableInterface {
 		return &preConfigResolvable{}
 	case AccessorStringInterpolationResolvable:
 		return &stringInterpolationResolvable{}
+	case AccessorEncodeResolvable:
+		return &encodeResolvable{}
+	case AccessorSetCacheResolvable:
+		return &setCacheResolvable{}
+	case AccessorGetCacheResolvable:
+		return &getCacheResolvable{}
+	case AccessorUUIDResolvable:
+		return &uuidResolvable{}
+	case AccessorHeadersResolvable:
+		return &headersResolvable{}
 	default:
 		return nil
 	}
 }
 
-func resolveIfNested(original any, ctx context.Context, dependencies map[string]any) (any, error) {
+func resolveIfNested(original any, ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	var err error
 
 	switch o := original.(type) {
@@ -110,11 +126,11 @@ func resolveIfNested(original any, ctx context.Context, dependencies map[string]
 
 					var mapCloned map[string]any
 					if err := mapstructure.Decode(o, &mapCloned); err != nil {
-						return nil, fmt.Errorf("method resolveIfNested: error in cloning map: %s", err)
+						return nil, err
 					}
 					for key, val := range mapCloned {
 						if mapCloned[key], err = resolveIfNested(val, ctx, dependencies); err != nil {
-							return nil, fmt.Errorf("method resolveIfNested: error in resolving nested map: %s", err)
+							return nil, err
 						}
 					}
 					return mapCloned, nil
@@ -123,11 +139,11 @@ func resolveIfNested(original any, ctx context.Context, dependencies map[string]
 				{
 					var oArr []any
 					if err := mapstructure.Decode(o, &oArr); err != nil {
-						return nil, fmt.Errorf("method resolveIfNested: error in decoding to []any: %s", err)
+						return nil, err
 					}
 					for key, item := range oArr {
 						if oArr[key], err = resolveIfNested(item, ctx, dependencies); err != nil {
-							return nil, fmt.Errorf("method resolveIfNested: error in resolving nested array item: %s", err)
+							return nil, err
 						}
 					}
 					return oArr, nil

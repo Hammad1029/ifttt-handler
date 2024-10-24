@@ -55,7 +55,7 @@ type apiMetadata struct {
 	Error      error     `json:"error" mapstructure:"error"`
 }
 
-func (a *apiCallResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (a *apiCallResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	callData, err := a.createCallData(ctx, dependencies)
 	if err != nil {
 		return nil, fmt.Errorf("apiCallResolvable: could not create calldata: %s", err)
@@ -70,7 +70,7 @@ func (a *apiCallResolvable) Resolve(ctx context.Context, dependencies map[string
 	return callData, nil
 }
 
-func (a *apiCallResolvable) createCallData(ctx context.Context, dependencies map[string]any) (*callData, error) {
+func (a *apiCallResolvable) createCallData(ctx context.Context, dependencies map[common.IntIota]any) (*callData, error) {
 	var callData callData
 	callData.Metadata = a.createMetadata()
 	request, err := a.createRequest(ctx, dependencies)
@@ -89,7 +89,7 @@ func (a *apiCallResolvable) createMetadata() *apiMetadata {
 	}
 }
 
-func (a *apiCallResolvable) createRequest(ctx context.Context, dependencies map[string]any) (*apiRequest, error) {
+func (a *apiCallResolvable) createRequest(ctx context.Context, dependencies map[common.IntIota]any) (*apiRequest, error) {
 	var request apiRequest
 
 	allowedMethods := []string{"GET", "POST"}

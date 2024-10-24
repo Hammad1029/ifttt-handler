@@ -6,6 +6,7 @@ import (
 
 type RequestData struct {
 	ReqBody   map[string]any              `json:"reqBody" mapstructure:"reqBody"`
+	Headers   map[string][]string         `json:"headers" mapstructure:"headers"`
 	PreConfig *sync.Map                   `json:"preConfig" mapstructure:"preConfig"`
 	Store     *sync.Map                   `json:"store" mapstructure:"store"`
 	Response  *sync.Map                   `json:"response" mapstructure:"response"`

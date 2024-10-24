@@ -67,12 +67,12 @@ func createApis(fiber *fiber.App, ctx context.Context) error {
 }
 
 func createCronJobs(ctx context.Context) error {
-	cronJobs, err := currCore.ConfigStore.APIPersistentRepo.GetAllCronJobs(ctx)
+	cronJobs, err := currCore.ConfigStore.CronPersistentRepo.GetAllCronJobs(ctx)
 	if err != nil {
 		return fmt.Errorf("could not get cron jobs from persistent config store: %s", err)
 	}
 
-	if err := currCore.CacheStore.APICacheRepo.StoreCrons(cronJobs, ctx); err != nil {
+	if err := currCore.CacheStore.CronCacheRepo.StoreCrons(cronJobs, ctx); err != nil {
 		return fmt.Errorf("could not store cronjobs in cache storage: %s", err)
 	}
 

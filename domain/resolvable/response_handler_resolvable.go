@@ -25,7 +25,7 @@ type errorsData struct {
 	System any `json:"system" mapstructure:"system"`
 }
 
-func (r *ResponseResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (r *ResponseResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	requestState := common.GetRequestState(ctx)
 
 	if r.ResponseCode == "" {

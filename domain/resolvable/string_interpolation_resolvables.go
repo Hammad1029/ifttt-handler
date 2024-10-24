@@ -3,6 +3,7 @@ package resolvable
 import (
 	"context"
 	"fmt"
+	"ifttt/handler/common"
 	"strings"
 )
 
@@ -11,7 +12,7 @@ type stringInterpolationResolvable struct {
 	Parameters []Resolvable `json:"parameters" mapstructure:"parameters"`
 }
 
-func (s *stringInterpolationResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (s *stringInterpolationResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	resolvedString := s.Template
 	for _, r := range s.Parameters {
 		if val, err := r.Resolve(ctx, dependencies); err != nil {

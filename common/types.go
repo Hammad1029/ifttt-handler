@@ -1,3 +1,3 @@
 package common
 
-type contextStateKey int
+type IntIota int

@@ -55,7 +55,7 @@ type RawQueryRepository interface {
 	RawExecNamed(queryString string, parameters map[string]any, ctx context.Context) error
 }
 
-func (q *queryResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (q *queryResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	queryData, err := q.createQueryData(ctx, dependencies)
 	if err != nil {
 		return nil, fmt.Errorf("queryResolvable: could not create query data: %s", err)
@@ -70,7 +70,7 @@ func (q *queryResolvable) Resolve(ctx context.Context, dependencies map[string]a
 	return queryData, nil
 }
 
-func (q *queryResolvable) createQueryData(ctx context.Context, dependencies map[string]any) (*queryData, error) {
+func (q *queryResolvable) createQueryData(ctx context.Context, dependencies map[common.IntIota]any) (*queryData, error) {
 	var queryData queryData
 	queryRequest, err := q.createQueryRequest(ctx, dependencies)
 	if err != nil {
@@ -82,7 +82,7 @@ func (q *queryResolvable) createQueryData(ctx context.Context, dependencies map[
 	return &queryData, nil
 }
 
-func (q *queryResolvable) createQueryRequest(ctx context.Context, dependencies map[string]any) (*queryRequest, error) {
+func (q *queryResolvable) createQueryRequest(ctx context.Context, dependencies map[common.IntIota]any) (*queryRequest, error) {
 	var req queryRequest
 
 	req.QueryString = q.QueryString
@@ -115,7 +115,7 @@ func (q *queryResolvable) createQueryMetadata() *queryMetadata {
 	return &queryMetadata{Timeout: q.Timeout, Async: q.Async}
 }
 
-func (q *queryData) execute(dependencies map[string]any, ctx context.Context) error {
+func (q *queryData) execute(dependencies map[common.IntIota]any, ctx context.Context) error {
 	defer q.createLog(ctx)
 
 	q.Metadata.Start = time.Now()

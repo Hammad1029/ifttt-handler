@@ -13,7 +13,7 @@ type arithmetic struct {
 	Value     Resolvable   `json:"value" mapstructure:"value"`
 }
 
-func (a *arithmetic) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (a *arithmetic) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	opFunc := common.GetArithmeticOperator(a.Operation)
 	if opFunc == nil {
 		return nil, fmt.Errorf("method Arithmetic: operation %s not found", a.Operation)

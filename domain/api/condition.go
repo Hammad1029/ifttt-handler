@@ -22,7 +22,7 @@ type Condition struct {
 	Operator2     resolvable.Resolvable `json:"op2" mapstructure:"op2"`
 }
 
-func (group *Condition) EvaluateGroup(ctx context.Context, resolvableDependencies map[string]any) (bool, error) {
+func (group *Condition) EvaluateGroup(ctx context.Context, resolvableDependencies map[common.IntIota]any) (bool, error) {
 	if !group.Group {
 		return false, fmt.Errorf("method EvaluateGroup: object is not a group")
 	}
@@ -58,7 +58,7 @@ func (group *Condition) EvaluateGroup(ctx context.Context, resolvableDependencie
 	return condType == conditionAnd, nil
 }
 
-func (c *Condition) EvaluateCondition(ctx context.Context, resolvableDependencies map[string]any) (bool, error) {
+func (c *Condition) EvaluateCondition(ctx context.Context, resolvableDependencies map[common.IntIota]any) (bool, error) {
 	if c.Group {
 		return false, fmt.Errorf("method EvaluateCondition: object is a set")
 	}

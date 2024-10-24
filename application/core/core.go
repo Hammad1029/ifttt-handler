@@ -19,8 +19,9 @@ type ServerCore struct {
 	ConfigStore            *infraStore.ConfigStore
 	DataStore              *infraStore.DataStore
 	CacheStore             *infraStore.CacheStore
+	AppCacheStore          *infraStore.AppCacheStore
 	Configuration          *configuration.Configuration
-	ResolvableDependencies map[string]any
+	ResolvableDependencies map[common.IntIota]any
 }
 
 func NewServerCore() (*ServerCore, error) {
@@ -42,8 +43,14 @@ func NewServerCore() (*ServerCore, error) {
 	} else {
 		serverCore.CacheStore = cacheStore
 	}
-	serverCore.ResolvableDependencies = map[string]any{
+	if appCacheStore, err := infraStore.NewAppCacheStore(); err != nil {
+		return nil, fmt.Errorf("method newCore: could not create cache store: %s", err)
+	} else {
+		serverCore.AppCacheStore = appCacheStore
+	}
+	serverCore.ResolvableDependencies = map[common.IntIota]any{
 		common.DependencyRawQueryRepo: serverCore.DataStore.RawQueryRepo,
+		common.DependencyAppCacheRepo: serverCore.AppCacheStore.AppCacheRepo,
 	}
 
 	return &serverCore, nil
@@ -78,7 +85,44 @@ func (c *ServerCore) PreparePreConfig(config map[string]resolvable.Resolvable, c
 	return context.Cause(ctx)
 }
 
-func (c *ServerCore) InitExec(triggerFlows *[]api.TriggerCondition, ctx context.Context) {
+func (c *ServerCore) InitMiddleWare(triggerFlows *[]api.TriggerFlow, ctx context.Context) error {
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+
+	var log *audit_log.AuditLog
+	if logUncasted, ok := common.GetRequestState(ctx).Load(common.ContextLog); ok {
+		log = logUncasted.(*audit_log.AuditLog)
+	}
+
+	var flowWG sync.WaitGroup
+	for _, flow := range *triggerFlows {
+		flowWG.Add(1)
+		go func(f *api.TriggerFlow) {
+			defer flowWG.Done()
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				{
+					if err := c.execRule(
+						f.StartState, f.BranchFlows, f.Rules, f.ID, ctx,
+					); err != nil {
+						cancel(err)
+					}
+				}
+			}
+		}(&flow)
+	}
+	flowWG.Wait()
+
+	if err := context.Cause(ctx); err != nil && log != nil {
+		(*log).AddExecLog(common.LogSystem, common.LogError, err)
+		return err
+	}
+	return nil
+}
+
+func (c *ServerCore) InitMainWare(triggerFlows *[]api.TriggerCondition, ctx context.Context) error {
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 
@@ -100,8 +144,14 @@ func (c *ServerCore) InitExec(triggerFlows *[]api.TriggerCondition, ctx context.
 					if log != nil {
 						(*log).InitExecOrder(f.Trigger.ID)
 					}
-					if err := c.initTriggerFlow(f, ctx); err != nil {
+					if ev, err := f.If.EvaluateGroup(ctx, c.ResolvableDependencies); err != nil {
 						cancel(err)
+					} else if ev {
+						if err := c.execRule(
+							f.Trigger.StartState, f.Trigger.BranchFlows, f.Trigger.Rules, f.Trigger.ID, ctx,
+						); err != nil {
+							cancel(err)
+						}
 					}
 				}
 			}
@@ -111,22 +161,8 @@ func (c *ServerCore) InitExec(triggerFlows *[]api.TriggerCondition, ctx context.
 
 	if err := context.Cause(ctx); err != nil && log != nil {
 		(*log).AddExecLog(common.LogSystem, common.LogError, err)
-	}
-}
-
-func (c *ServerCore) initTriggerFlow(tFlow *api.TriggerCondition, ctx context.Context) error {
-	if ev, err := tFlow.If.EvaluateGroup(ctx, c.ResolvableDependencies); err != nil {
-		return fmt.Errorf("method initTriggerFlow: error in solving tFlow if: %s", err)
-	} else if !ev {
-		return nil
-	}
-
-	if err := c.execRule(
-		tFlow.Trigger.StartState, tFlow.Trigger.BranchFlows, tFlow.Trigger.Rules, tFlow.Trigger.ID, ctx,
-	); err != nil {
 		return err
 	}
-
 	return nil
 }
 

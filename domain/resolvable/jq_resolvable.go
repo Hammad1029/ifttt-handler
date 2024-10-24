@@ -15,7 +15,7 @@ type jqResolvable struct {
 	Input any        `json:"input" mapstructure:"input"`
 }
 
-func (j *jqResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (j *jqResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	queryResolved, err := j.Query.Resolve(ctx, dependencies)
 	if err != nil {
 		return nil, fmt.Errorf("method resolveJq: couldn't resolve input: %s", err)

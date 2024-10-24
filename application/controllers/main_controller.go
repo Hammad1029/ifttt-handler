@@ -87,6 +87,7 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 			log.SetFinalResponse(structs.Map(res))
 			return c.JSON(res)
 		}
+		requestData.Headers = c.GetReqHeaders()
 
 		resChan := make(chan resolvable.ResponseResolvable, 1)
 		contextState.Store(common.ContextRequestData, &requestData)
@@ -105,16 +106,31 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 
 		go func() {
 			defer cancel(nil)
-			core.InitExec(api.TriggerFlows, ctx)
-			res := &resolvable.ResponseResolvable{}
-			if _, err := res.Resolve(ctx, core.ResolvableDependencies); err != nil {
-				res = &resolvable.ResponseResolvable{
-					ResponseCode:        "500",
-					ResponseDescription: "Error in resolving response",
-				}
-				resChan <- *res
+			if err := core.InitMiddleWare(api.PreWare, ctx); err != nil {
 				cancel(err)
+				resChan <- resolvable.ResponseResolvable{
+					ResponseCode:        "500",
+					ResponseDescription: "Error in preware",
+				}
+				return
 			}
+			if err := core.InitMainWare(api.MainWare, ctx); err != nil {
+				cancel(err)
+				resChan <- resolvable.ResponseResolvable{
+					ResponseCode:        "500",
+					ResponseDescription: "Error in mainware",
+				}
+				return
+			}
+			if err := core.InitMiddleWare(api.PostWare, ctx); err != nil {
+				cancel(err)
+				resChan <- resolvable.ResponseResolvable{
+					ResponseCode:        "500",
+					ResponseDescription: "Error in postware",
+				}
+				return
+			}
+			resChan <- resolvable.ResponseResolvable{}
 		}()
 
 		res := <-resChan

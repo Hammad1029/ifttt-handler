@@ -17,7 +17,7 @@ type setLogResolvable struct {
 	LogType string `json:"logType" mapstructure:"logType"`
 }
 
-func (s *setResResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (s *setResResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	responseData := GetRequestData(ctx).Response
 	var wg sync.WaitGroup
 
@@ -45,7 +45,7 @@ func (s *setResResolvable) Resolve(ctx context.Context, dependencies map[string]
 	return nil, context.Cause(cancelCtx)
 }
 
-func (s *setStoreResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (s *setStoreResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	store := GetRequestData(ctx).Store
 	var wg sync.WaitGroup
 
@@ -73,7 +73,7 @@ func (s *setStoreResolvable) Resolve(ctx context.Context, dependencies map[strin
 	return nil, context.Cause(cancelCtx)
 }
 
-func (s *setLogResolvable) Resolve(ctx context.Context, dependencies map[string]any) (any, error) {
+func (s *setLogResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	logUncasted, ok := common.GetRequestState(ctx).Load(common.ContextLog)
 	if !ok {
 		return nil, fmt.Errorf("log data not found in map")

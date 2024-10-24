@@ -60,34 +60,49 @@ func (t *trigger_flows) toDomain() (*api.TriggerFlow, error) {
 
 func (a *apis) toDomain() (*api.Api, error) {
 	domainApi := api.Api{
-		ID:           a.ID,
-		Name:         a.Name,
-		Path:         a.Path,
-		Method:       a.Method,
-		Description:  a.Description,
-		Request:      map[string]any{},
-		PreConfig:    map[string]resolvable.Resolvable{},
-		TriggerFlows: &[]api.TriggerCondition{},
+		ID:          a.ID,
+		Name:        a.Name,
+		Path:        a.Path,
+		Method:      a.Method,
+		Description: a.Description,
+		Request:     map[string]any{},
+		PreConfig:   map[string]resolvable.Resolvable{},
+		PreWare:     &[]api.TriggerFlow{},
+		MainWare:    &[]api.TriggerCondition{},
+		PostWare:    &[]api.TriggerFlow{},
 	}
 
 	if err := json.Unmarshal(a.Request.Bytes, &domainApi.Request); err != nil {
-		return nil,
-			fmt.Errorf("method *PostgresAPIRepository.ToDomain: could not cast pgApi: %s", err)
+		return nil, err
 	}
 
 	if err := json.Unmarshal(a.PreConfig.Bytes, &domainApi.PreConfig); err != nil {
-		return nil,
-			fmt.Errorf("method *PostgresAPIRepository.ToDomain: could not cast pgApi: %s", err)
+		return nil, err
 	}
 
 	var tConditions []api_trigger_flow_json
 	if err := json.Unmarshal(a.TriggerFlows.Bytes, &tConditions); err != nil {
-		return nil,
-			fmt.Errorf("method *PostgresAPIRepository.ToDomain: could not cast pgApi: %s", err)
+		return nil, err
+	}
+
+	for _, tFlow := range a.PreWare {
+		domainTFlow, err := tFlow.toDomain()
+		if err != nil {
+			return nil, err
+		}
+		*domainApi.PreWare = append(*domainApi.PreWare, *domainTFlow)
+	}
+
+	for _, tFlow := range a.PostWare {
+		domainTFlow, err := tFlow.toDomain()
+		if err != nil {
+			return nil, err
+		}
+		*domainApi.PostWare = append(*domainApi.PostWare, *domainTFlow)
 	}
 
 	triggerFlowMap := make(map[uint]trigger_flows)
-	for _, tFlow := range a.TriggerFlowRef {
+	for _, tFlow := range a.MainWare {
 		triggerFlowMap[tFlow.ID] = tFlow
 	}
 
@@ -101,7 +116,7 @@ func (a *apis) toDomain() (*api.Api, error) {
 		if err != nil {
 			return nil, fmt.Errorf("method *PostgresAPIRepository.ToDomain: %s", err)
 		}
-		*domainApi.TriggerFlows = append(*domainApi.TriggerFlows,
+		*domainApi.MainWare = append(*domainApi.MainWare,
 			api.TriggerCondition{If: tc.If, Trigger: *domainTFlow})
 	}
 

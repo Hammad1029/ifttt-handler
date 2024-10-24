@@ -14,14 +14,16 @@ type Cron struct {
 }
 
 type Api struct {
-	ID           uint                             `json:"id" mapstructure:"id"`
-	Name         string                           `json:"name" mapstructure:"name"`
-	Path         string                           `json:"path" mapstructure:"path"`
-	Method       string                           `json:"method" mapstructure:"method"`
-	Description  string                           `json:"description" mapstructure:"description"`
-	Request      map[string]any                   `json:"request" mapstructure:"request"`
-	PreConfig    map[string]resolvable.Resolvable `json:"preConfig" mapstructure:"preConfig"`
-	TriggerFlows *[]TriggerCondition              `json:"triggerFlows" mapstructure:"triggerFlows"`
+	ID          uint                             `json:"id" mapstructure:"id"`
+	Name        string                           `json:"name" mapstructure:"name"`
+	Path        string                           `json:"path" mapstructure:"path"`
+	Method      string                           `json:"method" mapstructure:"method"`
+	Description string                           `json:"description" mapstructure:"description"`
+	Request     map[string]any                   `json:"request" mapstructure:"request"`
+	PreConfig   map[string]resolvable.Resolvable `json:"preConfig" mapstructure:"preConfig"`
+	PreWare     *[]TriggerFlow                   `json:"preWare" mapstructure:"preWare"`
+	MainWare    *[]TriggerCondition              `json:"mainWare" mapstructure:"mainWare"`
+	PostWare    *[]TriggerFlow                   `json:"postWare" mapstructure:"postWare"`
 }
 
 type TriggerCondition struct {
