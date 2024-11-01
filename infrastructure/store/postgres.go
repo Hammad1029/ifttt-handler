@@ -45,6 +45,7 @@ func (p *postgresStore) createDataStore() *DataStore {
 	return &DataStore{
 		Store:        p,
 		RawQueryRepo: postgresInfra.NewPostgresRawQueryRepository(postgresBase),
+		DumpRepo:     postgresInfra.NewPostgresDbDumpRepository(postgresBase),
 	}
 }
 

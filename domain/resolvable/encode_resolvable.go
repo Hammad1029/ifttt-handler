@@ -27,24 +27,24 @@ func (e *encodeResolvable) Resolve(ctx context.Context, dependencies map[common.
 	inputBArr := []byte(inputStringified)
 
 	switch e.Alg {
-	case "md5":
+	case common.EncodeMD5:
 		{
 			hash := md5.Sum(inputBArr)
 			return hex.EncodeToString(hash[:]), nil
 		}
-	case "sha1":
+	case common.EncodeSHA1:
 		{
 			hasher := sha1.New()
 			hasher.Write(inputBArr)
 			return hex.EncodeToString(hasher.Sum(nil)), nil
 		}
-	case "sha2":
+	case common.EncodeSHA2:
 		{
 			hasher := sha256.New()
 			hasher.Write(inputBArr)
 			return hex.EncodeToString(hasher.Sum(nil)), nil
 		}
-	case "bcrypt":
+	case common.EncodeBcrypt:
 		{
 			hash, err := bcrypt.GenerateFromPassword(inputBArr, bcrypt.DefaultCost)
 			if err != nil {
@@ -52,7 +52,7 @@ func (e *encodeResolvable) Resolve(ctx context.Context, dependencies map[common.
 			}
 			return hex.EncodeToString(hash), nil
 		}
-	case "base64-de":
+	case common.EncodeBase64Decode:
 		{
 			decoded, err := base64.StdEncoding.DecodeString(inputStringified)
 			if err != nil {
@@ -60,7 +60,7 @@ func (e *encodeResolvable) Resolve(ctx context.Context, dependencies map[common.
 			}
 			return hex.EncodeToString(decoded), nil
 		}
-	case "base64-en":
+	case common.EncodeBase64Encode:
 		{
 			encoded := base64.StdEncoding.EncodeToString(inputBArr)
 			return encoded, nil

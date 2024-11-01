@@ -13,7 +13,7 @@ type setResResolvable map[string]any
 type setStoreResolvable map[string]any
 
 type setLogResolvable struct {
-	LogData string `json:"logData" mapstructure:"logData"`
+	LogData any    `json:"logData" mapstructure:"logData"`
 	LogType string `json:"logType" mapstructure:"logType"`
 }
 
@@ -80,15 +80,11 @@ func (s *setLogResolvable) Resolve(ctx context.Context, dependencies map[common.
 	}
 
 	if l, ok := logUncasted.(*audit_log.APIAuditLog); ok {
-		logTypeResolved, err := resolveIfNested(s.LogType, ctx, dependencies)
-		if err != nil {
-			return nil, err
-		}
 		logDataResolved, err := resolveIfNested(s.LogData, ctx, dependencies)
 		if err != nil {
 			return nil, err
 		}
-		l.AddExecLog("user", fmt.Sprint(logTypeResolved), fmt.Sprint(logDataResolved))
+		l.AddExecLog(common.LogUser, s.LogType, fmt.Sprint(logDataResolved))
 		return nil, nil
 	}
 

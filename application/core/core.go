@@ -51,6 +51,7 @@ func NewServerCore() (*ServerCore, error) {
 	serverCore.ResolvableDependencies = map[common.IntIota]any{
 		common.DependencyRawQueryRepo: serverCore.DataStore.RawQueryRepo,
 		common.DependencyAppCacheRepo: serverCore.AppCacheStore.AppCacheRepo,
+		common.DependencyDbDumpRepo:   serverCore.DataStore.DumpRepo,
 	}
 
 	return &serverCore, nil

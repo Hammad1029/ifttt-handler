@@ -50,6 +50,7 @@ type CacheStore struct {
 type DataStore struct {
 	Store        dataStorer
 	RawQueryRepo resolvable.RawQueryRepository
+	DumpRepo     resolvable.DbDumpRepository
 }
 
 type AppCacheStore struct {

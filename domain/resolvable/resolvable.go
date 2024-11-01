@@ -18,8 +18,6 @@ const (
 	AccessorJqResolvable                  = "jq"
 	AccessorGetRequestResolvable          = "getReq"
 	AccessorGetResponseResolvable         = "getRes"
-	AccessorGetQueryResultsResolvable     = "getQueryRes"
-	AccessorGetApiResultsResolvable       = "getApiRes"
 	AccessorGetStoreResolvable            = "getStore"
 	AccessorGetConstResolvable            = "const"
 	AccessorArithmetic                    = "arithmetic"
@@ -36,6 +34,7 @@ const (
 	AccessorGetCacheResolvable            = "getCache"
 	AccessorUUIDResolvable                = "uuid"
 	AccessorHeadersResolvable             = "headers"
+	AccessorDbDumpResolvable              = "dbDump"
 )
 
 type resolvableInterface interface {
@@ -66,10 +65,6 @@ func resolvableFactory(rType string) resolvableInterface {
 		return &getRequestResolvable{}
 	case AccessorGetResponseResolvable:
 		return &getResponseResolvable{}
-	case AccessorGetQueryResultsResolvable:
-		return &getQueryResultsResolvable{}
-	case AccessorGetApiResultsResolvable:
-		return &getApiResultsResolvable{}
 	case AccessorGetStoreResolvable:
 		return &getStoreResolvable{}
 	case AccessorGetConstResolvable:
@@ -89,7 +84,7 @@ func resolvableFactory(rType string) resolvableInterface {
 	case AccessorResponseResolvable:
 		return &ResponseResolvable{}
 	case AccessorPreConfigResolvable:
-		return &preConfigResolvable{}
+		return &getPreConfigResolvable{}
 	case AccessorStringInterpolationResolvable:
 		return &stringInterpolationResolvable{}
 	case AccessorEncodeResolvable:
@@ -101,7 +96,9 @@ func resolvableFactory(rType string) resolvableInterface {
 	case AccessorUUIDResolvable:
 		return &uuidResolvable{}
 	case AccessorHeadersResolvable:
-		return &headersResolvable{}
+		return &getHeadersResolvable{}
+	case AccessorDbDumpResolvable:
+		return &dbDumpResolvable{}
 	default:
 		return nil
 	}
