@@ -1,8 +1,6 @@
 package api
 
-import (
-	"ifttt/handler/domain/resolvable"
-)
+import "ifttt/handler/domain/resolvable"
 
 type Cron struct {
 	ID           uint                             `json:"id" mapstructure:"id"`

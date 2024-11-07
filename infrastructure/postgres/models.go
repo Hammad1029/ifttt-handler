@@ -63,29 +63,37 @@ type rules struct {
 
 type api_audit_log struct {
 	gorm.Model
-	ApiID          uint         `gorm:"default:null"`
-	Api            apis         `gorm:"foreignKey:ApiID" mapstructure:"apiID"`
-	ApiName        string       `gorm:"type: varchar(50);not null" mapstructure:"apiName"`
-	ApiPath        string       `gorm:"type: varchar(50);not null" mapstructure:"apiPath"`
-	ExecutionOrder pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"executionOrder"`
-	ExecutionLogs  pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"executionLogs"`
-	RequestData    pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"requestData"`
-	Start          time.Time    `gorm:"type:timestamp;not null" mapstructure:"start"`
-	End            time.Time    `gorm:"type:timestamp;not null" mapstructure:"end"`
-	TimeTaken      uint64       `gorm:"type:int;not null" mapstructure:"timeTaken"`
-	FinalResponse  pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"finalResponse"`
+	ApiID            uint         `gorm:"default:null"`
+	Api              apis         `gorm:"foreignKey:ApiID" mapstructure:"apiID"`
+	ApiName          string       `gorm:"type: varchar(50);not null" mapstructure:"apiName"`
+	ApiPath          string       `gorm:"type: varchar(50);not null" mapstructure:"apiPath"`
+	RequestToken     string       `gorm:"varchar(50)" mapstructure:"requestToken"`
+	ExecutionOrder   pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"executionOrder"`
+	ExecutionLogs    pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"executionLogs"`
+	RequestData      pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"requestData"`
+	Start            time.Time    `gorm:"type:timestamp;not null" mapstructure:"start"`
+	End              time.Time    `gorm:"type:timestamp;not null" mapstructure:"end"`
+	ExecTime         uint64       `gorm:"type:int;not null" mapstructure:"execTime"`
+	InternalExecTime uint64       `gorm:"type:int;not null" mapstructure:"internalExecTime"`
+	ExternalExecTime uint64       `gorm:"type:int;not null" mapstructure:"externalExecTime"`
+	FinalResponse    pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"finalResponse"`
+	ResponseSent     bool         `gorm:"type:boolean;default:false;not null" mapstructure:"responseSent"`
 }
 
 type cron_audit_log struct {
 	gorm.Model
-	CronID         uint         `gorm:"default:null"`
-	Cron           crons        `gorm:"foreignKey:CronID" mapstructure:"cronID"`
-	CronName       string       `gorm:"type:varchar(50);not null" mapstructure:"cronName"`
-	ExecutionOrder pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"executionOrder"`
-	ExecutionLogs  pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"executionLogs"`
-	RequestData    pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"requestData"`
-	Start          time.Time    `gorm:"type:timestamp;not null" mapstructure:"start"`
-	End            time.Time    `gorm:"type:timestamp;not null" mapstructure:"end"`
-	TimeTaken      uint64       `gorm:"type:int;not null" mapstructure:"timeTaken"`
-	FinalResponse  pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"finalResponse"`
+	CronID           uint         `gorm:"default:null"`
+	Cron             crons        `gorm:"foreignKey:CronID" mapstructure:"cronID"`
+	CronName         string       `gorm:"type:varchar(50);not null" mapstructure:"cronName"`
+	RequestToken     string       `gorm:"varchar(50)" mapstructure:"requestToken"`
+	ExecutionOrder   pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"executionOrder"`
+	ExecutionLogs    pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"executionLogs"`
+	RequestData      pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"requestData"`
+	Start            time.Time    `gorm:"type:timestamp;not null" mapstructure:"start"`
+	End              time.Time    `gorm:"type:timestamp;not null" mapstructure:"end"`
+	ExecTime         uint64       `gorm:"type:int;not null" mapstructure:"execTime"`
+	InternalExecTime uint64       `gorm:"type:int;not null" mapstructure:"internalExecTime"`
+	ExternalExecTime uint64       `gorm:"type:int;not null" mapstructure:"externalExecTime"`
+	FinalResponse    pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"finalResponse"`
+	ResponseSent     bool         `gorm:"type:boolean;default:false;not null" mapstructure:"responseSent"`
 }

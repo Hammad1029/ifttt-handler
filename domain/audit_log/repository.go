@@ -8,9 +8,11 @@ type AuditLog interface {
 	AddExecState(exState ExecState, flowId uint)
 	AddExecLog(logUser string, logType string, logData any)
 	EndLog()
-	GetSystemErrorLogs() []string
-	GetUserErrorLogs() []string
+	GetLogs() *ExecLogGrouped
 	SetFinalResponse(res map[string]any)
+	SetResponseSent() bool
+	AddExternalTime(t uint64)
+	GetRequestToken() string
 }
 
 type ApiAuditLogRepository interface {

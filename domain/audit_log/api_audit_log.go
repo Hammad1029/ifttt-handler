@@ -6,30 +6,41 @@ import (
 	"ifttt/handler/domain/request_data"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type APIAuditLog struct {
-	ApiID          uint                      `json:"apiID" mapstructure:"apiID"`
-	ApiName        string                    `json:"apiName" mapstructure:"apiName"`
-	ApiPath        string                    `json:"apiPath" mapstructure:"apiPath"`
-	ExecutionOrder *sync.Map                 `json:"executionOrder" mapstructure:"executionOrder"`
-	ExecutionLogs  *[]execLog                `json:"executionLogs" mapstructure:"executionLogs"`
-	RequestData    *request_data.RequestData `json:"requestData" mapstructure:"requestData"`
-	Start          time.Time                 `json:"start" mapstructure:"start"`
-	End            time.Time                 `json:"end" mapstructure:"end"`
-	TimeTaken      uint64                    `json:"timeTaken" mapstructure:"timeTaken"`
-	FinalResponse  map[string]any            `json:"finalResponse" mapstructure:"finalResponse"`
+	ApiID            uint                      `json:"apiID" mapstructure:"apiID"`
+	ApiName          string                    `json:"apiName" mapstructure:"apiName"`
+	ApiPath          string                    `json:"apiPath" mapstructure:"apiPath"`
+	RequestToken     string                    `json:"requestToken" mapstructure:"requestToken"`
+	ExecutionOrder   *sync.Map                 `json:"executionOrder" mapstructure:"executionOrder"`
+	ExecutionLogs    *ExecLogGrouped           `json:"executionLogs" mapstructure:"executionLogs"`
+	RequestData      *request_data.RequestData `json:"requestData" mapstructure:"requestData"`
+	Start            time.Time                 `json:"start" mapstructure:"start"`
+	End              time.Time                 `json:"end" mapstructure:"end"`
+	ExecTime         uint64                    `json:"execTime" mapstructure:"execTime"`
+	InternalExecTime uint64                    `json:"internalExecTime" mapstructure:"internalExecTime"`
+	ExternalExecTime uint64                    `json:"externalExecTime" mapstructure:"externalExecTime"`
+	FinalResponse    map[string]any            `json:"finalResponse" mapstructure:"finalResponse"`
+	ResponseSent     bool                      `json:"responseSent" mapstructure:"responseSent"`
 }
 
 func (l *APIAuditLog) Initialize(apiPath string, requestData *request_data.RequestData) {
 	l.ApiPath = apiPath
 	l.ExecutionOrder = &sync.Map{}
 	l.RequestData = requestData
-	l.ExecutionLogs = &[]execLog{}
+	l.ExecutionLogs = &ExecLogGrouped{}
+	if token, err := uuid.NewRandom(); err != nil {
+		l.RequestToken = common.RequestTokenDefault
+	} else {
+		l.RequestToken = token.String()
+	}
 
 	now := time.Now()
 	l.Start = now
-	fmt.Printf("Request recieved: Path %s DateTime %s\n", apiPath, l.Start.Format(common.DateTimeFormat))
+	fmt.Printf("token: %s | path %s | timestamp %s | request received \n", l.RequestToken, apiPath, l.Start.Format(common.DateTimeFormat))
 }
 
 func (l *APIAuditLog) InitExecOrder(flowId uint) {
@@ -45,54 +56,52 @@ func (l *APIAuditLog) AddExecState(exState ExecState, flowId uint) {
 }
 
 func (l *APIAuditLog) AddExecLog(logUser string, logType string, logData any) {
-	execLog := execLog{
+	log := execLog{
 		LogUser: logUser,
 		LogType: logType,
 		LogData: fmt.Sprint(logData),
 	}
 
-	if execLog.LogUser != common.LogUser && execLog.LogUser != common.LogSystem {
-		execLog.LogUser = common.LogSystem
-		execLog.LogType = common.LogError
-		execLog.LogData = "invalid log attempt: illegal user"
+	switch {
+	case log.LogUser == common.LogUser && log.LogType == common.LogInfo:
+		l.ExecutionLogs.UserInfo = append(l.ExecutionLogs.UserInfo, log)
+	case log.LogUser == common.LogUser && log.LogType == common.LogError:
+		l.ExecutionLogs.UserError = append(l.ExecutionLogs.UserError, log)
+	case log.LogUser == common.LogSystem && log.LogType == common.LogError:
+		l.ExecutionLogs.SystemError = append(l.ExecutionLogs.SystemError, log)
+	case log.LogUser == common.LogSystem && log.LogType == common.LogInfo:
+		l.ExecutionLogs.SystemInfo = append(l.ExecutionLogs.SystemInfo, log)
 	}
-
-	if execLog.LogType != common.LogInfo && execLog.LogType != common.LogError {
-		execLog.LogUser = common.LogSystem
-		execLog.LogType = common.LogError
-		execLog.LogData = "invalid log attempt: illegal type"
-	}
-
-	*l.ExecutionLogs = append(*l.ExecutionLogs, execLog)
 }
 
 func (l *APIAuditLog) EndLog() {
 	l.End = time.Now()
-	l.TimeTaken = uint64(l.End.Sub(l.Start).Milliseconds())
-	fmt.Printf("Request ended: Path %s DateTime %s Time taken %s\n",
-		l.ApiPath, l.End.Format(common.DateTimeFormat), fmt.Sprint(l.TimeTaken))
+	l.ExecTime = uint64(l.End.Sub(l.Start).Milliseconds())
+	l.InternalExecTime = l.ExecTime - l.ExternalExecTime
+	fmt.Printf("token: %s | path: %s | timestamp: %s | execution Time: %d (internal: %d, external: %d) | request ending\n",
+		l.RequestToken, l.ApiPath, l.End.Format(common.DateTimeFormat), l.ExecTime, l.InternalExecTime, l.ExternalExecTime)
 }
 
-func (l *APIAuditLog) GetSystemErrorLogs() []string {
-	errLogs := []string{}
-	for _, log := range *l.ExecutionLogs {
-		if log.LogUser == "system" && log.LogType == "error" {
-			errLogs = append(errLogs, log.LogData)
-		}
-	}
-	return errLogs
-}
-
-func (l *APIAuditLog) GetUserErrorLogs() []string {
-	errLogs := []string{}
-	for _, log := range *l.ExecutionLogs {
-		if log.LogUser == "user" && log.LogType == "error" {
-			errLogs = append(errLogs, log.LogData)
-		}
-	}
-	return errLogs
+func (l *APIAuditLog) GetLogs() *ExecLogGrouped {
+	return l.ExecutionLogs
 }
 
 func (l *APIAuditLog) SetFinalResponse(res map[string]any) {
 	l.FinalResponse = res
+}
+
+func (l *APIAuditLog) SetResponseSent() bool {
+	if l.ResponseSent {
+		return false
+	}
+	l.ResponseSent = true
+	return true
+}
+
+func (l *APIAuditLog) AddExternalTime(t uint64) {
+	l.ExternalExecTime += t
+}
+
+func (l *APIAuditLog) GetRequestToken() string {
+	return l.RequestToken
 }

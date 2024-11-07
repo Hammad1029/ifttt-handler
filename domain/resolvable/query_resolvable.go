@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"ifttt/handler/common"
+	"ifttt/handler/domain/audit_log"
 	"time"
 
 	"github.com/fatih/structs"
@@ -103,7 +104,7 @@ func (q *queryResolvable) createQueryRequest(ctx context.Context, dependencies m
 		if err != nil {
 			return nil, fmt.Errorf("could not resolve positional parameters: %s", err)
 		}
-		if err := mapstructure.Decode(parametersResolved, &q.PositionalParameters); err != nil {
+		if err := mapstructure.Decode(parametersResolved, &req.PositionalParameters); err != nil {
 			return nil, fmt.Errorf("could not decode resolved positional parameters to []any: %s", err)
 		}
 	}
@@ -140,6 +141,7 @@ func (q *queryData) execute(dependencies map[common.IntIota]any, ctx context.Con
 		if errors.Is(err, context.DeadlineExceeded) {
 			q.Metadata.DidTimeout = true
 		} else {
+			audit_log.AddExecLog(common.LogUser, common.LogError, err, ctx)
 			q.Metadata.Error = err
 		}
 		return nil
@@ -155,17 +157,34 @@ func (q *queryData) execute(dependencies map[common.IntIota]any, ctx context.Con
 func (q *queryData) createLog(ctx context.Context) {
 	queryRes := GetRequestData(ctx).QueryRes
 	queryRes[q.Request.QueryHash] = append(queryRes[q.Request.QueryHash], structs.Map(q))
+
+	if log := audit_log.GetAuditLogFromContext(ctx); log != nil {
+		(*log).AddExternalTime(q.Metadata.TimeTaken)
+	}
 }
 
 func (q *queryRequest) RunQuery(rawQueryRepo RawQueryRepository, ctx context.Context) (*[]map[string]any, error) {
-	switch {
-	case q.Named && q.Return:
-		return rawQueryRepo.RawQueryNamed(q.QueryString, q.NamedParameters, ctx)
-	case q.Named && !q.Return:
-		return nil, rawQueryRepo.RawExecNamed(q.QueryString, q.NamedParameters, ctx)
-	case !q.Named && q.Return:
-		return rawQueryRepo.RawQueryPositional(q.QueryString, q.PositionalParameters, ctx)
-	default:
-		return nil, rawQueryRepo.RawExecPositional(q.QueryString, q.PositionalParameters, ctx)
+	if q.Named {
+		namedParams := common.RegexNamedParameters.FindAllString(q.QueryString, -1)
+		if len(namedParams) != len(q.NamedParameters) {
+			return nil, fmt.Errorf("missing named parameters")
+		}
+
+		if q.Return {
+			return rawQueryRepo.RawQueryNamed(q.QueryString, q.NamedParameters, ctx)
+		} else {
+			return nil, rawQueryRepo.RawExecNamed(q.QueryString, q.NamedParameters, ctx)
+		}
+	} else {
+		positionalParams := common.RegexPositionalParameters.FindAllString(q.QueryString, -1)
+		if len(positionalParams) != len(q.PositionalParameters) {
+			return nil, fmt.Errorf("missing positional parameters")
+		}
+
+		if q.Return {
+			return rawQueryRepo.RawQueryPositional(q.QueryString, q.PositionalParameters, ctx)
+		} else {
+			return nil, rawQueryRepo.RawExecPositional(q.QueryString, q.PositionalParameters, ctx)
+		}
 	}
 }

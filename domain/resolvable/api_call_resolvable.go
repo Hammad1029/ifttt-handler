@@ -6,6 +6,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"ifttt/handler/common"
+	"ifttt/handler/domain/audit_log"
 	"io"
 	"net/http"
 	"strings"
@@ -158,6 +159,7 @@ func (c *callData) doRequest(ctx context.Context) error {
 		if httpRequest.Context().Err() == context.DeadlineExceeded {
 			c.Metadata.DidTimeout = true
 		} else {
+			audit_log.AddExecLog(common.LogUser, common.LogError, err.Error(), ctx)
 			c.Metadata.Error = err
 		}
 		return nil
@@ -222,4 +224,8 @@ func (c *callData) createLog(ctx context.Context) {
 	callSignature := fmt.Sprintf("%s|%s|%s",
 		c.Request.Method, c.Request.URL, c.Metadata.Start.Format(common.DateTimeFormat))
 	reqData.ApiRes[callSignature] = structs.Map(c)
+
+	if log := audit_log.GetAuditLogFromContext(ctx); log != nil {
+		(*log).AddExternalTime(c.Metadata.TimeTaken)
+	}
 }

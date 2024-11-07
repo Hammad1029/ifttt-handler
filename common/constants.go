@@ -39,3 +39,16 @@ const (
 	EncodeBase64Decode = "base64-de"
 	EncodeBase64Encode = "base64-en"
 )
+
+const (
+	RequestTokenDefault = "uuid-error"
+)
+
+const (
+	ResponseCodeSuccess            = "00"
+	ResponseDescriptionSuccess     = "SUCCESS"
+	ResponseCodeUserError          = "100"
+	ResponseDescriptionUserError   = "USER ERROR"
+	ResponseCodeSystemError        = "200"
+	ResponseDescriptionSystemError = "SYSTEM ERROR"
+)

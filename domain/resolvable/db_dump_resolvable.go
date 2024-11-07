@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"ifttt/handler/common"
+	"ifttt/handler/domain/audit_log"
+	"time"
 )
 
 type dbDumpResolvable struct {
@@ -31,5 +33,17 @@ func (d *dbDumpResolvable) Resolve(ctx context.Context, dependencies map[common.
 		return nil, fmt.Errorf("could not cast dump repo")
 	}
 
-	return nil, dumpRepo.InsertDump(dumpMap, d.Table)
+	start := time.Now()
+	err = dumpRepo.InsertDump(dumpMap, d.Table)
+	if err != nil {
+		audit_log.AddExecLog(common.LogUser, common.LogError, err, ctx)
+	}
+	end := time.Now()
+	timeTaken := uint64(end.Sub(start).Milliseconds())
+
+	if log := audit_log.GetAuditLogFromContext(ctx); log != nil {
+		(*log).AddExternalTime(timeTaken)
+	}
+
+	return nil, nil
 }

@@ -104,36 +104,33 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 			return c.JSON(res)
 		}
 
-		go func() {
+		go func(l *audit_log.APIAuditLog) {
 			defer cancel(nil)
+
 			if err := core.InitMiddleWare(api.PreWare, ctx); err != nil {
 				cancel(err)
-				resChan <- resolvable.ResponseResolvable{
-					ResponseCode:        "500",
-					ResponseDescription: "Error in preware",
-				}
-				return
-			}
-			if err := core.InitMainWare(api.MainWare, ctx); err != nil {
+			} else if err := core.InitMainWare(api.MainWare, ctx); err != nil {
 				cancel(err)
-				resChan <- resolvable.ResponseResolvable{
-					ResponseCode:        "500",
-					ResponseDescription: "Error in mainware",
-				}
-				return
-			}
-			if err := core.InitMiddleWare(api.PostWare, ctx); err != nil {
+			} else if err := core.InitMiddleWare(api.PostWare, ctx); err != nil {
 				cancel(err)
-				resChan <- resolvable.ResponseResolvable{
-					ResponseCode:        "500",
-					ResponseDescription: "Error in postware",
-				}
-				return
 			}
-			resChan <- resolvable.ResponseResolvable{}
-		}()
+
+			res := resolvable.ResponseResolvable{
+				ResponseCode:        common.ResponseCodeSuccess,
+				ResponseDescription: common.ResponseDescriptionSuccess,
+			}
+			if _, err := res.Resolve(ctx, core.ResolvableDependencies); err != nil {
+				l.AddExecLog(common.LogSystem, common.LogError, err.Error())
+				if ok := l.SetResponseSent(); ok {
+					resChan <- res
+				}
+			}
+		}(&log)
 
 		res := <-resChan
+		audit_log.AddExecLog(common.LogSystem, common.LogInfo,
+			fmt.Sprintf("Sending response: Response Code %s | Response Description %s",
+				res.ResponseCode, res.ResponseDescription), ctx)
 		close(resChan)
 		return c.JSON(res)
 	}

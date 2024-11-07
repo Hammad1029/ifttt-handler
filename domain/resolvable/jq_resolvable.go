@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"ifttt/handler/common"
+	"ifttt/handler/domain/audit_log"
 	"reflect"
 	"sync"
 
+	"github.com/fatih/structs"
 	"github.com/itchyny/gojq"
 )
 
@@ -18,22 +20,23 @@ type jqResolvable struct {
 func (j *jqResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	queryResolved, err := j.Query.Resolve(ctx, dependencies)
 	if err != nil {
-		return nil, fmt.Errorf("method resolveJq: couldn't resolve input: %s", err)
+		audit_log.AddExecLog(common.LogUser, common.LogError, err.Error(), ctx)
+		return nil, nil
 	}
 	inputResolved, err := resolveIfNested(j.Input, ctx, dependencies)
 	if err != nil {
-		return nil, fmt.Errorf("method resolveJq: couldn't resolve input: %s", err)
+		return nil, err
 	}
 
-	return runJQQuery(fmt.Sprint(queryResolved), inputResolved)
+	return runJQQuery(fmt.Sprint(queryResolved), inputResolved, ctx)
 }
 
-func runJQQuery(queryString string, input any) (any, error) {
+func runJQQuery(queryString string, input any, ctx context.Context) (any, error) {
 	jqInput := convertToGoJQCompatible(input)
 
 	query, err := gojq.Parse(queryString)
 	if err != nil {
-		return nil, fmt.Errorf("method runJQQuery: could not parse gojq query: %s", err)
+		return nil, fmt.Errorf("error parsing jq query: %s error: %s", queryString, err)
 	}
 
 	var resultVals []any
@@ -45,11 +48,11 @@ func runJQQuery(queryString string, input any) (any, error) {
 			break
 		}
 		if err, ok := v.(error); ok {
-			if err, ok := err.(*gojq.HaltError); ok && err.Value() == nil {
+			if haltErr, ok := err.(*gojq.HaltError); ok && haltErr.Value() == nil {
 				break
 			}
-			return nil, fmt.Errorf("method runJQQuery: error in running gojq iter: %s", err)
-
+			audit_log.AddExecLog(common.LogUser, common.LogError, err, ctx)
+			return nil, nil
 		}
 		resultVals = append(resultVals, v)
 	}
@@ -76,6 +79,8 @@ func convertToGoJQCompatible(input any) any {
 		return convertMapToGoJQCompatible(v)
 	case reflect.Slice:
 		return convertSliceToGoJQCompatible(v)
+	case reflect.Struct:
+		return convertMapToGoJQCompatible(reflect.ValueOf(structs.Map(input)))
 	default:
 		return input
 	}

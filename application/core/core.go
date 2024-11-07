@@ -29,22 +29,22 @@ func NewServerCore() (*ServerCore, error) {
 
 	serverCore.Cron = cron.New()
 	if configStore, err := infraStore.NewConfigStore(); err != nil {
-		return nil, fmt.Errorf("method newCore: could not create config store: %s", err)
+		return nil, err
 	} else {
 		serverCore.ConfigStore = configStore
 	}
 	if dataStore, err := infraStore.NewDataStore(); err != nil {
-		return nil, fmt.Errorf("method newCore: could not create data store: %s", err)
+		return nil, err
 	} else {
 		serverCore.DataStore = dataStore
 	}
 	if cacheStore, err := infraStore.NewCacheStore(); err != nil {
-		return nil, fmt.Errorf("method newCore: could not create cache store: %s", err)
+		return nil, err
 	} else {
 		serverCore.CacheStore = cacheStore
 	}
 	if appCacheStore, err := infraStore.NewAppCacheStore(); err != nil {
-		return nil, fmt.Errorf("method newCore: could not create cache store: %s", err)
+		return nil, err
 	} else {
 		serverCore.AppCacheStore = appCacheStore
 	}
@@ -90,11 +90,7 @@ func (c *ServerCore) InitMiddleWare(triggerFlows *[]api.TriggerFlow, ctx context
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 
-	var log *audit_log.AuditLog
-	if logUncasted, ok := common.GetRequestState(ctx).Load(common.ContextLog); ok {
-		log = logUncasted.(*audit_log.AuditLog)
-	}
-
+	audit_log.AddExecLog(common.LogSystem, common.LogInfo, "initiating pre/post-ware", ctx)
 	var flowWG sync.WaitGroup
 	for _, flow := range *triggerFlows {
 		flowWG.Add(1)
@@ -105,6 +101,7 @@ func (c *ServerCore) InitMiddleWare(triggerFlows *[]api.TriggerFlow, ctx context
 				return
 			default:
 				{
+					audit_log.AddExecLog(common.LogSystem, common.LogInfo, fmt.Sprintf("initiating trigger %d | %s", f.ID, f.Name), ctx)
 					if err := c.execRule(
 						f.StartState, f.BranchFlows, f.Rules, f.ID, ctx,
 					); err != nil {
@@ -115,9 +112,10 @@ func (c *ServerCore) InitMiddleWare(triggerFlows *[]api.TriggerFlow, ctx context
 		}(&flow)
 	}
 	flowWG.Wait()
+	audit_log.AddExecLog(common.LogSystem, common.LogInfo, "pre/post-ware finished executing", ctx)
 
-	if err := context.Cause(ctx); err != nil && log != nil {
-		(*log).AddExecLog(common.LogSystem, common.LogError, err)
+	if err := context.Cause(ctx); err != nil {
+		audit_log.AddExecLog(common.LogSystem, common.LogError, err, ctx)
 		return err
 	}
 	return nil
@@ -127,11 +125,7 @@ func (c *ServerCore) InitMainWare(triggerFlows *[]api.TriggerCondition, ctx cont
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 
-	var log *audit_log.AuditLog
-	if logUncasted, ok := common.GetRequestState(ctx).Load(common.ContextLog); ok {
-		log = logUncasted.(*audit_log.AuditLog)
-	}
-
+	audit_log.AddExecLog(common.LogSystem, common.LogInfo, "initiating mainware", ctx)
 	var flowWG sync.WaitGroup
 	for _, flow := range *triggerFlows {
 		flowWG.Add(1)
@@ -142,9 +136,10 @@ func (c *ServerCore) InitMainWare(triggerFlows *[]api.TriggerCondition, ctx cont
 				return
 			default:
 				{
-					if log != nil {
+					if log := audit_log.GetAuditLogFromContext(ctx); log != nil {
 						(*log).InitExecOrder(f.Trigger.ID)
 					}
+					audit_log.AddExecLog(common.LogSystem, common.LogInfo, fmt.Sprintf("initiating trigger %d | %s", f.Trigger.ID, f.Trigger.Name), ctx)
 					if ev, err := f.If.EvaluateGroup(ctx, c.ResolvableDependencies); err != nil {
 						cancel(err)
 					} else if ev {
@@ -159,9 +154,10 @@ func (c *ServerCore) InitMainWare(triggerFlows *[]api.TriggerCondition, ctx cont
 		}(&flow)
 	}
 	flowWG.Wait()
+	audit_log.AddExecLog(common.LogSystem, common.LogInfo, "mainware finished executing", ctx)
 
-	if err := context.Cause(ctx); err != nil && log != nil {
-		(*log).AddExecLog(common.LogSystem, common.LogError, err)
+	if err := context.Cause(ctx); err != nil {
+		audit_log.AddExecLog(common.LogSystem, common.LogError, err, ctx)
 		return err
 	}
 	return nil
@@ -170,15 +166,18 @@ func (c *ServerCore) InitMainWare(triggerFlows *[]api.TriggerCondition, ctx cont
 func (c *ServerCore) execRule(
 	state uint, branchMap map[uint]*api.BranchFlow, rules map[uint]*api.Rule, flowId uint, ctx context.Context,
 ) error {
+	audit_log.AddExecLog(common.LogSystem, common.LogInfo, fmt.Sprintf("executing state %d", state), ctx)
+
 	execState := audit_log.ExecState{State: state}
 
 	branch, ok := branchMap[state]
 	if ok {
 		execState.Rule = branch.Rule
+	} else {
+		audit_log.AddExecLog(common.LogSystem, common.LogInfo, fmt.Sprintf("no branch found for state %d-> ending trigger", state), ctx)
 	}
 
-	if logUncasted, ok := common.GetRequestState(ctx).Load(common.ContextLog); ok {
-		log := logUncasted.(*audit_log.AuditLog)
+	if log := audit_log.GetAuditLogFromContext(ctx); log != nil {
 		(*log).AddExecState(execState, flowId)
 	}
 
@@ -189,6 +188,8 @@ func (c *ServerCore) execRule(
 	rule, ok := rules[branch.Rule]
 	if !ok {
 		return fmt.Errorf("rule %d for state %d not found", branch.Rule, state)
+	} else {
+		audit_log.AddExecLog(common.LogSystem, common.LogInfo, fmt.Sprintf("executing rule %d | %s", rule.ID, rule.Name), ctx)
 	}
 
 	if err := c.resolveArray(rule.Pre, ctx); err != nil {
@@ -202,7 +203,8 @@ func (c *ServerCore) execRule(
 
 	nextState, ok := branch.States[rVal.(uint)]
 	if !ok {
-		return fmt.Errorf("next state for return value %s not found", rVal)
+		audit_log.AddExecLog(common.LogSystem, common.LogInfo, fmt.Sprintf("no next state for rVal %d -> ending trigger", rVal), ctx)
+		return nil
 	}
 
 	return c.execRule(nextState, branchMap, rules, flowId, ctx)
@@ -214,14 +216,14 @@ func (c *ServerCore) solveRuleSwitch(s *api.RuleSwitch, ctx context.Context) (an
 			return nil, fmt.Errorf("method solveRuleSwitch: error in solving case: %s", err)
 		} else if ev {
 			if rVal, err := c.doRuleCase(&currCase, ctx); err != nil {
-				return nil, fmt.Errorf("method solveRuleSwitch: error in solving case: %s", err)
+				return nil, err
 			} else {
 				return rVal, nil
 			}
 		}
 	}
 	if rVal, err := c.doRuleCase(&s.Default, ctx); err != nil {
-		return nil, fmt.Errorf("method solveRuleSwitch: error in solving default: %s", err)
+		return nil, err
 	} else {
 		return rVal, nil
 	}
@@ -229,15 +231,16 @@ func (c *ServerCore) solveRuleSwitch(s *api.RuleSwitch, ctx context.Context) (an
 
 func (c *ServerCore) doRuleCase(s *api.RuleSwitchCase, ctx context.Context) (uint, error) {
 	if err := c.resolveArray(s.Do, ctx); err != nil {
-		return 0, fmt.Errorf("method solveRuleSwitch: error in resolving do: %s", err)
+		return 0, err
 	}
 	return s.Return, nil
 }
 
 func (c *ServerCore) resolveArray(resolvables []resolvable.Resolvable, ctx context.Context) error {
 	for _, r := range resolvables {
+		audit_log.AddExecLog(common.LogSystem, common.LogInfo, fmt.Sprintf("resolving %s", r.ResolveType), ctx)
 		if _, err := r.Resolve(ctx, c.ResolvableDependencies); err != nil {
-			return fmt.Errorf("method *core.resolveArray: error in resolving: %s", err)
+			return err
 		}
 	}
 	return nil

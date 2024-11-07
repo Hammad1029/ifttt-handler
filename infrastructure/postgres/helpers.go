@@ -129,7 +129,11 @@ func (a *api_audit_log) fromDomain(dLog *domain_audit_log.APIAuditLog) error {
 	a.ApiPath = dLog.ApiPath
 	a.Start = dLog.Start
 	a.End = dLog.End
-	a.TimeTaken = dLog.TimeTaken
+	a.ExecTime = dLog.ExecTime
+	a.InternalExecTime = dLog.InternalExecTime
+	a.ExternalExecTime = dLog.ExternalExecTime
+	a.ResponseSent = dLog.ResponseSent
+	a.RequestToken = dLog.RequestToken
 
 	if execOrderMarshalled, err := json.Marshal(common.UnSyncMap(dLog.ExecutionOrder)); err != nil {
 		return fmt.Errorf("method *PostgresAPIRepository.FromDomain: could not marshal execution order: %s", err)
@@ -211,7 +215,11 @@ func (a *cron_audit_log) fromDomain(dLog *domain_audit_log.CronAuditLog) error {
 	a.CronID = dLog.CronID
 	a.Start = dLog.Start
 	a.End = dLog.End
-	a.TimeTaken = dLog.TimeTaken
+	a.ExecTime = dLog.ExecTime
+	a.InternalExecTime = dLog.InternalExecTime
+	a.ExternalExecTime = dLog.ExternalExecTime
+	a.ResponseSent = dLog.ResponseSent
+	a.RequestToken = dLog.RequestToken
 
 	if execOrderMarshalled, err := json.Marshal(common.UnSyncMap(dLog.ExecutionOrder)); err != nil {
 		return fmt.Errorf("method *PostgresAPIRepository.FromDomain: could not marshal execution order: %s", err)
