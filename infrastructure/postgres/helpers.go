@@ -8,6 +8,7 @@ import (
 	domain_audit_log "ifttt/handler/domain/audit_log"
 	"ifttt/handler/domain/resolvable"
 
+	"github.com/fatih/structs"
 	"github.com/jackc/pgtype"
 )
 
@@ -45,14 +46,14 @@ func (t *trigger_flows) toDomain() (*api.TriggerFlow, error) {
 		dRule, err := r.toDomain()
 		if err != nil {
 			return nil,
-				fmt.Errorf("method *PostgresTriggerFlowsRepository.ToDomain: could not convert to domain rule: %s", err)
+				fmt.Errorf("could not convert to domain rule: %s", err)
 		}
 		domanTFlow.Rules[r.ID] = dRule
 	}
 
 	if err := json.Unmarshal(t.BranchFlows.Bytes, &domanTFlow.BranchFlows); err != nil {
 		return nil,
-			fmt.Errorf("method *PostgresRulesRepository.ToDomain: error in unmarshalling branchFlows: %s", err)
+			fmt.Errorf("error in unmarshalling branchFlows: %s", err)
 	}
 
 	return &domanTFlow, nil
@@ -110,11 +111,11 @@ func (a *apis) toDomain() (*api.Api, error) {
 		tcModel, ok := triggerFlowMap[tc.Trigger]
 		if !ok {
 			return nil,
-				fmt.Errorf("method *PostgresAPIRepository.ToDomain: trigger flow not found from conditions")
+				fmt.Errorf("trigger flow not found from conditions")
 		}
 		domainTFlow, err := tcModel.toDomain()
 		if err != nil {
-			return nil, fmt.Errorf("method *PostgresAPIRepository.ToDomain: %s", err)
+			return nil, err
 		}
 		*domainApi.MainWare = append(*domainApi.MainWare,
 			api.TriggerCondition{If: tc.If, Trigger: *domainTFlow})
@@ -134,36 +135,31 @@ func (a *api_audit_log) fromDomain(dLog *domain_audit_log.APIAuditLog) error {
 	a.ExternalExecTime = dLog.ExternalExecTime
 	a.ResponseSent = dLog.ResponseSent
 	a.RequestToken = dLog.RequestToken
+	a.ResponseCode = dLog.ResponseCode
+	a.ResponseDescription = dLog.ResponseDescription
 
-	if execOrderMarshalled, err := json.Marshal(common.UnSyncMap(dLog.ExecutionOrder)); err != nil {
-		return fmt.Errorf("method *PostgresAPIRepository.FromDomain: could not marshal execution order: %s", err)
+	if execOrderMarshalled, err := json.Marshal(structs.Map(dLog.ExecutionOrder)); err != nil {
+		return fmt.Errorf("could not marshal execution order: %s", err)
 	} else {
 		a.ExecutionOrder = pgtype.JSONB{Bytes: execOrderMarshalled, Status: pgtype.Present}
 	}
 
 	if execLogsMarshalled, err := json.Marshal(dLog.ExecutionLogs); err != nil {
-		return fmt.Errorf("method *PostgresAPIRepository.FromDomain: could not marshal execution logs: %s", err)
+		return fmt.Errorf("could not marshal execution logs: %s", err)
 	} else {
 		a.ExecutionLogs = pgtype.JSONB{Bytes: execLogsMarshalled, Status: pgtype.Present}
 	}
 
-	reqDataMap := make(map[string]any)
-	reqDataMap["reqBody"] = dLog.RequestData.ReqBody
-	reqDataMap["preConfig"] = common.UnSyncMap(dLog.RequestData.PreConfig)
-	reqDataMap["store"] = common.UnSyncMap(dLog.RequestData.Store)
-	reqDataMap["response"] = common.UnSyncMap(dLog.RequestData.Response)
-	reqDataMap["queryRes"] = dLog.RequestData.QueryRes
-	reqDataMap["apiRes"] = dLog.RequestData.ApiRes
-	if reqDataMarshalled, err := json.Marshal(&reqDataMap); err != nil {
-		return fmt.Errorf("method *PostgresAPIRepository.FromDomain: could not marshal request data: %s", err)
+	if reqDataMarshalled, err := json.Marshal(structs.Map(dLog.RequestData)); err != nil {
+		return fmt.Errorf("could not marshal request data: %s", err)
 	} else {
 		a.RequestData = pgtype.JSONB{Bytes: reqDataMarshalled, Status: pgtype.Present}
 	}
 
-	if finalResMarshalled, err := json.Marshal(&dLog.FinalResponse); err != nil {
+	if finalResMarshalled, err := json.Marshal(&dLog.ResponseData); err != nil {
 		return err
 	} else {
-		a.FinalResponse = pgtype.JSONB{Bytes: finalResMarshalled, Status: pgtype.Present}
+		a.ResponseData = pgtype.JSONB{Bytes: finalResMarshalled, Status: pgtype.Present}
 	}
 
 	return nil
@@ -180,13 +176,13 @@ func (c *crons) toDomain() (*api.Cron, error) {
 
 	if err := json.Unmarshal(c.PreConfig.Bytes, &dCron.PreConfig); err != nil {
 		return nil,
-			fmt.Errorf("method *PostgresAPIRepository.ToDomain: could not cast pgApi: %s", err)
+			fmt.Errorf("could not cast pgApi: %s", err)
 	}
 
 	var tConditions []api_trigger_flow_json
 	if err := json.Unmarshal(c.TriggerFlows.Bytes, &tConditions); err != nil {
 		return nil,
-			fmt.Errorf("method *PostgresAPIRepository.ToDomain: could not cast pgApi: %s", err)
+			fmt.Errorf("could not cast pgApi: %s", err)
 	}
 
 	triggerFlowMap := make(map[uint]trigger_flows)
@@ -198,11 +194,11 @@ func (c *crons) toDomain() (*api.Cron, error) {
 		tcModel, ok := triggerFlowMap[tc.Trigger]
 		if !ok {
 			return nil,
-				fmt.Errorf("method *PostgresAPIRepository.ToDomain: trigger flow not found from conditions")
+				fmt.Errorf("trigger flow not found from conditions")
 		}
 		domainTFlow, err := tcModel.toDomain()
 		if err != nil {
-			return nil, fmt.Errorf("method *PostgresAPIRepository.ToDomain: %s", err)
+			return nil, err
 		}
 		*dCron.TriggerFlows = append(*dCron.TriggerFlows, api.TriggerCondition{If: tc.If, Trigger: *domainTFlow})
 	}
@@ -220,36 +216,31 @@ func (a *cron_audit_log) fromDomain(dLog *domain_audit_log.CronAuditLog) error {
 	a.ExternalExecTime = dLog.ExternalExecTime
 	a.ResponseSent = dLog.ResponseSent
 	a.RequestToken = dLog.RequestToken
+	a.ResponseCode = dLog.ResponseCode
+	a.ResponseDescription = dLog.ResponseDescription
 
 	if execOrderMarshalled, err := json.Marshal(common.UnSyncMap(dLog.ExecutionOrder)); err != nil {
-		return fmt.Errorf("method *PostgresAPIRepository.FromDomain: could not marshal execution order: %s", err)
+		return fmt.Errorf("could not marshal execution order: %s", err)
 	} else {
 		a.ExecutionOrder = pgtype.JSONB{Bytes: execOrderMarshalled, Status: pgtype.Present}
 	}
 
 	if execLogsMarshalled, err := json.Marshal(dLog.ExecutionLogs); err != nil {
-		return fmt.Errorf("method *PostgresAPIRepository.FromDomain: could not marshal execution logs: %s", err)
+		return fmt.Errorf("could not marshal execution logs: %s", err)
 	} else {
 		a.ExecutionLogs = pgtype.JSONB{Bytes: execLogsMarshalled, Status: pgtype.Present}
 	}
 
-	reqDataMap := make(map[string]any)
-	reqDataMap["reqBody"] = dLog.RequestData.ReqBody
-	reqDataMap["preConfig"] = common.UnSyncMap(dLog.RequestData.PreConfig)
-	reqDataMap["store"] = common.UnSyncMap(dLog.RequestData.Store)
-	reqDataMap["response"] = common.UnSyncMap(dLog.RequestData.Response)
-	reqDataMap["queryRes"] = dLog.RequestData.QueryRes
-	reqDataMap["apiRes"] = dLog.RequestData.ApiRes
-	if reqDataMarshalled, err := json.Marshal(&reqDataMap); err != nil {
+	if reqDataMarshalled, err := json.Marshal(structs.Map(dLog.RequestData)); err != nil {
 		return err
 	} else {
 		a.RequestData = pgtype.JSONB{Bytes: reqDataMarshalled, Status: pgtype.Present}
 	}
 
-	if finalResMarshalled, err := json.Marshal(&dLog.FinalResponse); err != nil {
+	if finalResMarshalled, err := json.Marshal(&dLog.ResponseData); err != nil {
 		return err
 	} else {
-		a.FinalResponse = pgtype.JSONB{Bytes: finalResMarshalled, Status: pgtype.Present}
+		a.ResponseData = pgtype.JSONB{Bytes: finalResMarshalled, Status: pgtype.Present}
 	}
 
 	return nil

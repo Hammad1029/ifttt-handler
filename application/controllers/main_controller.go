@@ -41,11 +41,6 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 		defer cancel(nil)
 		ctx = context.WithValue(ctx, common.ContextState, &contextState)
 
-		go func() {
-			<-c.Context().Done()
-			cancel(nil)
-		}()
-
 		log := audit_log.APIAuditLog{}
 		requestData := request_data.RequestData{}
 
@@ -53,7 +48,9 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 			<-ctx.Done()
 			l.EndLog()
 			if err := core.ConfigStore.APIAuditLogRepo.InsertLog(l); err != nil {
-				fmt.Printf("error in inserting log: %s\n", err)
+				fmt.Printf("token: %s | user: %s | type: %s | log: %s\n",
+					l.GetRequestToken(), common.LogSystem, common.LogError,
+					fmt.Sprintf("error in inserting log: %s", err))
 			}
 		}(&log)
 
@@ -70,7 +67,7 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 				ResponseCode:        "404",
 				ResponseDescription: "API not found",
 			}
-			log.SetFinalResponse(structs.Map(res))
+			log.SetResponse(res.ResponseCode, res.ResponseDescription, structs.Map(res.Response))
 			return c.JSON(res)
 		}
 
@@ -84,7 +81,7 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 				ResponseCode:        "400",
 				ResponseDescription: "Error in parsing body",
 			}
-			log.SetFinalResponse(structs.Map(res))
+			log.SetResponse(res.ResponseCode, res.ResponseDescription, structs.Map(res.Response))
 			return c.JSON(res)
 		}
 		requestData.Headers = c.GetReqHeaders()
@@ -99,7 +96,7 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 				ResponseCode:        "500",
 				ResponseDescription: "Could not prepare pre config",
 			}
-			log.SetFinalResponse(structs.Map(res))
+			log.SetResponse(res.ResponseCode, res.ResponseDescription, structs.Map(res.Response))
 			close(resChan)
 			return c.JSON(res)
 		}
@@ -115,21 +112,26 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 				cancel(err)
 			}
 
-			res := resolvable.ResponseResolvable{
-				ResponseCode:        common.ResponseCodeSuccess,
-				ResponseDescription: common.ResponseDescriptionSuccess,
-			}
-			if _, err := res.Resolve(ctx, core.ResolvableDependencies); err != nil {
-				l.AddExecLog(common.LogSystem, common.LogError, err.Error())
-				if ok := l.SetResponseSent(); ok {
-					resChan <- res
+			if !l.ResponseSent {
+				res := resolvable.ResponseResolvable{
+					ResponseCode:        common.ResponseCodeSuccess,
+					ResponseDescription: common.ResponseDescriptionSuccess,
+				}
+				if _, err := res.Resolve(ctx, core.ResolvableDependencies); err != nil {
+					l.AddExecLog(common.LogSystem, common.LogError, err.Error())
+					res.ResponseCode = common.ResponseCodeSystemError
+					res.ResponseDescription = common.ResponseDescriptionSystemError
+					l.SetResponse(res.ResponseCode, res.ResponseDescription, structs.Map(res.Response))
+					if ok := l.SetResponseSent(); ok {
+						resChan <- res
+					}
 				}
 			}
 		}(&log)
 
 		res := <-resChan
 		audit_log.AddExecLog(common.LogSystem, common.LogInfo,
-			fmt.Sprintf("Sending response: Response Code %s | Response Description %s",
+			fmt.Sprintf("Sending response | Response Code: %s | Response Description: %s",
 				res.ResponseCode, res.ResponseDescription), ctx)
 		close(resChan)
 		return c.JSON(res)

@@ -45,7 +45,7 @@ type queryMetadata struct {
 	Timeout    uint      `json:"timeOut" mapstructure:"timeOut"`
 	DidTimeout bool      `json:"didTimeout" mapstructure:"didTimeout"`
 	Async      bool      `json:"async" mapstructure:"async"`
-	Error      error     `json:"error" mapstructure:"error"`
+	Error      string    `json:"error" mapstructure:"error"`
 }
 
 type RawQueryRepository interface {
@@ -142,7 +142,7 @@ func (q *queryData) execute(dependencies map[common.IntIota]any, ctx context.Con
 			q.Metadata.DidTimeout = true
 		} else {
 			audit_log.AddExecLog(common.LogUser, common.LogError, err, ctx)
-			q.Metadata.Error = err
+			q.Metadata.Error = err.Error()
 		}
 		return nil
 	}

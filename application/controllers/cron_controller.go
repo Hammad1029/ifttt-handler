@@ -54,7 +54,7 @@ func cronController(cronJobName string, core *core.ServerCore, ctx context.Conte
 			ResponseCode:        "404",
 			ResponseDescription: "API not found",
 		}
-		log.SetFinalResponse(structs.Map(res))
+		log.SetResponse(res.ResponseCode, res.ResponseDescription, structs.Map(res.Response))
 		return
 	}
 
@@ -71,7 +71,7 @@ func cronController(cronJobName string, core *core.ServerCore, ctx context.Conte
 			ResponseCode:        "500",
 			ResponseDescription: "Could not prepare pre config",
 		}
-		log.SetFinalResponse(structs.Map(res))
+		log.SetResponse(res.ResponseCode, res.ResponseDescription, structs.Map(res.Response))
 		close(resChan)
 		return
 	}

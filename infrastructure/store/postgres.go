@@ -3,6 +3,7 @@ package infrastructure
 import (
 	"fmt"
 	postgresInfra "ifttt/handler/infrastructure/postgres"
+	"time"
 
 	"github.com/mitchellh/mapstructure"
 	"gorm.io/driver/postgres"
@@ -17,11 +18,18 @@ type postgresStore struct {
 }
 
 type postgresConfig struct {
-	Host     string `json:"host" mapstructure:"host"`
-	Port     string `json:"port" mapstructure:"port"`
-	Database string `json:"database" mapstructure:"database"`
-	Username string `json:"username" mapstructure:"username"`
-	Password string `json:"password" mapstructure:"password"`
+	Host     string       `json:"host" mapstructure:"host"`
+	Port     string       `json:"port" mapstructure:"port"`
+	Database string       `json:"database" mapstructure:"database"`
+	Username string       `json:"username" mapstructure:"username"`
+	Password string       `json:"password" mapstructure:"password"`
+	Pool     postgresPool `json:"pool" mapstructure:"pool`
+}
+
+type postgresPool struct {
+	MaxOpenConns int `json:"maxOpenConns" mapstructure:"maxOpenConns"`
+	MaxIdleConns int `json:"maxIdleConns" mapstructure:"maxIdleConns"`
+	MaxLifeTime  int `json:"maxLifeTime" mapstructure:"maxLifeTime"`
 }
 
 func (p *postgresStore) init(config map[string]any) error {
@@ -36,6 +44,13 @@ func (p *postgresStore) init(config map[string]any) error {
 		return err
 	} else {
 		p.store = db
+		if sqlDb, err := db.DB(); err != nil {
+			return err
+		} else {
+			sqlDb.SetMaxOpenConns(p.config.Pool.MaxOpenConns)
+			sqlDb.SetMaxIdleConns(p.config.Pool.MaxIdleConns)
+			sqlDb.SetConnMaxLifetime(time.Duration(p.config.Pool.MaxLifeTime) * time.Second)
+		}
 	}
 	return nil
 }

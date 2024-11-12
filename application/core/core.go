@@ -114,7 +114,7 @@ func (c *ServerCore) InitMiddleWare(triggerFlows *[]api.TriggerFlow, ctx context
 	flowWG.Wait()
 	audit_log.AddExecLog(common.LogSystem, common.LogInfo, "pre/post-ware finished executing", ctx)
 
-	if err := context.Cause(ctx); err != nil {
+	if err := context.Cause(ctx); err != nil && err != context.Canceled {
 		audit_log.AddExecLog(common.LogSystem, common.LogError, err, ctx)
 		return err
 	}
@@ -156,7 +156,7 @@ func (c *ServerCore) InitMainWare(triggerFlows *[]api.TriggerCondition, ctx cont
 	flowWG.Wait()
 	audit_log.AddExecLog(common.LogSystem, common.LogInfo, "mainware finished executing", ctx)
 
-	if err := context.Cause(ctx); err != nil {
+	if err := context.Cause(ctx); err != nil && err != context.Canceled {
 		audit_log.AddExecLog(common.LogSystem, common.LogError, err, ctx)
 		return err
 	}

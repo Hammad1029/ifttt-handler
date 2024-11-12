@@ -11,13 +11,6 @@ type ExecState struct {
 	Rule  uint `json:"rule" mapstructure:"rule"`
 }
 
-type ExecLogGrouped struct {
-	UserInfo    []execLog `json:"userInfo" mapstructure:"userInfo"`
-	UserError   []execLog `json:"userError" mapstructure:"userError"`
-	SystemInfo  []execLog `json:"systemInfo" mapstructure:"systemInfo"`
-	SystemError []execLog `json:"systemErrors" mapstructure:"systemError"`
-}
-
 type execLog struct {
 	LogUser string `json:"logUser" mapstructure:"logUser"`
 	LogType string `json:"logType" mapstructure:"logType"`

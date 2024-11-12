@@ -53,7 +53,7 @@ type apiMetadata struct {
 	Timeout    uint      `json:"timeout" mapstructure:"timeout"`
 	DidTimeout bool      `json:"didTimeout" mapstructure:"didTimeout"`
 	Async      bool      `json:"async" mapstructure:"async"`
-	Error      error     `json:"error" mapstructure:"error"`
+	Error      string    `json:"error" mapstructure:"error"`
 }
 
 func (a *apiCallResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
@@ -160,7 +160,7 @@ func (c *callData) doRequest(ctx context.Context) error {
 			c.Metadata.DidTimeout = true
 		} else {
 			audit_log.AddExecLog(common.LogUser, common.LogError, err.Error(), ctx)
-			c.Metadata.Error = err
+			c.Metadata.Error = err.Error()
 		}
 		return nil
 	}

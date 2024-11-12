@@ -11,27 +11,29 @@ import (
 )
 
 type APIAuditLog struct {
-	ApiID            uint                      `json:"apiID" mapstructure:"apiID"`
-	ApiName          string                    `json:"apiName" mapstructure:"apiName"`
-	ApiPath          string                    `json:"apiPath" mapstructure:"apiPath"`
-	RequestToken     string                    `json:"requestToken" mapstructure:"requestToken"`
-	ExecutionOrder   *sync.Map                 `json:"executionOrder" mapstructure:"executionOrder"`
-	ExecutionLogs    *ExecLogGrouped           `json:"executionLogs" mapstructure:"executionLogs"`
-	RequestData      *request_data.RequestData `json:"requestData" mapstructure:"requestData"`
-	Start            time.Time                 `json:"start" mapstructure:"start"`
-	End              time.Time                 `json:"end" mapstructure:"end"`
-	ExecTime         uint64                    `json:"execTime" mapstructure:"execTime"`
-	InternalExecTime uint64                    `json:"internalExecTime" mapstructure:"internalExecTime"`
-	ExternalExecTime uint64                    `json:"externalExecTime" mapstructure:"externalExecTime"`
-	FinalResponse    map[string]any            `json:"finalResponse" mapstructure:"finalResponse"`
-	ResponseSent     bool                      `json:"responseSent" mapstructure:"responseSent"`
+	ApiID               uint                      `json:"apiID" mapstructure:"apiID"`
+	ApiName             string                    `json:"apiName" mapstructure:"apiName"`
+	ApiPath             string                    `json:"apiPath" mapstructure:"apiPath"`
+	RequestToken        string                    `json:"requestToken" mapstructure:"requestToken"`
+	ExecutionOrder      *sync.Map                 `json:"executionOrder" mapstructure:"executionOrder"`
+	ExecutionLogs       *[]execLog                `json:"executionLogs" mapstructure:"executionLogs"`
+	RequestData         *request_data.RequestData `json:"requestData" mapstructure:"requestData"`
+	Start               time.Time                 `json:"start" mapstructure:"start"`
+	End                 time.Time                 `json:"end" mapstructure:"end"`
+	ExecTime            uint64                    `json:"execTime" mapstructure:"execTime"`
+	InternalExecTime    uint64                    `json:"internalExecTime" mapstructure:"internalExecTime"`
+	ExternalExecTime    uint64                    `json:"externalExecTime" mapstructure:"externalExecTime"`
+	ResponseCode        string                    `json:"responseCode" mapstructure:"responseCode"`
+	ResponseDescription string                    `json:"responseDescription" mapstructure:"responseDescription"`
+	ResponseData        map[string]any            `json:"responseData" mapstructure:"responseData"`
+	ResponseSent        bool                      `json:"responseSent" mapstructure:"responseSent"`
 }
 
 func (l *APIAuditLog) Initialize(apiPath string, requestData *request_data.RequestData) {
 	l.ApiPath = apiPath
 	l.ExecutionOrder = &sync.Map{}
 	l.RequestData = requestData
-	l.ExecutionLogs = &ExecLogGrouped{}
+	l.ExecutionLogs = &[]execLog{}
 	if token, err := uuid.NewRandom(); err != nil {
 		l.RequestToken = common.RequestTokenDefault
 	} else {
@@ -61,17 +63,7 @@ func (l *APIAuditLog) AddExecLog(logUser string, logType string, logData any) {
 		LogType: logType,
 		LogData: fmt.Sprint(logData),
 	}
-
-	switch {
-	case log.LogUser == common.LogUser && log.LogType == common.LogInfo:
-		l.ExecutionLogs.UserInfo = append(l.ExecutionLogs.UserInfo, log)
-	case log.LogUser == common.LogUser && log.LogType == common.LogError:
-		l.ExecutionLogs.UserError = append(l.ExecutionLogs.UserError, log)
-	case log.LogUser == common.LogSystem && log.LogType == common.LogError:
-		l.ExecutionLogs.SystemError = append(l.ExecutionLogs.SystemError, log)
-	case log.LogUser == common.LogSystem && log.LogType == common.LogInfo:
-		l.ExecutionLogs.SystemInfo = append(l.ExecutionLogs.SystemInfo, log)
-	}
+	*l.ExecutionLogs = append(*l.ExecutionLogs, log)
 }
 
 func (l *APIAuditLog) EndLog() {
@@ -82,12 +74,14 @@ func (l *APIAuditLog) EndLog() {
 		l.RequestToken, l.ApiPath, l.End.Format(common.DateTimeFormat), l.ExecTime, l.InternalExecTime, l.ExternalExecTime)
 }
 
-func (l *APIAuditLog) GetLogs() *ExecLogGrouped {
+func (l *APIAuditLog) GetLogs() *[]execLog {
 	return l.ExecutionLogs
 }
 
-func (l *APIAuditLog) SetFinalResponse(res map[string]any) {
-	l.FinalResponse = res
+func (l *APIAuditLog) SetResponse(rc string, rd string, data map[string]any) {
+	l.ResponseCode = rc
+	l.ResponseDescription = rd
+	l.ResponseData = data
 }
 
 func (l *APIAuditLog) SetResponseSent() bool {

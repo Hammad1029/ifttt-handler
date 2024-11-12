@@ -8,8 +8,8 @@ type AuditLog interface {
 	AddExecState(exState ExecState, flowId uint)
 	AddExecLog(logUser string, logType string, logData any)
 	EndLog()
-	GetLogs() *ExecLogGrouped
-	SetFinalResponse(res map[string]any)
+	GetLogs() *[]execLog
+	SetResponse(rc string, rd string, data map[string]any)
 	SetResponseSent() bool
 	AddExternalTime(t uint64)
 	GetRequestToken() string

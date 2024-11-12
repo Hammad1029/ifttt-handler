@@ -17,7 +17,7 @@ var userConfig *viper.Viper
 func viperInit() {
 	config = viper.New()
 	userConfig = viper.New()
-	readEnv(config, "env", "json", "./application/config")
+	readEnv(config, "env", "json", "./config")
 }
 
 func readEnv(config *viper.Viper, fileName string, fileType string, location string) {

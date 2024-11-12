@@ -38,11 +38,15 @@ func (r *ResponseResolvable) Resolve(ctx context.Context, dependencies map[commo
 
 	errors := errorsData{}
 	execLogs := (*log).GetLogs()
-	for _, v := range execLogs.SystemError {
-		errors.System = append(errors.System, v.LogData)
-	}
-	for _, v := range execLogs.UserError {
-		errors.User = append(errors.User, v.LogData)
+	for _, v := range *execLogs {
+		if v.LogType == common.LogError {
+			switch v.LogUser {
+			case common.LogUser:
+				errors.User = append(errors.User, v.LogData)
+			case common.LogSystem:
+				errors.System = append(errors.System, v.LogData)
+			}
+		}
 	}
 	r.Response.Errors = &errors
 
@@ -61,7 +65,7 @@ func (r *ResponseResolvable) Resolve(ctx context.Context, dependencies map[commo
 
 	r.Response.Data = common.UnSyncMap(reqData.Response)
 
-	(*log).SetFinalResponse(structs.Map(r))
+	(*log).SetResponse(r.ResponseCode, r.ResponseDescription, structs.Map(r.Response))
 
 	resChanUncasted, ok := requestState.Load(common.ContextResponseChannel)
 	if !ok {
