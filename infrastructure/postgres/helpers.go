@@ -6,6 +6,7 @@ import (
 	"ifttt/handler/common"
 	"ifttt/handler/domain/api"
 	domain_audit_log "ifttt/handler/domain/audit_log"
+	requestvalidator "ifttt/handler/domain/request_validator.go"
 	"ifttt/handler/domain/resolvable"
 
 	"github.com/fatih/structs"
@@ -37,7 +38,6 @@ func (t *trigger_flows) toDomain() (*api.TriggerFlow, error) {
 		ID:          t.ID,
 		Name:        t.Name,
 		Description: t.Description,
-		Class:       api.Class{Name: t.Class.Name},
 		StartState:  t.StartState,
 		Rules:       map[uint]*api.Rule{},
 		BranchFlows: map[uint]*api.BranchFlow{},
@@ -66,7 +66,7 @@ func (a *apis) toDomain() (*api.Api, error) {
 		Path:        a.Path,
 		Method:      a.Method,
 		Description: a.Description,
-		Request:     map[string]any{},
+		Request:     map[string]requestvalidator.RequestParameter{},
 		PreConfig:   map[string]resolvable.Resolvable{},
 		PreWare:     &[]api.TriggerFlow{},
 		MainWare:    &[]api.TriggerCondition{},

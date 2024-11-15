@@ -8,6 +8,7 @@ import (
 	"ifttt/handler/domain/api"
 	"ifttt/handler/domain/audit_log"
 	"ifttt/handler/domain/request_data"
+	requestvalidator "ifttt/handler/domain/request_validator.go"
 	"ifttt/handler/domain/resolvable"
 	"net/http"
 	"strings"
@@ -101,39 +102,57 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 			return c.JSON(res)
 		}
 
-		go func(l *audit_log.APIAuditLog) {
-			defer cancel(nil)
-
-			if err := core.InitMiddleWare(api.PreWare, ctx); err != nil {
-				cancel(err)
-			} else if err := core.InitMainWare(api.MainWare, ctx); err != nil {
-				cancel(err)
-			} else if err := core.InitMiddleWare(api.PostWare, ctx); err != nil {
-				cancel(err)
+		if err := requestvalidator.ValidateMap(&api.Request, &requestData.ReqBody); len(err) != 0 {
+			res := &resolvable.ResponseResolvable{
+				ResponseCode:        "400",
+				ResponseDescription: "Validation error",
 			}
+			res.AddValidationErrors(err)
+			log.SetResponse(res.ResponseCode, res.ResponseDescription, structs.Map(res.Response))
+			close(resChan)
+			return c.JSON(res)
 
-			if !l.ResponseSent {
-				res := resolvable.ResponseResolvable{
-					ResponseCode:        common.ResponseCodeSuccess,
-					ResponseDescription: common.ResponseDescriptionSuccess,
-				}
-				if _, err := res.Resolve(ctx, core.ResolvableDependencies); err != nil {
-					l.AddExecLog(common.LogSystem, common.LogError, err.Error())
-					res.ResponseCode = common.ResponseCodeSystemError
-					res.ResponseDescription = common.ResponseDescriptionSystemError
-					l.SetResponse(res.ResponseCode, res.ResponseDescription, structs.Map(res.Response))
-					if ok := l.SetResponseSent(); ok {
-						resChan <- res
-					}
-				}
-			}
-		}(&log)
-
-		res := <-resChan
-		audit_log.AddExecLog(common.LogSystem, common.LogInfo,
-			fmt.Sprintf("Sending response | Response Code: %s | Response Description: %s",
-				res.ResponseCode, res.ResponseDescription), ctx)
+		}
+		res := resolvable.ResponseResolvable{
+			ResponseCode:        common.ResponseCodeSuccess,
+			ResponseDescription: common.ResponseDescriptionSuccess,
+		}
 		close(resChan)
 		return c.JSON(res)
+
+		// go func(l *audit_log.APIAuditLog) {
+		// 	defer cancel(nil)
+
+		// 	if err := core.InitMiddleWare(api.PreWare, ctx); err != nil {
+		// 		cancel(err)
+		// 	} else if err := core.InitMainWare(api.MainWare, ctx); err != nil {
+		// 		cancel(err)
+		// 	} else if err := core.InitMiddleWare(api.PostWare, ctx); err != nil {
+		// 		cancel(err)
+		// 	}
+
+		// 	if !l.ResponseSent {
+		// 		res := resolvable.ResponseResolvable{
+		// 			ResponseCode:        common.ResponseCodeSuccess,
+		// 			ResponseDescription: common.ResponseDescriptionSuccess,
+		// 		}
+		// 		if _, err := res.Resolve(ctx, core.ResolvableDependencies); err != nil {
+		// 			l.AddExecLog(common.LogSystem, common.LogError, err.Error())
+		// 			res.ResponseCode = common.ResponseCodeSystemError
+		// 			res.ResponseDescription = common.ResponseDescriptionSystemError
+		// 			l.SetResponse(res.ResponseCode, res.ResponseDescription, structs.Map(res.Response))
+		// 			if ok := l.SetResponseSent(); ok {
+		// 				resChan <- res
+		// 			}
+		// 		}
+		// 	}
+		// }(&log)
+
+		// res := <-resChan
+		// audit_log.AddExecLog(common.LogSystem, common.LogInfo,
+		// 	fmt.Sprintf("Sending response | Response Code: %s | Response Description: %s",
+		// 		res.ResponseCode, res.ResponseDescription), ctx)
+		// close(resChan)
+		// return c.JSON(res)
 	}
 }

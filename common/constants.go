@@ -52,3 +52,11 @@ const (
 	ResponseCodeSystemError        = "200"
 	ResponseDescriptionSystemError = "SYSTEM ERROR"
 )
+
+const (
+	DataTypeText    = "text"
+	DataTypeNumber  = "number"
+	DataTypeBoolean = "boolean"
+	DataTypeArray   = "array"
+	DataTypeMap     = "map"
+)

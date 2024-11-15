@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"ifttt/handler/common"
 	"ifttt/handler/domain/audit_log"
+	requestvalidator "ifttt/handler/domain/request_validator.go"
 
 	"github.com/fatih/structs"
 )
@@ -22,8 +23,9 @@ type responseData struct {
 }
 
 type errorsData struct {
-	User   []string `json:"user" mapstructure:"user"`
-	System []string `json:"system" mapstructure:"system"`
+	User       []string `json:"user" mapstructure:"user"`
+	System     []string `json:"system" mapstructure:"system"`
+	Validation []string `json:"validation" mapstructure:"validation"`
 }
 
 func (r *ResponseResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
@@ -36,19 +38,20 @@ func (r *ResponseResolvable) Resolve(ctx context.Context, dependencies map[commo
 
 	r.Response.RequestToken = (*log).GetRequestToken()
 
-	errors := errorsData{}
+	if r.Response.Errors == nil {
+		r.Response.Errors = &errorsData{}
+	}
 	execLogs := (*log).GetLogs()
 	for _, v := range *execLogs {
 		if v.LogType == common.LogError {
 			switch v.LogUser {
 			case common.LogUser:
-				errors.User = append(errors.User, v.LogData)
+				r.Response.Errors.User = append(r.Response.Errors.User, v.LogData)
 			case common.LogSystem:
-				errors.System = append(errors.System, v.LogData)
+				r.Response.Errors.System = append(r.Response.Errors.System, v.LogData)
 			}
 		}
 	}
-	r.Response.Errors = &errors
 
 	if r.ResponseCode == "" || r.ResponseDescription == "" {
 		r.ResponseCode = common.ResponseCodeSuccess
@@ -82,4 +85,17 @@ func (r *ResponseResolvable) Resolve(ctx context.Context, dependencies map[commo
 	}
 
 	return nil, nil
+}
+
+func (r *ResponseResolvable) AddValidationErrors(vErrs []requestvalidator.ValidationError) {
+	if r.Response.Errors == nil {
+		r.Response.Errors = &errorsData{}
+	}
+	for _, err := range vErrs {
+		if err.Internal {
+			r.Response.Errors.System = append(r.Response.Errors.System, err.ErrorInfo.Error())
+		} else {
+			r.Response.Errors.Validation = append(r.Response.Errors.Validation, err.ErrorInfo.Error())
+		}
+	}
 }
