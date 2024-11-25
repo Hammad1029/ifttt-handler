@@ -40,7 +40,10 @@ func (p *postgresStore) init(config map[string]any) error {
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Karachi",
 		p.config.Host, p.config.Username, p.config.Password, p.config.Database, p.config.Port,
 	)
-	if db, err := gorm.Open(postgres.Open(connectionString), &gorm.Config{}); err != nil {
+	if db, err := gorm.Open(postgres.Open(connectionString), &gorm.Config{
+		SkipDefaultTransaction: true,
+		PrepareStmt:            true,
+	}); err != nil {
 		return err
 	} else {
 		p.store = db

@@ -34,6 +34,9 @@ func (j *jqResolvable) Resolve(ctx context.Context, dependencies map[common.IntI
 func runJQQuery(queryString string, input any, ctx context.Context) (any, error) {
 	jqInput := convertToGoJQCompatible(input)
 
+	if queryString[0] != '.' {
+		queryString = "." + queryString
+	}
 	query, err := gojq.Parse(queryString)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing jq query: %s error: %s", queryString, err)

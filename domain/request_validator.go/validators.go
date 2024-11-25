@@ -3,6 +3,7 @@ package requestvalidator
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"sync"
 
 	"github.com/mitchellh/mapstructure"
@@ -76,8 +77,24 @@ func (s *RequestParameter) validateValue(val any) []ValidationError {
 		}
 		validationRegex := regexp.MustCompile(s.Regex)
 		stringifiedVal := fmt.Sprint(val)
-		if validationRegex.FindString(stringifiedVal) != stringifiedVal {
+		matches := validationRegex.FindStringSubmatch(stringifiedVal)
+		if len(matches) == 0 || matches[0] != stringifiedVal {
 			return []ValidationError{{ErrorInfo: fmt.Errorf("regex validation failed")}}
+		}
+		if s.DataType == dataTypeNumber {
+			numVal, err := strconv.ParseFloat(stringifiedVal, 64)
+			if err != nil {
+				return []ValidationError{
+					{ErrorInfo: fmt.Errorf("could not convert number to float64"), Internal: true}}
+			}
+			validator := numberValue{}
+			if err := mapstructure.Decode(s.Config, &validator); err != nil {
+				return []ValidationError{
+					{ErrorInfo: fmt.Errorf("could not decode validator"), Internal: true}}
+			} else if float64(validator.Minimum) > numVal || float64(validator.Maximum) < numVal {
+				return []ValidationError{
+					{ErrorInfo: fmt.Errorf("number not within range %d - %d", validator.Minimum, validator.Maximum)}}
+			}
 		}
 	case dataTypeArray:
 		arr, ok := val.([]any)
