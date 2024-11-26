@@ -73,7 +73,5 @@ func (p *postgresStore) createConfigStore() *ConfigStore {
 		Store:              p,
 		APIPersistentRepo:  postgresInfra.NewPostgresApiRepository(postgresBase),
 		CronPersistentRepo: postgresInfra.NewPostgresCronRepository(postgresBase),
-		APIAuditLogRepo:    postgresInfra.NewPostgresAPIAuditLogRepository(postgresBase),
-		CronAuditLogRepo:   postgresInfra.NewPostgresCronAuditLogRepository(postgresBase),
 	}
 }

@@ -3,14 +3,9 @@ package infrastructure
 import (
 	"encoding/json"
 	"fmt"
-	"ifttt/handler/common"
 	"ifttt/handler/domain/api"
-	domain_audit_log "ifttt/handler/domain/audit_log"
 	requestvalidator "ifttt/handler/domain/request_validator.go"
 	"ifttt/handler/domain/resolvable"
-
-	"github.com/fatih/structs"
-	"github.com/jackc/pgtype"
 )
 
 func (pgRule *rules) toDomain() (*api.Rule, error) {
@@ -124,47 +119,6 @@ func (a *apis) toDomain() (*api.Api, error) {
 	return &domainApi, nil
 }
 
-func (a *api_audit_log) fromDomain(dLog *domain_audit_log.APIAuditLog) error {
-	a.ApiID = dLog.ApiID
-	a.ApiName = dLog.ApiName
-	a.ApiPath = dLog.ApiPath
-	a.Start = dLog.Start
-	a.End = dLog.End
-	a.ExecTime = dLog.ExecTime
-	a.InternalExecTime = dLog.InternalExecTime
-	a.ExternalExecTime = dLog.ExternalExecTime
-	a.ResponseSent = dLog.ResponseSent
-	a.RequestToken = dLog.RequestToken
-	a.ResponseCode = dLog.ResponseCode
-	a.ResponseDescription = dLog.ResponseDescription
-
-	if execOrderMarshalled, err := json.Marshal(structs.Map(dLog.ExecutionOrder)); err != nil {
-		return fmt.Errorf("could not marshal execution order: %s", err)
-	} else {
-		a.ExecutionOrder = pgtype.JSONB{Bytes: execOrderMarshalled, Status: pgtype.Present}
-	}
-
-	if execLogsMarshalled, err := json.Marshal(dLog.ExecutionLogs); err != nil {
-		return fmt.Errorf("could not marshal execution logs: %s", err)
-	} else {
-		a.ExecutionLogs = pgtype.JSONB{Bytes: execLogsMarshalled, Status: pgtype.Present}
-	}
-
-	if reqDataMarshalled, err := json.Marshal(structs.Map(dLog.RequestData)); err != nil {
-		return fmt.Errorf("could not marshal request data: %s", err)
-	} else {
-		a.RequestData = pgtype.JSONB{Bytes: reqDataMarshalled, Status: pgtype.Present}
-	}
-
-	if finalResMarshalled, err := json.Marshal(&dLog.ResponseData); err != nil {
-		return err
-	} else {
-		a.ResponseData = pgtype.JSONB{Bytes: finalResMarshalled, Status: pgtype.Present}
-	}
-
-	return nil
-}
-
 func (c *crons) toDomain() (*api.Cron, error) {
 	dCron := api.Cron{
 		ID:           c.ID,
@@ -204,44 +158,4 @@ func (c *crons) toDomain() (*api.Cron, error) {
 	}
 
 	return &dCron, nil
-}
-
-func (a *cron_audit_log) fromDomain(dLog *domain_audit_log.CronAuditLog) error {
-	a.CronName = dLog.Name
-	a.CronID = dLog.CronID
-	a.Start = dLog.Start
-	a.End = dLog.End
-	a.ExecTime = dLog.ExecTime
-	a.InternalExecTime = dLog.InternalExecTime
-	a.ExternalExecTime = dLog.ExternalExecTime
-	a.ResponseSent = dLog.ResponseSent
-	a.RequestToken = dLog.RequestToken
-	a.ResponseCode = dLog.ResponseCode
-	a.ResponseDescription = dLog.ResponseDescription
-
-	if execOrderMarshalled, err := json.Marshal(common.UnSyncMap(dLog.ExecutionOrder)); err != nil {
-		return fmt.Errorf("could not marshal execution order: %s", err)
-	} else {
-		a.ExecutionOrder = pgtype.JSONB{Bytes: execOrderMarshalled, Status: pgtype.Present}
-	}
-
-	if execLogsMarshalled, err := json.Marshal(dLog.ExecutionLogs); err != nil {
-		return fmt.Errorf("could not marshal execution logs: %s", err)
-	} else {
-		a.ExecutionLogs = pgtype.JSONB{Bytes: execLogsMarshalled, Status: pgtype.Present}
-	}
-
-	if reqDataMarshalled, err := json.Marshal(structs.Map(dLog.RequestData)); err != nil {
-		return err
-	} else {
-		a.RequestData = pgtype.JSONB{Bytes: reqDataMarshalled, Status: pgtype.Present}
-	}
-
-	if finalResMarshalled, err := json.Marshal(&dLog.ResponseData); err != nil {
-		return err
-	} else {
-		a.ResponseData = pgtype.JSONB{Bytes: finalResMarshalled, Status: pgtype.Present}
-	}
-
-	return nil
 }

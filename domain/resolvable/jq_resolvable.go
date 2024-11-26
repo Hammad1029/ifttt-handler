@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"ifttt/handler/common"
-	"ifttt/handler/domain/audit_log"
 	"reflect"
 	"sync"
 
@@ -20,8 +19,7 @@ type jqResolvable struct {
 func (j *jqResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	queryResolved, err := j.Query.Resolve(ctx, dependencies)
 	if err != nil {
-		audit_log.AddExecLog(common.LogUser, common.LogError, err.Error(), ctx)
-		return nil, nil
+		return nil, err
 	}
 	inputResolved, err := resolveIfNested(j.Input, ctx, dependencies)
 	if err != nil {
@@ -54,8 +52,7 @@ func runJQQuery(queryString string, input any, ctx context.Context) (any, error)
 			if haltErr, ok := err.(*gojq.HaltError); ok && haltErr.Value() == nil {
 				break
 			}
-			audit_log.AddExecLog(common.LogUser, common.LogError, err, ctx)
-			return nil, nil
+			return nil, err
 		}
 		resultVals = append(resultVals, v)
 	}

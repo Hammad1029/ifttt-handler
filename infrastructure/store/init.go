@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"ifttt/handler/application/config"
 	"ifttt/handler/domain/api"
-	"ifttt/handler/domain/audit_log"
 	"ifttt/handler/domain/resolvable"
 	"strings"
 )
@@ -37,8 +36,6 @@ type ConfigStore struct {
 	Store              configStorer
 	APIPersistentRepo  api.APIPersistentRepository
 	CronPersistentRepo api.CronPersistentRepository
-	APIAuditLogRepo    audit_log.ApiAuditLogRepository
-	CronAuditLogRepo   audit_log.CronAuditLogRepository
 }
 
 type CacheStore struct {

@@ -8,15 +8,19 @@ const (
 	DependencyRawQueryRepo = iota
 	DependencyAppCacheRepo
 	DependencyDbDumpRepo
+	DependencyLogger
 )
 
 var ReservedPaths = []string{"^/test/.*", "^/auth/.*"}
 
 const (
 	ContextState IntIota = iota
-	ContextLog
+	ContextLogger
 	ContextRequestData
 	ContextResponseChannel
+	ContextTracer
+	ContextExternalExecTime
+	ContextResponseSent
 )
 
 const (
@@ -38,10 +42,6 @@ const (
 	EncodeBcrypt       = "bcrypt"
 	EncodeBase64Decode = "base64-de"
 	EncodeBase64Encode = "base64-en"
-)
-
-const (
-	RequestTokenDefault = "uuid-error"
 )
 
 const (

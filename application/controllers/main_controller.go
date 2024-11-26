@@ -6,16 +6,16 @@ import (
 	"ifttt/handler/application/core"
 	"ifttt/handler/common"
 	"ifttt/handler/domain/api"
-	"ifttt/handler/domain/audit_log"
 	"ifttt/handler/domain/request_data"
 	requestvalidator "ifttt/handler/domain/request_validator.go"
 	"ifttt/handler/domain/resolvable"
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
-	"github.com/fatih/structs"
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 func NewMainController(router fiber.Router, core *core.ServerCore, api *api.Api, ctx context.Context) error {
@@ -37,122 +37,139 @@ func NewMainController(router fiber.Router, core *core.ServerCore, api *api.Api,
 
 func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
+		startTime := time.Now()
+
 		var contextState sync.Map
 		ctx, cancel := context.WithCancelCause(parentCtx)
 		defer cancel(nil)
 		ctx = context.WithValue(ctx, common.ContextState, &contextState)
 
-		log := audit_log.APIAuditLog{}
-		requestData := request_data.RequestData{}
-
-		go func(l *audit_log.APIAuditLog) {
-			<-ctx.Done()
-			l.EndLog()
-			if err := core.ConfigStore.APIAuditLogRepo.InsertLog(l); err != nil {
-				fmt.Printf("token: %s | user: %s | type: %s | log: %s\n",
-					l.GetRequestToken(), common.LogSystem, common.LogError,
-					fmt.Sprintf("error in inserting log: %s", err))
+		tracer, err := uuid.NewRandom()
+		if err != nil {
+			core.Logger.Info(fmt.Sprintf(
+				"Request recieved: %s | Start time: %s", c.Path(), startTime.String(),
+			))
+			core.Logger.Error("could not assign tracer", err)
+			res := &resolvable.ResponseResolvable{
+				ResponseCode:        "500",
+				ResponseDescription: "Could not assign tracer",
 			}
-		}(&log)
+			res.AddError(err)
+			return c.JSON(res)
+		}
 
-		log.Initialize(c.Path(), &requestData)
+		contextState.Store(common.ContextLogger, core.Logger)
+		contextState.Store(common.ContextTracer, tracer.String())
+		common.LogWithTracer(common.LogSystem, fmt.Sprintf(
+			"Request recieved: %s | Start time: %s", c.Path(), startTime.String(),
+		), nil, false, ctx)
+
+		requestData := request_data.RequestData{}
 		requestData.Initialize()
+		resChan := make(chan resolvable.ResponseResolvable, 1)
 
-		var interfaceLog audit_log.AuditLog = &log
-		contextState.Store(common.ContextLog, &interfaceLog)
+		contextState.Store(common.ContextResponseChannel, resChan)
+		contextState.Store(common.ContextExternalExecTime, uint64(0))
+		contextState.Store(common.ContextRequestData, &requestData)
+		contextState.Store(common.ContextResponseSent, false)
+
+		go func(requestData *request_data.RequestData) {
+			<-ctx.Done()
+			end := time.Now()
+			executionTime := uint64(end.Sub(startTime).Milliseconds())
+			externalExecTime, ok := contextState.Load(common.ContextExternalExecTime)
+			if !ok {
+				return
+			}
+			internalExecTime := executionTime - externalExecTime.(uint64)
+			common.LogWithTracer(common.LogSystem, "request end", map[string]any{
+				"start":            startTime,
+				"end":              end,
+				"executionTime":    executionTime,
+				"internalExecTime": internalExecTime,
+				"externalExecTime": externalExecTime,
+				"requestData":      requestData,
+			}, false, ctx)
+		}(&requestData)
 
 		api, err := core.CacheStore.APICacheRepo.GetApiByPath(c.Path(), ctx)
 		if api == nil || err != nil {
 			defer cancel(err)
+			common.LogWithTracer(common.LogSystem,
+				fmt.Sprintf("api not found | path: %s", c.Path()), err, true, ctx)
 			res := &resolvable.ResponseResolvable{
 				ResponseCode:        "404",
 				ResponseDescription: "API not found",
 			}
-			log.SetResponse(res.ResponseCode, res.ResponseDescription, structs.Map(res.Response))
+			res.ManualSend(resChan, core.ResolvableDependencies, ctx)
 			return c.JSON(res)
 		}
-
-		log.ApiID = api.ID
-		log.ApiPath = api.Path
-		log.ApiName = api.Name
+		common.LogWithTracer(common.LogSystem,
+			fmt.Sprintf("api found | path: %s | name: %s", api.Path, api.Name),
+			api, false, ctx)
 
 		if err := c.BodyParser(&requestData.ReqBody); err != nil {
 			defer cancel(err)
+			common.LogWithTracer(common.LogSystem, "could not parse body", err, true, ctx)
 			res := &resolvable.ResponseResolvable{
 				ResponseCode:        "400",
 				ResponseDescription: "Error in parsing body",
 			}
-			log.SetResponse(res.ResponseCode, res.ResponseDescription, structs.Map(res.Response))
+			res.ManualSend(resChan, core.ResolvableDependencies, ctx)
 			return c.JSON(res)
 		}
 		requestData.Headers = c.GetReqHeaders()
-
-		resChan := make(chan resolvable.ResponseResolvable, 1)
-		contextState.Store(common.ContextRequestData, &requestData)
-		contextState.Store(common.ContextResponseChannel, resChan)
-
-		if err := core.PreparePreConfig(api.PreConfig, ctx); err != nil {
-			defer cancel(err)
-			res := &resolvable.ResponseResolvable{
-				ResponseCode:        "500",
-				ResponseDescription: "Could not prepare pre config",
-			}
-			log.SetResponse(res.ResponseCode, res.ResponseDescription, structs.Map(res.Response))
-			close(resChan)
-			return c.JSON(res)
-		}
+		common.LogWithTracer(common.LogSystem, "request parsed", map[string]any{
+			"body":    requestData.ReqBody,
+			"headers": requestData.Headers,
+		}, false, ctx)
 
 		if err := requestvalidator.ValidateMap(&api.Request, &requestData.ReqBody); len(err) != 0 {
+			defer cancel(nil)
+			common.LogWithTracer(common.LogSystem, "request validation failed", err, false, ctx)
 			res := &resolvable.ResponseResolvable{
 				ResponseCode:        "400",
 				ResponseDescription: "Validation error",
 			}
 			res.AddValidationErrors(err)
-			log.SetResponse(res.ResponseCode, res.ResponseDescription, structs.Map(res.Response))
-			close(resChan)
+			res.ManualSend(resChan, core.ResolvableDependencies, ctx)
 			return c.JSON(res)
+		}
 
+		if err := core.PreparePreConfig(api.PreConfig, ctx); err != nil {
+			defer cancel(err)
+			common.LogWithTracer(common.LogSystem, "could not prepare pre config", err, true, ctx)
+			res := &resolvable.ResponseResolvable{
+				ResponseCode:        "500",
+				ResponseDescription: "Could not prepare pre config",
+			}
+			res.ManualSend(resChan, core.ResolvableDependencies, ctx)
+			return c.JSON(res)
 		}
-		res := resolvable.ResponseResolvable{
-			ResponseCode:        common.ResponseCodeSuccess,
-			ResponseDescription: common.ResponseDescriptionSuccess,
-		}
-		close(resChan)
+
+		go func() {
+			defer cancel(nil)
+
+			if err := core.InitMiddleWare(api.PreWare, ctx); err != nil {
+				cancel(err)
+			} else if err := core.InitMainWare(api.MainWare, ctx); err != nil {
+				cancel(err)
+			} else if err := core.InitMiddleWare(api.PostWare, ctx); err != nil {
+				cancel(err)
+			}
+
+			var res resolvable.ResponseResolvable
+			if err := context.Cause(ctx); err != nil {
+				res = resolvable.ResponseResolvable{
+					ResponseCode:        common.ResponseCodeSystemError,
+					ResponseDescription: common.ResponseDescriptionSystemError,
+				}
+				res.AddError(err)
+			}
+			res.ManualSend(resChan, core.ResolvableDependencies, ctx)
+		}()
+
+		res := <-resChan
 		return c.JSON(res)
-
-		// go func(l *audit_log.APIAuditLog) {
-		// 	defer cancel(nil)
-
-		// 	if err := core.InitMiddleWare(api.PreWare, ctx); err != nil {
-		// 		cancel(err)
-		// 	} else if err := core.InitMainWare(api.MainWare, ctx); err != nil {
-		// 		cancel(err)
-		// 	} else if err := core.InitMiddleWare(api.PostWare, ctx); err != nil {
-		// 		cancel(err)
-		// 	}
-
-		// 	if !l.ResponseSent {
-		// 		res := resolvable.ResponseResolvable{
-		// 			ResponseCode:        common.ResponseCodeSuccess,
-		// 			ResponseDescription: common.ResponseDescriptionSuccess,
-		// 		}
-		// 		if _, err := res.Resolve(ctx, core.ResolvableDependencies); err != nil {
-		// 			l.AddExecLog(common.LogSystem, common.LogError, err.Error())
-		// 			res.ResponseCode = common.ResponseCodeSystemError
-		// 			res.ResponseDescription = common.ResponseDescriptionSystemError
-		// 			l.SetResponse(res.ResponseCode, res.ResponseDescription, structs.Map(res.Response))
-		// 			if ok := l.SetResponseSent(); ok {
-		// 				resChan <- res
-		// 			}
-		// 		}
-		// 	}
-		// }(&log)
-
-		// res := <-resChan
-		// audit_log.AddExecLog(common.LogSystem, common.LogInfo,
-		// 	fmt.Sprintf("Sending response | Response Code: %s | Response Description: %s",
-		// 		res.ResponseCode, res.ResponseDescription), ctx)
-		// close(resChan)
-		// return c.JSON(res)
 	}
 }

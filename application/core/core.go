@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"ifttt/handler/common"
 	"ifttt/handler/domain/api"
-	"ifttt/handler/domain/audit_log"
 	"ifttt/handler/domain/configuration"
 	"ifttt/handler/domain/resolvable"
 	infraStore "ifttt/handler/infrastructure/store"
 	"sync"
 
 	"github.com/robfig/cron/v3"
+	"github.com/sirupsen/logrus"
 )
 
 type ServerCore struct {
@@ -22,6 +22,7 @@ type ServerCore struct {
 	AppCacheStore          *infraStore.AppCacheStore
 	Configuration          *configuration.Configuration
 	ResolvableDependencies map[common.IntIota]any
+	Logger                 *logrus.Logger
 }
 
 func NewServerCore() (*ServerCore, error) {
@@ -48,10 +49,13 @@ func NewServerCore() (*ServerCore, error) {
 	} else {
 		serverCore.AppCacheStore = appCacheStore
 	}
+	logger := common.CreateLogrus()
+	serverCore.Logger = logger
 	serverCore.ResolvableDependencies = map[common.IntIota]any{
 		common.DependencyRawQueryRepo: serverCore.DataStore.RawQueryRepo,
 		common.DependencyAppCacheRepo: serverCore.AppCacheStore.AppCacheRepo,
 		common.DependencyDbDumpRepo:   serverCore.DataStore.DumpRepo,
+		common.DependencyLogger:       logger,
 	}
 
 	return &serverCore, nil
@@ -90,7 +94,7 @@ func (c *ServerCore) InitMiddleWare(triggerFlows *[]api.TriggerFlow, ctx context
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 
-	audit_log.AddExecLog(common.LogSystem, common.LogInfo, "initiating pre/post-ware", ctx)
+	common.LogWithTracer(common.LogSystem, "initiating pre/post-ware", nil, false, ctx)
 	var flowWG sync.WaitGroup
 	for _, flow := range *triggerFlows {
 		flowWG.Add(1)
@@ -101,7 +105,7 @@ func (c *ServerCore) InitMiddleWare(triggerFlows *[]api.TriggerFlow, ctx context
 				return
 			default:
 				{
-					audit_log.AddExecLog(common.LogSystem, common.LogInfo, fmt.Sprintf("initiating trigger %d | %s", f.ID, f.Name), ctx)
+					common.LogWithTracer(common.LogSystem, fmt.Sprintf("initiating trigger %d | %s", f.ID, f.Name), nil, false, ctx)
 					if err := c.execRule(
 						f.StartState, f.BranchFlows, f.Rules, f.ID, ctx,
 					); err != nil {
@@ -112,10 +116,10 @@ func (c *ServerCore) InitMiddleWare(triggerFlows *[]api.TriggerFlow, ctx context
 		}(&flow)
 	}
 	flowWG.Wait()
-	audit_log.AddExecLog(common.LogSystem, common.LogInfo, "pre/post-ware finished executing", ctx)
+	common.LogWithTracer(common.LogSystem, "pre/post-ware finished executing", nil, false, ctx)
 
 	if err := context.Cause(ctx); err != nil && err != context.Canceled {
-		audit_log.AddExecLog(common.LogSystem, common.LogError, err, ctx)
+		common.LogWithTracer(common.LogSystem, "error in pre/post", err, true, ctx)
 		return err
 	}
 	return nil
@@ -125,7 +129,7 @@ func (c *ServerCore) InitMainWare(triggerFlows *[]api.TriggerCondition, ctx cont
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 
-	audit_log.AddExecLog(common.LogSystem, common.LogInfo, "initiating mainware", ctx)
+	common.LogWithTracer(common.LogSystem, "initiating mainware", nil, false, ctx)
 	var flowWG sync.WaitGroup
 	for _, flow := range *triggerFlows {
 		flowWG.Add(1)
@@ -136,10 +140,8 @@ func (c *ServerCore) InitMainWare(triggerFlows *[]api.TriggerCondition, ctx cont
 				return
 			default:
 				{
-					if log := audit_log.GetAuditLogFromContext(ctx); log != nil {
-						(*log).InitExecOrder(f.Trigger.ID)
-					}
-					audit_log.AddExecLog(common.LogSystem, common.LogInfo, fmt.Sprintf("initiating trigger %d | %s", f.Trigger.ID, f.Trigger.Name), ctx)
+					common.LogWithTracer(common.LogSystem,
+						fmt.Sprintf("initiating trigger %d | %s", f.Trigger.ID, f.Trigger.Name), nil, false, ctx)
 					if ev, err := f.If.EvaluateGroup(ctx, c.ResolvableDependencies); err != nil {
 						cancel(err)
 					} else if ev {
@@ -154,42 +156,34 @@ func (c *ServerCore) InitMainWare(triggerFlows *[]api.TriggerCondition, ctx cont
 		}(&flow)
 	}
 	flowWG.Wait()
-	audit_log.AddExecLog(common.LogSystem, common.LogInfo, "mainware finished executing", ctx)
+	common.LogWithTracer(common.LogSystem, "mainware finished executing", nil, false, ctx)
 
 	if err := context.Cause(ctx); err != nil && err != context.Canceled {
-		audit_log.AddExecLog(common.LogSystem, common.LogError, err, ctx)
+		common.LogWithTracer(common.LogSystem, "error in mainware", err, true, ctx)
 		return err
 	}
 	return nil
 }
 
 func (c *ServerCore) execRule(
-	state uint, branchMap map[uint]*api.BranchFlow, rules map[uint]*api.Rule, flowId uint, ctx context.Context,
+	state uint, branchMap map[uint]*api.BranchFlow, rules map[uint]*api.Rule, triggerId uint, ctx context.Context,
 ) error {
-	audit_log.AddExecLog(common.LogSystem, common.LogInfo, fmt.Sprintf("executing state %d", state), ctx)
-
-	execState := audit_log.ExecState{State: state}
+	common.LogWithTracer(common.LogSystem,
+		fmt.Sprintf("trigger %d: executing state %d", triggerId, state), nil, false, ctx)
 
 	branch, ok := branchMap[state]
-	if ok {
-		execState.Rule = branch.Rule
-	} else {
-		audit_log.AddExecLog(common.LogSystem, common.LogInfo, fmt.Sprintf("no branch found for state %d-> ending trigger", state), ctx)
-	}
-
-	if log := audit_log.GetAuditLogFromContext(ctx); log != nil {
-		(*log).AddExecState(execState, flowId)
-	}
-
 	if !ok {
+		common.LogWithTracer(common.LogSystem,
+			fmt.Sprintf("trigger %d: no branch found for state %d-> ending trigger", triggerId, state), nil, false, ctx)
 		return nil
 	}
 
 	rule, ok := rules[branch.Rule]
 	if !ok {
-		return fmt.Errorf("rule %d for state %d not found", branch.Rule, state)
+		return fmt.Errorf("trigger %d: rule %d for state %d not found", triggerId, branch.Rule, state)
 	} else {
-		audit_log.AddExecLog(common.LogSystem, common.LogInfo, fmt.Sprintf("executing rule %d | %s", rule.ID, rule.Name), ctx)
+		common.LogWithTracer(common.LogSystem,
+			fmt.Sprintf("trigger %d: executing rule %d | %s", triggerId, rule.ID, rule.Name), nil, false, ctx)
 	}
 
 	if err := c.resolveArray(rule.Pre, ctx); err != nil {
@@ -203,11 +197,12 @@ func (c *ServerCore) execRule(
 
 	nextState, ok := branch.States[rVal.(uint)]
 	if !ok {
-		audit_log.AddExecLog(common.LogSystem, common.LogInfo, fmt.Sprintf("no next state for rVal %d -> ending trigger", rVal), ctx)
+		common.LogWithTracer(common.LogSystem,
+			fmt.Sprintf("trigger %d: no next state for rVal %d -> ending trigger", triggerId, rVal), nil, false, ctx)
 		return nil
 	}
 
-	return c.execRule(nextState, branchMap, rules, flowId, ctx)
+	return c.execRule(nextState, branchMap, rules, triggerId, ctx)
 }
 
 func (c *ServerCore) solveRuleSwitch(s *api.RuleSwitch, ctx context.Context) (any, error) {
@@ -238,7 +233,6 @@ func (c *ServerCore) doRuleCase(s *api.RuleSwitchCase, ctx context.Context) (uin
 
 func (c *ServerCore) resolveArray(resolvables []resolvable.Resolvable, ctx context.Context) error {
 	for _, r := range resolvables {
-		audit_log.AddExecLog(common.LogSystem, common.LogInfo, fmt.Sprintf("resolving %s", r.ResolveType), ctx)
 		if _, err := r.Resolve(ctx, c.ResolvableDependencies); err != nil {
 			return err
 		}

@@ -1,8 +1,6 @@
 package infrastructure
 
 import (
-	"context"
-	"ifttt/handler/domain/audit_log"
 	"time"
 
 	"github.com/scylladb/gocqlx/v3/table"
@@ -58,37 +56,37 @@ func (s *ScyllaAuditLogRepository) getTable() *table.Table {
 	return scyllaAuditLogTable
 }
 
-func (s *ScyllaAuditLogRepository) InsertLog(log audit_log.APIAuditLog, ctx context.Context) error {
-	// newLog := scyllaAuditLog{
-	// 	ApiGroup:       log.ApiGroup,
-	// 	ApiName:        log.ApiName,
-	// 	ExecutionOrder: log.ExecutionOrder,
-	// 	Start:          log.Start,
-	// 	StartPartition: log.StartPartition,
-	// }
+// func (s *ScyllaAuditLogRepository) InsertLog(log audit_log.APIAuditLog, ctx context.Context) error {
+// newLog := scyllaAuditLog{
+// 	ApiGroup:       log.ApiGroup,
+// 	ApiName:        log.ApiName,
+// 	ExecutionOrder: log.ExecutionOrder,
+// 	Start:          log.Start,
+// 	StartPartition: log.StartPartition,
+// }
 
-	// var scyllaExecAuditLogs []scyllaExecAuditLog
-	// for _, eL := range log.ExecutionLogs {
-	// 	scyllaExecAuditLogs = append(scyllaExecAuditLogs, scyllaExecAuditLog{
-	// 		LogUser: eL.LogUser,
-	// 		LogType: eL.LogType,
-	// 		LogData: eL.LogData,
-	// 	})
-	// }
-	// newLog.ExecutionLogs = scyllaExecAuditLogs
-	// // newLog.RequestData = scyllaSerizalizedRequestData{
-	// // 	ReqBody:  log.RequestData.ReqBody,
-	// // 	Store:    log.RequestData.Store,
-	// // 	Response: log.RequestData.Response,
-	// // 	QueryRes: log.RequestData.QueryRes,
-	// // 	ApiRes:   log.RequestData.ApiRes,
-	// // }
+// var scyllaExecAuditLogs []scyllaExecAuditLog
+// for _, eL := range log.ExecutionLogs {
+// 	scyllaExecAuditLogs = append(scyllaExecAuditLogs, scyllaExecAuditLog{
+// 		LogUser: eL.LogUser,
+// 		LogType: eL.LogType,
+// 		LogData: eL.LogData,
+// 	})
+// }
+// newLog.ExecutionLogs = scyllaExecAuditLogs
+// // newLog.RequestData = scyllaSerizalizedRequestData{
+// // 	ReqBody:  log.RequestData.ReqBody,
+// // 	Store:    log.RequestData.Store,
+// // 	Response: log.RequestData.Response,
+// // 	QueryRes: log.RequestData.QueryRes,
+// // 	ApiRes:   log.RequestData.ApiRes,
+// // }
 
-	// LogsTable := s.getTable()
-	// query := LogsTable.InsertQuery(*s.session).BindStruct(&newLog)
-	// if err := query.ExecRelease(); err != nil {
-	// 	return fmt.Errorf("method ScyllaLogRepository.InsertLog: error in inserting log: %s", err)
-	// }
+// LogsTable := s.getTable()
+// query := LogsTable.InsertQuery(*s.session).BindStruct(&newLog)
+// if err := query.ExecRelease(); err != nil {
+// 	return fmt.Errorf("method ScyllaLogRepository.InsertLog: error in inserting log: %s", err)
+// }
 
-	return nil
-}
+// 	return nil
+// }

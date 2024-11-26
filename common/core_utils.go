@@ -104,6 +104,28 @@ func GetArithmeticOperator(operator string) *func(a, b any) any {
 	}
 }
 
-func GetRequestState(ctx context.Context) *sync.Map {
+func GetCtxState(ctx context.Context) *sync.Map {
 	return ctx.Value(ContextState).(*sync.Map)
+}
+
+func GetResponseSent(ctx context.Context) bool {
+	requestState := GetCtxState(ctx)
+	if v, ok := requestState.Load(ContextResponseSent); ok {
+		return v.(bool)
+	}
+	return false
+}
+
+func SetResponseSent(ctx context.Context) bool {
+	requestState := GetCtxState(ctx)
+	v, ok := requestState.Load(ContextResponseSent)
+	if !ok {
+		return false
+	}
+
+	if v.(bool) {
+		return false
+	}
+	requestState.Store(ContextResponseSent, true)
+	return true
 }

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"ifttt/handler/common"
-	"ifttt/handler/domain/audit_log"
 	"time"
 
 	"github.com/fatih/structs"
@@ -141,8 +140,9 @@ func (q *queryData) execute(dependencies map[common.IntIota]any, ctx context.Con
 		if errors.Is(err, context.DeadlineExceeded) {
 			q.Metadata.DidTimeout = true
 		} else {
-			audit_log.AddExecLog(common.LogUser, common.LogError, err, ctx)
+			common.LogWithTracer(common.LogUser, "error in executing query", err.Error(), true, ctx)
 			q.Metadata.Error = err.Error()
+			return err
 		}
 		return nil
 	}
@@ -158,8 +158,11 @@ func (q *queryData) createLog(ctx context.Context) {
 	queryRes := GetRequestData(ctx).QueryRes
 	queryRes[q.Request.QueryHash] = append(queryRes[q.Request.QueryHash], structs.Map(q))
 
-	if log := audit_log.GetAuditLogFromContext(ctx); log != nil {
-		(*log).AddExternalTime(q.Metadata.TimeTaken)
+	ctxState := common.GetCtxState(ctx)
+	if ctxState != nil {
+		if externalExecTime, ok := ctxState.Load(common.ContextExternalExecTime); ok {
+			ctxState.Store(common.ContextExternalExecTime, externalExecTime.(uint64)+q.Metadata.TimeTaken)
+		}
 	}
 }
 

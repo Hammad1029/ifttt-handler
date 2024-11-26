@@ -2,7 +2,6 @@ package infrastructure
 
 import (
 	"ifttt/handler/domain/api"
-	"time"
 
 	"github.com/jackc/pgtype"
 	"gorm.io/gorm"
@@ -52,45 +51,4 @@ type rules struct {
 	Description string       `gorm:"type:text;default:''" mapstructure:"description"`
 	Pre         pgtype.JSONB `gorm:"type:jsonb;default:'[]';not null" mapstructure:"pre"`
 	Switch      pgtype.JSONB `gorm:"type:jsonb;default:'{\"cases\":[],\"default\":{\"do\":[],\"return\":{\"resolveType\":\"const\",\"resolveData\":\"\"}}}';not null" mapstructure:"switch"`
-}
-
-type api_audit_log struct {
-	gorm.Model
-	ApiID               uint         `gorm:"default:null"`
-	Api                 apis         `gorm:"foreignKey:ApiID" mapstructure:"apiID"`
-	ApiName             string       `gorm:"type: varchar(50);not null" mapstructure:"apiName"`
-	ApiPath             string       `gorm:"type: varchar(50);not null" mapstructure:"apiPath"`
-	RequestToken        string       `gorm:"varchar(50)" mapstructure:"requestToken"`
-	ExecutionOrder      pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"executionOrder"`
-	ExecutionLogs       pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"executionLogs"`
-	RequestData         pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"requestData"`
-	Start               time.Time    `gorm:"type:timestamp;not null" mapstructure:"start"`
-	End                 time.Time    `gorm:"type:timestamp;not null" mapstructure:"end"`
-	ExecTime            uint64       `gorm:"type:int;not null" mapstructure:"execTime"`
-	InternalExecTime    uint64       `gorm:"type:int;not null" mapstructure:"internalExecTime"`
-	ExternalExecTime    uint64       `gorm:"type:int;not null" mapstructure:"externalExecTime"`
-	ResponseCode        string       `mapstructure:"responseCode"`
-	ResponseDescription string       `mapstructure:"responseDescription"`
-	ResponseData        pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"responseData"`
-	ResponseSent        bool         `gorm:"type:boolean;default:false;not null" mapstructure:"responseSent"`
-}
-
-type cron_audit_log struct {
-	gorm.Model
-	CronID              uint         `gorm:"default:null"`
-	Cron                crons        `gorm:"foreignKey:CronID" mapstructure:"cronID"`
-	CronName            string       `gorm:"type:varchar(50);not null" mapstructure:"cronName"`
-	RequestToken        string       `gorm:"varchar(50)" mapstructure:"requestToken"`
-	ExecutionOrder      pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"executionOrder"`
-	ExecutionLogs       pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"executionLogs"`
-	RequestData         pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"requestData"`
-	Start               time.Time    `gorm:"type:timestamp;not null" mapstructure:"start"`
-	End                 time.Time    `gorm:"type:timestamp;not null" mapstructure:"end"`
-	ExecTime            uint64       `gorm:"type:int;not null" mapstructure:"execTime"`
-	InternalExecTime    uint64       `gorm:"type:int;not null" mapstructure:"internalExecTime"`
-	ExternalExecTime    uint64       `gorm:"type:int;not null" mapstructure:"externalExecTime"`
-	ResponseCode        string       `mapstructure:"responseCode"`
-	ResponseDescription string       `mapstructure:"responseDescription"`
-	ResponseData        pgtype.JSONB `gorm:"type:jsonb;default:'{}';not null" mapstructure:"responseData"`
-	ResponseSent        bool         `gorm:"type:boolean;default:false;not null" mapstructure:"responseSent"`
 }

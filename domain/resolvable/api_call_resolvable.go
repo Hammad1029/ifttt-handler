@@ -6,7 +6,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"ifttt/handler/common"
-	"ifttt/handler/domain/audit_log"
 	"io"
 	"net/http"
 	"strings"
@@ -159,8 +158,9 @@ func (c *callData) doRequest(ctx context.Context) error {
 		if httpRequest.Context().Err() == context.DeadlineExceeded {
 			c.Metadata.DidTimeout = true
 		} else {
-			audit_log.AddExecLog(common.LogUser, common.LogError, err.Error(), ctx)
+			common.LogWithTracer(common.LogUser, "error in executing api call", err, true, ctx)
 			c.Metadata.Error = err.Error()
+			return err
 		}
 		return nil
 	}
@@ -225,7 +225,10 @@ func (c *callData) createLog(ctx context.Context) {
 		c.Request.Method, c.Request.URL, c.Metadata.Start.Format(common.DateTimeFormat))
 	reqData.ApiRes[callSignature] = structs.Map(c)
 
-	if log := audit_log.GetAuditLogFromContext(ctx); log != nil {
-		(*log).AddExternalTime(c.Metadata.TimeTaken)
+	ctxState := common.GetCtxState(ctx)
+	if ctxState != nil {
+		if externalExecTime, ok := ctxState.Load(common.ContextExternalExecTime); ok {
+			ctxState.Store(common.ContextExternalExecTime, externalExecTime.(uint64)+c.Metadata.TimeTaken)
+		}
 	}
 }

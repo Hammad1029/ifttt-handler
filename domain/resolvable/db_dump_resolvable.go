@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"ifttt/handler/common"
-	"ifttt/handler/domain/audit_log"
 	"time"
 )
 
@@ -36,13 +35,17 @@ func (d *dbDumpResolvable) Resolve(ctx context.Context, dependencies map[common.
 	start := time.Now()
 	err = dumpRepo.InsertDump(dumpMap, d.Table)
 	if err != nil {
-		audit_log.AddExecLog(common.LogUser, common.LogError, err, ctx)
+		common.LogWithTracer(common.LogUser, "error in dumping to db", err, true, ctx)
+		return nil, err
 	}
 	end := time.Now()
 	timeTaken := uint64(end.Sub(start).Milliseconds())
 
-	if log := audit_log.GetAuditLogFromContext(ctx); log != nil {
-		(*log).AddExternalTime(timeTaken)
+	ctxState := common.GetCtxState(ctx)
+	if ctxState != nil {
+		if externalExecTime, ok := ctxState.Load(common.ContextExternalExecTime); ok {
+			ctxState.Store(common.ContextExternalExecTime, externalExecTime.(uint64)+timeTaken)
+		}
 	}
 
 	return nil, nil

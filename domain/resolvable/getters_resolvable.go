@@ -21,7 +21,7 @@ type getConstResolvable struct {
 }
 
 func GetRequestData(ctx context.Context) *request_data.RequestData {
-	if reqData, ok := common.GetRequestState(ctx).Load(common.ContextRequestData); ok {
+	if reqData, ok := common.GetCtxState(ctx).Load(common.ContextRequestData); ok {
 		return reqData.(*request_data.RequestData)
 	}
 	return nil

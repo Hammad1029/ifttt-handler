@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"ifttt/handler/common"
-	"ifttt/handler/domain/audit_log"
 	"sync"
 )
 
@@ -74,19 +73,10 @@ func (s *setStoreResolvable) Resolve(ctx context.Context, dependencies map[commo
 }
 
 func (s *setLogResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
-	logUncasted, ok := common.GetRequestState(ctx).Load(common.ContextLog)
-	if !ok {
-		return nil, fmt.Errorf("log data not found in map")
+	logDataResolved, err := resolveIfNested(s.LogData, ctx, dependencies)
+	if err != nil {
+		return nil, err
 	}
-
-	if l, ok := logUncasted.(*audit_log.APIAuditLog); ok {
-		logDataResolved, err := resolveIfNested(s.LogData, ctx, dependencies)
-		if err != nil {
-			return nil, err
-		}
-		l.AddExecLog(common.LogUser, s.LogType, fmt.Sprint(logDataResolved))
-		return nil, nil
-	}
-
-	return nil, fmt.Errorf("could not type cast log model")
+	common.LogWithTracer(common.LogUser, "user resolvable log", fmt.Sprint(logDataResolved), false, ctx)
+	return nil, nil
 }
