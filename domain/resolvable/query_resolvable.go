@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"ifttt/handler/common"
+	"ifttt/handler/domain/request_data"
 	"time"
 
 	"github.com/fatih/structs"
@@ -116,7 +117,9 @@ func (q *queryResolvable) createQueryMetadata() *queryMetadata {
 }
 
 func (q *queryData) execute(dependencies map[common.IntIota]any, ctx context.Context) error {
-	defer q.createLog(ctx)
+	defer func() {
+		request_data.AddExternalTrip(common.ExternalTripQuery, structs.Map(q), q.Metadata.TimeTaken, ctx)
+	}()
 
 	q.Metadata.Start = time.Now()
 
@@ -152,18 +155,6 @@ func (q *queryData) execute(dependencies map[common.IntIota]any, ctx context.Con
 	q.Metadata.TimeTaken = uint64(q.Metadata.End.Sub(q.Metadata.Start).Milliseconds())
 
 	return nil
-}
-
-func (q *queryData) createLog(ctx context.Context) {
-	queryRes := GetRequestData(ctx).QueryRes
-	queryRes[q.Request.QueryHash] = append(queryRes[q.Request.QueryHash], structs.Map(q))
-
-	ctxState := common.GetCtxState(ctx)
-	if ctxState != nil {
-		if externalExecTime, ok := ctxState.Load(common.ContextExternalExecTime); ok {
-			ctxState.Store(common.ContextExternalExecTime, externalExecTime.(uint64)+q.Metadata.TimeTaken)
-		}
-	}
 }
 
 func (q *queryRequest) RunQuery(rawQueryRepo RawQueryRepository, ctx context.Context) (*[]map[string]any, error) {

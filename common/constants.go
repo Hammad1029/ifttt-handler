@@ -21,6 +21,7 @@ const (
 	ContextTracer
 	ContextExternalExecTime
 	ContextResponseSent
+	ContextLogStage
 )
 
 const (
@@ -33,6 +34,18 @@ const (
 	LogSystem = "system"
 	LogError  = "error"
 	LogInfo   = "info"
+)
+
+const (
+	LogStageInitation  = "initiation"
+	LogStageMemload    = "memload"
+	LogStageParsing    = "parsing"
+	LogStageValidation = "validation"
+	LogStagePreConfig  = "preconfig"
+	LogStagePreWare    = "preware"
+	LogStageMainWare   = "mainware"
+	LogStagePostWare   = "postware"
+	LogStageEnding     = "end"
 )
 
 const (
@@ -59,4 +72,10 @@ const (
 	DataTypeBoolean = "boolean"
 	DataTypeArray   = "array"
 	DataTypeMap     = "map"
+)
+
+const (
+	ExternalTripDump  = "dump"
+	ExternalTripQuery = "query"
+	ExternalTripApi   = "api"
 )

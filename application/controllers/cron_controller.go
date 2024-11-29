@@ -24,40 +24,27 @@ func NewCronController(cron *api.Cron, core *core.ServerCore, ctx context.Contex
 	return nil
 }
 
-func cronController(cronJobName string, core *core.ServerCore, ctx context.Context) {
+func cronController(cronJobName string, core *core.ServerCore, parentCtx context.Context) {
 	startTime := time.Now()
-
-	var contextState sync.Map
-	ctx, cancel := context.WithCancelCause(ctx)
-	defer cancel(nil)
-	ctx = context.WithValue(ctx, common.ContextState, &contextState)
-
-	tracer, err := uuid.NewRandom()
-	if err != nil {
-		core.Logger.Info(fmt.Sprintf(
-			"Cron received: %s | Start time: %s", cronJobName, startTime.String(),
-		))
-		core.Logger.Error("could not assign tracer", err)
-		return
-	}
-
-	contextState.Store(common.ContextLogger, core.Logger)
-	contextState.Store(common.ContextTracer, tracer.String())
-	common.LogWithTracer(common.LogSystem, fmt.Sprintf(
-		"Cron recieved: %s | Start time: %s", cronJobName, startTime.String(),
-	), nil, false, ctx)
 
 	requestData := request_data.RequestData{}
 	requestData.Initialize()
 	resChan := make(chan resolvable.ResponseResolvable, 1)
 
+	var contextState sync.Map
+	contextState.Store(common.ContextLogStage, common.LogStageInitation)
+	contextState.Store(common.ContextLogger, core.Logger)
 	contextState.Store(common.ContextResponseChannel, resChan)
 	contextState.Store(common.ContextExternalExecTime, uint64(0))
-	contextState.Store(common.ContextRequestData, &requestData)
 	contextState.Store(common.ContextResponseSent, false)
+	contextState.Store(common.ContextRequestData, &requestData)
 
-	go func(requestData *request_data.RequestData) {
-		<-ctx.Done()
+	cancelCtx, cancel := context.WithCancelCause(parentCtx)
+	ctx := context.WithValue(cancelCtx, common.ContextState, &contextState)
+
+	go func(requestData *request_data.RequestData, ctxState *sync.Map) {
+		<-cancelCtx.Done()
+		ctxState.Store(common.ContextLogStage, common.LogStageEnding)
 		end := time.Now()
 		executionTime := uint64(end.Sub(startTime).Milliseconds())
 		externalExecTime, ok := contextState.Load(common.ContextExternalExecTime)
@@ -65,16 +52,40 @@ func cronController(cronJobName string, core *core.ServerCore, ctx context.Conte
 			return
 		}
 		internalExecTime := executionTime - externalExecTime.(uint64)
-		common.LogWithTracer(common.LogSystem, "cron end", map[string]any{
-			"start":            startTime,
-			"end":              end,
-			"executionTime":    executionTime,
-			"internalExecTime": internalExecTime,
-			"externalExecTime": externalExecTime,
-			"requestData":      requestData,
-		}, false, ctx)
-	}(&requestData)
+		cancelCause := context.Cause(cancelCtx)
+		common.LogWithTracer(common.LogSystem, "cron end",
+			map[string]any{
+				"start":            startTime,
+				"end":              end,
+				"executionTime":    executionTime,
+				"internalExecTime": internalExecTime,
+				"externalExecTime": externalExecTime,
+				"requestData":      requestData,
+				"error":            cancelCause,
+			}, cancelCause == nil, ctx)
+	}(&requestData, &contextState)
 
+	tracer, err := uuid.NewRandom()
+	if err != nil {
+		cancel(err)
+		core.Logger.Info(fmt.Sprintf(
+			"Cron received: %s | Start time: %s", cronJobName, startTime.String(),
+		))
+		core.Logger.Error("could not assign tracer", err)
+		res := &resolvable.ResponseResolvable{
+			ResponseCode:        "500",
+			ResponseDescription: "Could not assign tracer",
+		}
+		res.ManualSend(resChan, err, ctx)
+		return
+	} else {
+		common.LogWithTracer(common.LogSystem, fmt.Sprintf(
+			"Cron recieved: %s | Start time: %s", cronJobName, startTime.String(),
+		), nil, false, ctx)
+		contextState.Store(common.ContextTracer, tracer.String())
+	}
+
+	contextState.Store(common.ContextLogStage, common.LogStageMemload)
 	job, err := core.CacheStore.CronCacheRepo.GetCronByName(cronJobName, ctx)
 	if job == nil || err != nil {
 		defer cancel(err)
@@ -84,13 +95,14 @@ func cronController(cronJobName string, core *core.ServerCore, ctx context.Conte
 			ResponseCode:        "404",
 			ResponseDescription: "Cron not found",
 		}
-		res.ManualSend(resChan, core.ResolvableDependencies, ctx)
+		res.ManualSend(resChan, nil, ctx)
 		return
 	}
 	common.LogWithTracer(common.LogSystem,
 		fmt.Sprintf("Cron found | name: %s | schedule: %s", job.Name, job.Cron),
 		job, false, ctx)
 
+	contextState.Store(common.ContextLogStage, common.LogStagePreConfig)
 	if err := core.PreparePreConfig(job.PreConfig, ctx); err != nil {
 		defer cancel(err)
 		common.LogWithTracer(common.LogSystem, "could not prepare pre config", err, true, ctx)
@@ -98,26 +110,27 @@ func cronController(cronJobName string, core *core.ServerCore, ctx context.Conte
 			ResponseCode:        "500",
 			ResponseDescription: "Could not prepare pre config",
 		}
-		res.ManualSend(resChan, core.ResolvableDependencies, ctx)
+		res.ManualSend(resChan, err, ctx)
 		return
 	}
 
 	go func() {
 		defer cancel(nil)
 
+		contextState.Store(common.ContextLogStage, common.LogStageMainWare)
 		if err := core.InitMainWare(job.TriggerFlows, ctx); err != nil {
 			cancel(err)
 		}
 
 		var res resolvable.ResponseResolvable
-		if err := context.Cause(ctx); err != nil {
+		err := context.Cause(cancelCtx)
+		if err != nil {
 			res = resolvable.ResponseResolvable{
 				ResponseCode:        common.ResponseCodeSystemError,
 				ResponseDescription: common.ResponseDescriptionSystemError,
 			}
-			res.AddError(err)
 		}
-		res.ManualSend(resChan, core.ResolvableDependencies, ctx)
+		res.ManualSend(resChan, err, ctx)
 	}()
 
 	<-resChan

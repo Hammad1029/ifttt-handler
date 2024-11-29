@@ -6,6 +6,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"ifttt/handler/common"
+	"ifttt/handler/domain/request_data"
 	"io"
 	"net/http"
 	"strings"
@@ -140,7 +141,9 @@ func (a *apiRequest) createHttpRequest() (*http.Request, error) {
 }
 
 func (c *callData) doRequest(ctx context.Context) error {
-	defer c.createLog(ctx)
+	defer func() {
+		request_data.AddExternalTrip(common.ExternalTripApi, structs.Map(c), c.Metadata.TimeTaken, ctx)
+	}()
 
 	httpRequest, err := c.Request.createHttpRequest()
 	if err != nil {
@@ -217,18 +220,4 @@ func (a *apiCallResponse) readResponseBody(res *http.Response) error {
 	}
 
 	return nil
-}
-
-func (c *callData) createLog(ctx context.Context) {
-	reqData := GetRequestData(ctx)
-	callSignature := fmt.Sprintf("%s|%s|%s",
-		c.Request.Method, c.Request.URL, c.Metadata.Start.Format(common.DateTimeFormat))
-	reqData.ApiRes[callSignature] = structs.Map(c)
-
-	ctxState := common.GetCtxState(ctx)
-	if ctxState != nil {
-		if externalExecTime, ok := ctxState.Load(common.ContextExternalExecTime); ok {
-			ctxState.Store(common.ContextExternalExecTime, externalExecTime.(uint64)+c.Metadata.TimeTaken)
-		}
-	}
 }

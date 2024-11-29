@@ -55,7 +55,6 @@ func NewServerCore() (*ServerCore, error) {
 		common.DependencyRawQueryRepo: serverCore.DataStore.RawQueryRepo,
 		common.DependencyAppCacheRepo: serverCore.AppCacheStore.AppCacheRepo,
 		common.DependencyDbDumpRepo:   serverCore.DataStore.DumpRepo,
-		common.DependencyLogger:       logger,
 	}
 
 	return &serverCore, nil

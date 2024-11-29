@@ -2,40 +2,29 @@ package common
 
 import (
 	"context"
-	"ifttt/handler/application/config"
+	"os"
+	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/yukitsune/lokirus"
 )
 
 func CreateLogrus() *logrus.Logger {
-	opts := lokirus.NewLokiHookOptions().
-		WithLevelMap(lokirus.LevelMap{logrus.PanicLevel: "critical"}).
-		WithFormatter(&logrus.JSONFormatter{}).
-		WithStaticLabels(lokirus.Labels{
-			"app": "ifttt/handler",
-		})
-
-	hook := lokirus.NewLokiHookWithOpts(
-		config.GetConfigProp("loki.host"),
-		opts,
-		logrus.InfoLevel,
-		logrus.WarnLevel,
-		logrus.ErrorLevel,
-		logrus.FatalLevel)
-
 	logger := logrus.New()
-	// logger.SetFormatter(&logrus.TextFormatter{
-	// 	ForceColors:   true,
-	// 	FullTimestamp: true,
-	// })
-	logger.AddHook(hook)
+
+	logger.SetFormatter(&logrus.JSONFormatter{
+		FieldMap: logrus.FieldMap{
+			logrus.FieldKeyTime: "timestamp",
+			logrus.FieldKeyMsg:  "message",
+		},
+	})
+	logger.SetOutput(os.Stdout)
 
 	return logger
 }
 
 func LogWithTracer(user string, msg string, data any, err bool, ctx context.Context) {
-	logCtx, ok := GetCtxState(ctx).Load(ContextLogger)
+	ctxState := GetCtxState(ctx)
+	logCtx, ok := ctxState.Load(ContextLogger)
 	if !ok {
 		return
 	}
@@ -43,12 +32,17 @@ func LogWithTracer(user string, msg string, data any, err bool, ctx context.Cont
 	if !ok {
 		return
 	}
-	tracer, ok := GetCtxState(ctx).Load(ContextTracer)
+	tracer, ok := ctxState.Load(ContextTracer)
+	if !ok {
+		return
+	}
+	logStage, ok := ctxState.Load(ContextLogStage)
 	if !ok {
 		return
 	}
 
 	logFields := logrus.Fields{
+		"stage":  logStage,
 		"tracer": tracer,
 		"user":   user,
 		"data":   data,
@@ -58,4 +52,16 @@ func LogWithTracer(user string, msg string, data any, err bool, ctx context.Cont
 	} else {
 		logger.WithFields(logFields).Info(msg)
 	}
+}
+
+type LogEnd struct {
+	ApiPath          string         `json:"api_path" mapstructure:"api_path"`
+	ApiName          string         `json:"api_name" mapstructure:"api_name"`
+	Start            time.Time      `json:"start" mapstructure:"start"`
+	End              time.Time      `json:"end" mapstructure:"end"`
+	ExecutionTime    uint64         `json:"execution_time" mapstructure:"execution_time"`
+	InternalExecTime uint64         `json:"internal_exec_time" mapstructure:"internal_exec_time"`
+	ExternalExecTime uint64         `json:"external_exec_time" mapstructure:"external_exec_time"`
+	RequestData      map[string]any `json:"request_data" mapstructure:"request_data"`
+	Error            string         `json:"error" mapstructure:"error"`
 }

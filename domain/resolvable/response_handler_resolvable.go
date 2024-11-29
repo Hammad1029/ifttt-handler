@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"ifttt/handler/common"
 	requestvalidator "ifttt/handler/domain/request_validator.go"
+
+	"github.com/fatih/structs"
 )
 
 type ResponseResolvable struct {
@@ -49,14 +51,7 @@ func (r *ResponseResolvable) Resolve(ctx context.Context, dependencies map[commo
 	}
 
 	if responseChannel, ok := resChanUncasted.(chan ResponseResolvable); ok {
-		if ok := common.SetResponseSent(ctx); ok {
-			common.LogWithTracer(common.LogSystem,
-				fmt.Sprintf("Sending response | Response Code: %s | Response Description: %s",
-					r.ResponseCode, r.ResponseDescription), r, false, ctx)
-			responseChannel <- *r
-			close(responseChannel)
-			return nil, nil
-		}
+		r.channelSend(responseChannel, ctx)
 	} else {
 		return nil, fmt.Errorf("method Resolve: response channel type assertion failed")
 	}
@@ -64,21 +59,31 @@ func (r *ResponseResolvable) Resolve(ctx context.Context, dependencies map[commo
 	return nil, nil
 }
 
-func (r *ResponseResolvable) ManualSend(resChan chan ResponseResolvable, dependencies map[common.IntIota]any, ctx context.Context) {
+func (r *ResponseResolvable) ManualSend(resChan chan ResponseResolvable, pErr error, ctx context.Context) {
 	if !common.GetResponseSent(ctx) {
-		if _, err := r.Resolve(ctx, dependencies); err != nil {
-			r.AddError(err)
+		if pErr != nil {
+			r.addError(pErr)
+		}
+		if _, err := r.Resolve(ctx, nil); err != nil {
+			r.addError(err)
 			common.LogWithTracer(common.LogSystem, "error in resolving response", err, true, ctx)
 			r.ResponseCode = common.ResponseCodeSystemError
 			r.ResponseDescription = common.ResponseDescriptionSystemError
-			if ok := common.SetResponseSent(ctx); ok {
-				common.LogWithTracer(common.LogSystem,
-					fmt.Sprintf("Sending response | Response Code: %s | Response Description: %s",
-						r.ResponseCode, r.ResponseDescription), r, false, ctx)
-				resChan <- *r
-				close(resChan)
-			}
+			r.channelSend(resChan, ctx)
 		}
+	}
+}
+
+func (r *ResponseResolvable) channelSend(resChan chan ResponseResolvable, ctx context.Context) {
+	if ok := common.SetResponseSent(ctx); ok {
+		if reqData := GetRequestData(ctx); reqData != nil {
+			reqData.AggregatedResponse = structs.Map(r)
+		}
+		common.LogWithTracer(common.LogSystem,
+			fmt.Sprintf("Sending response | Response Code: %s | Response Description: %s",
+				r.ResponseCode, r.ResponseDescription), r, false, ctx)
+		resChan <- *r
+		close(resChan)
 	}
 }
 
@@ -95,7 +100,7 @@ func (r *ResponseResolvable) AddValidationErrors(vErrs []requestvalidator.Valida
 	}
 }
 
-func (r *ResponseResolvable) AddError(err error) {
+func (r *ResponseResolvable) addError(err error) {
 	if r.Response.Errors == nil {
 		r.Response.Errors = &errorsData{}
 	}

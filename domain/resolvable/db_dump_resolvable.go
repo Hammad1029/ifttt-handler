@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"ifttt/handler/common"
+	"ifttt/handler/domain/request_data"
 	"time"
 )
 
@@ -41,12 +42,7 @@ func (d *dbDumpResolvable) Resolve(ctx context.Context, dependencies map[common.
 	end := time.Now()
 	timeTaken := uint64(end.Sub(start).Milliseconds())
 
-	ctxState := common.GetCtxState(ctx)
-	if ctxState != nil {
-		if externalExecTime, ok := ctxState.Load(common.ContextExternalExecTime); ok {
-			ctxState.Store(common.ContextExternalExecTime, externalExecTime.(uint64)+timeTaken)
-		}
-	}
+	request_data.AddExternalTrip(common.ExternalTripDump, nil, timeTaken, ctx)
 
 	return nil, nil
 }
