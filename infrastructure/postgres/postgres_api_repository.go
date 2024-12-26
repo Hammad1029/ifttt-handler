@@ -17,9 +17,7 @@ func (p *PostgresApiRepository) GetAllApis(ctx context.Context) (*[]api.Api, err
 	var domainApis []api.Api
 	var postgresApis []apis
 	if err := p.client.
-		Preload("PreWare").Preload("PreWare.Rules").
-		Preload("MainWare").Preload("MainWare.Rules").
-		Preload("PostWare").Preload("PostWare.Rules").
+		Preload("Triggers").Preload("Triggers.Rules").
 		Find(&postgresApis).Error; err != nil {
 		return nil, err
 	}

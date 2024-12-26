@@ -5,15 +5,15 @@ import (
 	"strings"
 )
 
-type PostgresDbDumpRepository struct {
-	*PostgresBaseRepository
+type MySqlDbDumpRepository struct {
+	*MySqlBaseRepository
 }
 
-func NewPostgresDbDumpRepository(base *PostgresBaseRepository) *PostgresDbDumpRepository {
-	return &PostgresDbDumpRepository{PostgresBaseRepository: base}
+func NewMySqlDbDumpRepository(base *MySqlBaseRepository) *MySqlDbDumpRepository {
+	return &MySqlDbDumpRepository{MySqlBaseRepository: base}
 }
 
-func (p *PostgresDbDumpRepository) InsertDump(dump map[string]any, table string) error {
+func (m *MySqlDbDumpRepository) InsertDump(dump map[string]any, table string) error {
 	if len(dump) == 0 {
 		return fmt.Errorf("empty data dump")
 	}
@@ -35,7 +35,7 @@ func (p *PostgresDbDumpRepository) InsertDump(dump map[string]any, table string)
 		strings.Join(placeholders, ", "),
 	)
 
-	if err := p.client.Exec(sql, values...).Error; err != nil {
+	if err := m.client.Exec(sql, values...).Error; err != nil {
 		return err
 	}
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"ifttt/handler/common"
-	"sync"
 )
 
 type setResResolvable map[string]any
@@ -17,59 +16,41 @@ type setLogResolvable struct {
 }
 
 func (s *setResResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
-	responseData := GetRequestData(ctx).Response
-	var wg sync.WaitGroup
-
-	cancelCtx, cancel := context.WithCancelCause(ctx)
-	defer cancel(nil)
-
-	for key, value := range *s {
-		wg.Add(1)
-		go func(k string, v any) {
-			defer wg.Done()
-			select {
-			case <-cancelCtx.Done():
-				return
-			default:
-				if resVal, err := resolveIfNested(v, cancelCtx, dependencies); err != nil {
-					cancel(err)
-				} else {
-					responseData.Store(k, resVal)
-				}
-			}
-		}(key, value)
+	resolvedMap, err := resolveMap((*map[string]any)(s), ctx, dependencies)
+	if err != nil {
+		return nil, err
 	}
 
-	wg.Wait()
-	return nil, context.Cause(cancelCtx)
+	reqData := GetRequestData(ctx)
+	reqData.Lock()
+	defer reqData.Unlock()
+
+	for k, v := range resolvedMap {
+		if err := common.SyncMapSet(reqData.Response, k, v); err != nil {
+			return nil, err
+		}
+	}
+
+	return nil, nil
 }
 
 func (s *setStoreResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
-	store := GetRequestData(ctx).Store
-	var wg sync.WaitGroup
-
-	cancelCtx, cancel := context.WithCancelCause(ctx)
-	defer cancel(nil)
-
-	for key, value := range *s {
-		wg.Add(1)
-		go func(k string, v any) {
-			defer wg.Done()
-			select {
-			case <-cancelCtx.Done():
-				return
-			default:
-				if resVal, err := resolveIfNested(v, cancelCtx, dependencies); err != nil {
-					cancel(err)
-				} else {
-					store.Store(k, resVal)
-				}
-			}
-		}(key, value)
+	resolvedMap, err := resolveMap((*map[string]any)(s), ctx, dependencies)
+	if err != nil {
+		return nil, err
 	}
 
-	wg.Wait()
-	return nil, context.Cause(cancelCtx)
+	reqData := GetRequestData(ctx)
+	reqData.Lock()
+	defer reqData.Unlock()
+
+	for k, v := range resolvedMap {
+		if err := common.SyncMapSet(reqData.Store, k, v); err != nil {
+			return nil, err
+		}
+	}
+
+	return nil, nil
 }
 
 func (s *setLogResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {

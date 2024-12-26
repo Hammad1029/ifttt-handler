@@ -45,8 +45,9 @@ func (r *RedisStore) createCacheStore() *CacheStore {
 	redisBase := redisInfra.NewRedisBaseRepository(r.client)
 	return &CacheStore{
 		Store:         r,
-		APICacheRepo:  redisInfra.NewRedisAPIRepository(redisBase),
-		CronCacheRepo: redisInfra.NewRedisCronRepository(redisBase),
+		APIRepo:       redisInfra.NewRedisAPIRepository(redisBase),
+		CronRepo:      redisInfra.NewRedisCronRepository(redisBase),
+		OrmSchemaRepo: redisInfra.NewRedisOrmSchemaRepository(redisBase),
 	}
 }
 

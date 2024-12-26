@@ -22,9 +22,7 @@ type Api struct {
 	Description string                                       `json:"description" mapstructure:"description"`
 	Request     map[string]requestvalidator.RequestParameter `json:"request" mapstructure:"request"`
 	PreConfig   map[string]resolvable.Resolvable             `json:"preConfig" mapstructure:"preConfig"`
-	PreWare     *[]TriggerFlow                               `json:"preWare" mapstructure:"preWare"`
-	MainWare    *[]TriggerCondition                          `json:"mainWare" mapstructure:"mainWare"`
-	PostWare    *[]TriggerFlow                               `json:"postWare" mapstructure:"postWare"`
+	Triggers    *[]TriggerCondition                          `json:"triggers" mapstructure:"triggers"`
 }
 
 type TriggerCondition struct {
@@ -57,6 +55,7 @@ type Rule struct {
 	Description string                  `json:"description" mapstructure:"description"`
 	Pre         []resolvable.Resolvable `json:"pre" mapstructure:"pre"`
 	Switch      RuleSwitch              `json:"switch" mapstructure:"switch"`
+	Finally     []resolvable.Resolvable `json:"finally" mapstructure:"finally"`
 }
 
 type RuleSwitch struct {

@@ -23,7 +23,7 @@ type postgresConfig struct {
 	Database string       `json:"database" mapstructure:"database"`
 	Username string       `json:"username" mapstructure:"username"`
 	Password string       `json:"password" mapstructure:"password"`
-	Pool     postgresPool `json:"pool" mapstructure:"pool`
+	Pool     postgresPool `json:"pool" mapstructure:"pool"`
 }
 
 type postgresPool struct {
@@ -34,7 +34,7 @@ type postgresPool struct {
 
 func (p *postgresStore) init(config map[string]any) error {
 	if err := mapstructure.Decode(config, &p.config); err != nil {
-		return fmt.Errorf("method: *PostgresStore.Init: could not decode scylla configuration from env: %s", err)
+		return fmt.Errorf("method: *PostgresStore.Init: could not decode configuration from env: %s", err)
 	}
 	connectionString := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Karachi",
@@ -61,17 +61,19 @@ func (p *postgresStore) init(config map[string]any) error {
 func (p *postgresStore) createDataStore() *DataStore {
 	postgresBase := postgresInfra.NewPostgresBaseRepository(p.store, false)
 	return &DataStore{
-		Store:        p,
-		RawQueryRepo: postgresInfra.NewPostgresRawQueryRepository(postgresBase),
-		DumpRepo:     postgresInfra.NewPostgresDbDumpRepository(postgresBase),
+		Store:         p,
+		RawQueryRepo:  postgresInfra.NewPostgresRawQueryRepository(postgresBase),
+		DumpRepo:      postgresInfra.NewPostgresDbDumpRepository(postgresBase),
+		OrmSchemaRepo: postgresInfra.NewPostgresOrmSchemaRepository(postgresBase),
+		OrmQueryRepo:  postgresInfra.NewPostgresOrmQueryRepository(postgresBase),
 	}
 }
 
 func (p *postgresStore) createConfigStore() *ConfigStore {
 	postgresBase := postgresInfra.NewPostgresBaseRepository(p.store, true)
 	return &ConfigStore{
-		Store:              p,
-		APIPersistentRepo:  postgresInfra.NewPostgresApiRepository(postgresBase),
-		CronPersistentRepo: postgresInfra.NewPostgresCronRepository(postgresBase),
+		Store:    p,
+		APIRepo:  postgresInfra.NewPostgresApiRepository(postgresBase),
+		CronRepo: postgresInfra.NewPostgresCronRepository(postgresBase),
 	}
 }

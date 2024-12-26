@@ -27,10 +27,10 @@ type mysqlConfig struct {
 
 func (m *mysqlStore) init(config map[string]any) error {
 	if err := mapstructure.Decode(config, &m.config); err != nil {
-		return fmt.Errorf("method: *mysqlStore.Init: could not decode scylla configuration from env: %s", err)
+		return fmt.Errorf("method: *mysqlStore.Init: could not decode configuration from env: %s", err)
 	}
 	connectionString := fmt.Sprintf(
-		"%s:%s@tcp(%s:%s)/%s",
+		"%s:%s@tcp(%s:%s)/%s?parseTime=true",
 		m.config.Username, m.config.Password, m.config.Host, m.config.Port, m.config.Database,
 	)
 	if db, err := gorm.Open(mysql.Open(connectionString), &gorm.Config{}); err != nil {
@@ -42,9 +42,12 @@ func (m *mysqlStore) init(config map[string]any) error {
 }
 
 func (m *mysqlStore) createDataStore() *DataStore {
-	postgresBase := mysqlInfra.NewMySqlBaseRepository(m.store)
+	mysqlBase := mysqlInfra.NewMySqlBaseRepository(m.store)
 	return &DataStore{
-		Store:        m,
-		RawQueryRepo: mysqlInfra.NewMySqlRawQueryRepository(*postgresBase),
+		Store:         m,
+		RawQueryRepo:  mysqlInfra.NewMySqlRawQueryRepository(mysqlBase),
+		DumpRepo:      mysqlInfra.NewMySqlDbDumpRepository(mysqlBase),
+		OrmSchemaRepo: mysqlInfra.NewMySqlOrmSchemaRepository(mysqlBase),
+		OrmQueryRepo:  mysqlInfra.NewMySqlOrmQueryRepository(mysqlBase),
 	}
 }

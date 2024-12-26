@@ -97,7 +97,7 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 		}
 
 		contextState.Store(common.ContextLogStage, common.LogStageMemload)
-		api, err := core.CacheStore.APICacheRepo.GetApiByPath(c.Path(), ctx)
+		api, err := core.CacheStore.APIRepo.GetApiByPath(c.Path(), ctx)
 		if api == nil || err != nil {
 			defer cancel(err)
 			common.LogWithTracer(common.LogSystem,
@@ -116,22 +116,27 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 				api, false, ctx)
 		}
 
-		contextState.Store(common.ContextLogStage, common.LogStageParsing)
-		if err := c.BodyParser(&requestData.ReqBody); err != nil {
-			defer cancel(err)
-			common.LogWithTracer(common.LogSystem, "could not parse body", err, true, ctx)
-			res := &resolvable.ResponseResolvable{
-				ResponseCode:        "400",
-				ResponseDescription: "Error in parsing body",
+		if api.Method != http.MethodGet {
+			contextState.Store(common.ContextLogStage, common.LogStageParsing)
+			if err := c.BodyParser(&requestData.ReqBody); err != nil {
+				defer cancel(err)
+				common.LogWithTracer(common.LogSystem, "could not parse body", err, true, ctx)
+				res := &resolvable.ResponseResolvable{
+					ResponseCode:        "400",
+					ResponseDescription: "Error in parsing body",
+				}
+				res.ManualSend(resChan, err, ctx)
+				return c.JSON(res)
 			}
-			res.ManualSend(resChan, err, ctx)
-			return c.JSON(res)
+			common.LogWithTracer(common.LogSystem, "request parsed", map[string]any{
+				"body":    requestData.ReqBody,
+				"headers": requestData.Headers,
+			}, false, ctx)
 		}
-		requestData.Headers = c.GetReqHeaders()
-		common.LogWithTracer(common.LogSystem, "request parsed", map[string]any{
-			"body":    requestData.ReqBody,
-			"headers": requestData.Headers,
-		}, false, ctx)
+
+		for k, v := range c.GetReqHeaders() {
+			requestData.Headers[k] = strings.Join(v, ",")
+		}
 
 		contextState.Store(common.ContextLogStage, common.LogStageValidation)
 		if err := requestvalidator.ValidateMap(&api.Request, &requestData.ReqBody); len(err) != 0 {
@@ -165,22 +170,15 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 		go func() {
 			defer cancel(nil)
 
-			contextState.Store(common.ContextLogStage, common.LogStagePreWare)
-			if err := core.InitMiddleWare(api.PreWare, ctx); err != nil {
+			contextState.Store(common.ContextLogStage, common.LogStageExecution)
+			if err := core.InitExecution(api.Triggers, ctx); err != nil {
 				cancel(err)
-			} else {
-				contextState.Store(common.ContextLogStage, common.LogStageMainWare)
-				if err := core.InitMainWare(api.MainWare, ctx); err != nil {
-					cancel(err)
-				} else {
-					contextState.Store(common.ContextLogStage, common.LogStagePostWare)
-					if err := core.InitMiddleWare(api.PostWare, ctx); err != nil {
-						cancel(err)
-					}
-				}
 			}
 
-			var res resolvable.ResponseResolvable
+			res := resolvable.ResponseResolvable{
+				ResponseCode:        common.ResponseCodeExhaust,
+				ResponseDescription: common.ResponseDescriptionExhaust,
+			}
 			err := context.Cause(cancelCtx)
 			if err != nil {
 				res = resolvable.ResponseResolvable{

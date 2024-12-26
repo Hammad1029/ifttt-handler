@@ -7,9 +7,11 @@ import (
 	"ifttt/handler/application/controllers"
 	"ifttt/handler/application/core"
 	"ifttt/handler/common"
+	"ifttt/handler/domain/orm_schema"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/samber/lo"
 )
 
 var currCore *core.ServerCore
@@ -33,17 +35,21 @@ func Init() {
 		panic(err)
 	}
 
+	if err := getAndStoreORMSchemas(ctx); err != nil {
+		panic(err)
+	}
+
 	app.Listen(fmt.Sprintf(":%s", port))
 	fmt.Printf("Handler running on port: %s", port)
 }
 
 func createApis(fiber *fiber.App, ctx context.Context) error {
-	apis, err := currCore.ConfigStore.APIPersistentRepo.GetAllApis(ctx)
+	apis, err := currCore.ConfigStore.APIRepo.GetAllApis(ctx)
 	if err != nil {
 		return fmt.Errorf("could not get apis from persistent config store: %s", err)
 	}
 
-	if err := currCore.CacheStore.APICacheRepo.StoreApis(apis, ctx); err != nil {
+	if err := currCore.CacheStore.APIRepo.StoreApis(apis, ctx); err != nil {
 		return fmt.Errorf("could not store apis in cache storage: %s", err)
 	}
 
@@ -67,12 +73,12 @@ func createApis(fiber *fiber.App, ctx context.Context) error {
 }
 
 func createCronJobs(ctx context.Context) error {
-	cronJobs, err := currCore.ConfigStore.CronPersistentRepo.GetAllCronJobs(ctx)
+	cronJobs, err := currCore.ConfigStore.CronRepo.GetAllCronJobs(ctx)
 	if err != nil {
 		return fmt.Errorf("could not get cron jobs from persistent config store: %s", err)
 	}
 
-	if err := currCore.CacheStore.CronCacheRepo.StoreCrons(cronJobs, ctx); err != nil {
+	if err := currCore.CacheStore.CronRepo.StoreCrons(cronJobs, ctx); err != nil {
 		return fmt.Errorf("could not store cronjobs in cache storage: %s", err)
 	}
 
@@ -84,6 +90,48 @@ func createCronJobs(ctx context.Context) error {
 			}
 		}
 		currCore.Cron.Start()
+	}
+
+	return nil
+}
+
+func getAndStoreORMSchemas(ctx context.Context) error {
+	var schemas []orm_schema.Schema
+
+	tableNames, err := currCore.DataStore.OrmSchemaRepo.GetTableNames()
+	if err != nil {
+		return err
+	}
+	columns, err := currCore.DataStore.OrmSchemaRepo.GetAllColumns(tableNames)
+	if err != nil {
+		return err
+	}
+	constraints, err := currCore.DataStore.OrmSchemaRepo.GetAllConstraints(tableNames)
+	if err != nil {
+		return err
+	}
+
+	groupedColumns := lo.GroupBy(*columns, func(col orm_schema.Column) string {
+		return col.TableName
+	})
+	groupedConstraints := lo.GroupBy(*constraints, func(constraint orm_schema.Constraint) string {
+		return constraint.TableName
+	})
+
+	var newSchema orm_schema.Schema
+	for _, tableName := range tableNames {
+		newSchema.TableName = tableName
+		if columns, ok := groupedColumns[newSchema.TableName]; ok {
+			newSchema.Columns = columns
+		}
+		if constraints, ok := groupedConstraints[newSchema.TableName]; ok {
+			newSchema.Constraints = constraints
+		}
+		schemas = append(schemas, newSchema)
+	}
+
+	if err := currCore.CacheStore.OrmSchemaRepo.StoreSchema(&schemas, ctx); err != nil {
+		return err
 	}
 
 	return nil

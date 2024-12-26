@@ -86,7 +86,7 @@ func cronController(cronJobName string, core *core.ServerCore, parentCtx context
 	}
 
 	contextState.Store(common.ContextLogStage, common.LogStageMemload)
-	job, err := core.CacheStore.CronCacheRepo.GetCronByName(cronJobName, ctx)
+	job, err := core.CacheStore.CronRepo.GetCronByName(cronJobName, ctx)
 	if job == nil || err != nil {
 		defer cancel(err)
 		common.LogWithTracer(common.LogSystem,
@@ -117,8 +117,8 @@ func cronController(cronJobName string, core *core.ServerCore, parentCtx context
 	go func() {
 		defer cancel(nil)
 
-		contextState.Store(common.ContextLogStage, common.LogStageMainWare)
-		if err := core.InitMainWare(job.TriggerFlows, ctx); err != nil {
+		contextState.Store(common.ContextLogStage, common.LogStageExecution)
+		if err := core.InitExecution(job.TriggerFlows, ctx); err != nil {
 			cancel(err)
 		}
 

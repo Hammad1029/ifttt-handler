@@ -9,6 +9,8 @@ const (
 	DependencyAppCacheRepo
 	DependencyDbDumpRepo
 	DependencyLogger
+	DependencyOrmSchemaRepo
+	DependencyOrmQueryRepo
 )
 
 var ReservedPaths = []string{"^/test/.*", "^/auth/.*"}
@@ -25,8 +27,9 @@ const (
 )
 
 const (
-	RedisApis  = "api"
-	RedisCrons = "cron"
+	RedisApis    = "api"
+	RedisCrons   = "cron"
+	RedisSchemas = "schema"
 )
 
 const (
@@ -42,9 +45,7 @@ const (
 	LogStageParsing    = "parsing"
 	LogStageValidation = "validation"
 	LogStagePreConfig  = "preconfig"
-	LogStagePreWare    = "preware"
-	LogStageMainWare   = "mainware"
-	LogStagePostWare   = "postware"
+	LogStageExecution  = "execution"
 	LogStageEnding     = "end"
 )
 
@@ -60,8 +61,8 @@ const (
 const (
 	ResponseCodeSuccess            = "00"
 	ResponseDescriptionSuccess     = "SUCCESS"
-	ResponseCodeUserError          = "100"
-	ResponseDescriptionUserError   = "USER ERROR"
+	ResponseCodeExhaust            = "100"
+	ResponseDescriptionExhaust     = "EXHAUSTED RESPONSE"
 	ResponseCodeSystemError        = "200"
 	ResponseDescriptionSystemError = "SYSTEM ERROR"
 )
@@ -78,4 +79,26 @@ const (
 	ExternalTripDump  = "dump"
 	ExternalTripQuery = "query"
 	ExternalTripApi   = "api"
+)
+
+const (
+	CastToString  = "string"
+	CastToNumber  = "number"
+	CastToBoolean = "boolean"
+)
+
+const (
+	EnvConfig      = "configStore"
+	EnvData        = "dataStore"
+	EnvCache       = "cacheStore"
+	EnvAppCache    = "appCache"
+	EnvConfigStore = "cacheStore"
+	EnvDBName      = "db"
+)
+
+const (
+	OrmSelect = "select"
+	OrmUpdate = "update"
+	OrmInsert = "insert"
+	OrmDelete = "delete"
 )

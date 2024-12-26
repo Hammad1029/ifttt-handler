@@ -16,13 +16,15 @@ func (pgRule *rules) toDomain() (*api.Rule, error) {
 	}
 
 	if err := json.Unmarshal(pgRule.Pre.Bytes, &domainRule.Pre); err != nil {
-		return nil,
-			fmt.Errorf("method *PostgresRulesRepository.ToDomain: error in unmarshalling pre: %s", err)
+		return nil, err
 	}
 
 	if err := json.Unmarshal(pgRule.Switch.Bytes, &domainRule.Switch); err != nil {
-		return nil,
-			fmt.Errorf("method *PostgresRulesRepository.ToDomain: error in unmarshalling switch: %s", err)
+		return nil, err
+	}
+
+	if err := json.Unmarshal(pgRule.Finally.Bytes, &domainRule.Finally); err != nil {
+		return nil, err
 	}
 
 	return &domainRule, nil
@@ -63,9 +65,7 @@ func (a *apis) toDomain() (*api.Api, error) {
 		Description: a.Description,
 		Request:     map[string]requestvalidator.RequestParameter{},
 		PreConfig:   map[string]resolvable.Resolvable{},
-		PreWare:     &[]api.TriggerFlow{},
-		MainWare:    &[]api.TriggerCondition{},
-		PostWare:    &[]api.TriggerFlow{},
+		Triggers:    &[]api.TriggerCondition{},
 	}
 
 	if err := json.Unmarshal(a.Request.Bytes, &domainApi.Request); err != nil {
@@ -81,24 +81,8 @@ func (a *apis) toDomain() (*api.Api, error) {
 		return nil, err
 	}
 
-	for _, tFlow := range a.PreWare {
-		domainTFlow, err := tFlow.toDomain()
-		if err != nil {
-			return nil, err
-		}
-		*domainApi.PreWare = append(*domainApi.PreWare, *domainTFlow)
-	}
-
-	for _, tFlow := range a.PostWare {
-		domainTFlow, err := tFlow.toDomain()
-		if err != nil {
-			return nil, err
-		}
-		*domainApi.PostWare = append(*domainApi.PostWare, *domainTFlow)
-	}
-
 	triggerFlowMap := make(map[uint]trigger_flows)
-	for _, tFlow := range a.MainWare {
+	for _, tFlow := range a.Triggers {
 		triggerFlowMap[tFlow.ID] = tFlow
 	}
 
@@ -112,7 +96,7 @@ func (a *apis) toDomain() (*api.Api, error) {
 		if err != nil {
 			return nil, err
 		}
-		*domainApi.MainWare = append(*domainApi.MainWare,
+		*domainApi.Triggers = append(*domainApi.Triggers,
 			api.TriggerCondition{If: tc.If, Trigger: *domainTFlow})
 	}
 

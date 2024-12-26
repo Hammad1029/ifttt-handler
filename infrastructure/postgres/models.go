@@ -25,9 +25,7 @@ type apis struct {
 	Description  string          `gorm:"type:text;default:''" mapstructure:"description"`
 	Request      pgtype.JSONB    `gorm:"type:jsonb;default:'{}';not null" mapstructure:"request"`
 	PreConfig    pgtype.JSONB    `gorm:"type:jsonb;default:'{}';not null" mapstructure:"preConfig"`
-	PreWare      []trigger_flows `gorm:"many2many:api_trigger_flows_pre;joinForeignKey:ApiId;joinReferences:FlowId;" mapstructure:"triggerFlows"`
-	MainWare     []trigger_flows `gorm:"many2many:api_trigger_flows_main;joinForeignKey:ApiId;joinReferences:FlowId;" mapstructure:"triggerFlows"`
-	PostWare     []trigger_flows `gorm:"many2many:api_trigger_flows_post;joinForeignKey:ApiId;joinReferences:FlowId;" mapstructure:"triggerFlows"`
+	Triggers     []trigger_flows `gorm:"many2many:api_trigger_flows_main;joinForeignKey:ApiId;joinReferences:FlowId;" mapstructure:"triggerFlows"`
 	TriggerFlows pgtype.JSONB    `gorm:"type:jsonb;default:'{}';not null" mapstructure:"triggerConditions"`
 }
 
@@ -51,4 +49,19 @@ type rules struct {
 	Description string       `gorm:"type:text;default:''" mapstructure:"description"`
 	Pre         pgtype.JSONB `gorm:"type:jsonb;default:'[]';not null" mapstructure:"pre"`
 	Switch      pgtype.JSONB `gorm:"type:jsonb;default:'{\"cases\":[],\"default\":{\"do\":[],\"return\":{\"resolveType\":\"const\",\"resolveData\":\"\"}}}';not null" mapstructure:"switch"`
+	Finally     pgtype.JSONB `gorm:"type:jsonb;default:'[]';not null" mapstructure:"finally"`
+}
+
+type data_scehma struct {
+	gorm.Model
+	Table   string                `gorm:"type:varchar(50);not null;unique" mapstructure:"table"`
+	Columns []data_schema_columns `gorm:"many2many:data_schema_column_bindings;joinForeignKey:SchemaId;joinReferences:ColumnId;" mapstructure:"columns"`
+}
+
+type data_schema_columns struct {
+	Get      bool        `mapstructure:"get"`
+	As       string      `gorm:"type:bool;default:true" mapstructure:"as"`
+	DataType string      `mapstructure:"data_type"`
+	SubModel data_scehma `mapstructure:"sub_model"`
+	Populate bool        `gorm:"type:bool;default:false" mapstructure:"populate"`
 }

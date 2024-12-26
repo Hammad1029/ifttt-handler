@@ -3,7 +3,9 @@ package infrastructure
 import (
 	"fmt"
 	"ifttt/handler/application/config"
+	"ifttt/handler/common"
 	"ifttt/handler/domain/api"
+	"ifttt/handler/domain/orm_schema"
 	"ifttt/handler/domain/resolvable"
 	"strings"
 )
@@ -33,21 +35,24 @@ type appCacheStorer interface {
 }
 
 type ConfigStore struct {
-	Store              configStorer
-	APIPersistentRepo  api.APIPersistentRepository
-	CronPersistentRepo api.CronPersistentRepository
+	Store    configStorer
+	APIRepo  api.APIPersistentRepository
+	CronRepo api.CronPersistentRepository
 }
 
 type CacheStore struct {
 	Store         cacheStorer
-	APICacheRepo  api.APICacheRepository
-	CronCacheRepo api.CronCacheRepository
+	APIRepo       api.APICacheRepository
+	CronRepo      api.CronCacheRepository
+	OrmSchemaRepo orm_schema.CacheRepository
 }
 
 type DataStore struct {
-	Store        dataStorer
-	RawQueryRepo resolvable.RawQueryRepository
-	DumpRepo     resolvable.DbDumpRepository
+	Store         dataStorer
+	RawQueryRepo  resolvable.RawQueryRepository
+	DumpRepo      resolvable.DbDumpRepository
+	OrmSchemaRepo orm_schema.PersistentRepository
+	OrmQueryRepo  resolvable.OrmQueryBuilderRepository
 }
 
 type AppCacheStore struct {
@@ -56,7 +61,7 @@ type AppCacheStore struct {
 }
 
 func NewConfigStore() (*ConfigStore, error) {
-	connectionSettings := config.GetConfig().GetStringMap("configStore")
+	connectionSettings := config.GetConfig().GetStringMap(common.EnvConfig)
 	if store, err := configStoreFactory(connectionSettings); err != nil {
 		return nil, err
 	} else {
@@ -65,7 +70,7 @@ func NewConfigStore() (*ConfigStore, error) {
 }
 
 func NewDataStore() (*DataStore, error) {
-	connectionSettings := config.GetConfig().GetStringMap("dataStore")
+	connectionSettings := config.GetConfig().GetStringMap(common.EnvData)
 	if store, err := dataStoreFactory(connectionSettings); err != nil {
 		return nil, err
 	} else {
@@ -74,7 +79,7 @@ func NewDataStore() (*DataStore, error) {
 }
 
 func NewCacheStore() (*CacheStore, error) {
-	connectionSettings := config.GetConfig().GetStringMap("cacheStore")
+	connectionSettings := config.GetConfig().GetStringMap(common.EnvCache)
 	if store, err := cacheStoreFactory(connectionSettings); err != nil {
 		return nil, err
 	} else {
@@ -83,7 +88,7 @@ func NewCacheStore() (*CacheStore, error) {
 }
 
 func NewAppCacheStore() (*AppCacheStore, error) {
-	connectionSettings := config.GetConfig().GetStringMap("cacheStore")
+	connectionSettings := config.GetConfig().GetStringMap(common.EnvAppCache)
 	if store, err := appCacheStoreFactory(connectionSettings); err != nil {
 		return nil, err
 	} else {
@@ -93,7 +98,7 @@ func NewAppCacheStore() (*AppCacheStore, error) {
 
 func configStoreFactory(connectionSettings map[string]any) (*ConfigStore, error) {
 	var storer configStorer
-	dbName, ok := connectionSettings["db"]
+	dbName, ok := connectionSettings[common.EnvDBName]
 	if !ok {
 		return nil, fmt.Errorf("method configStoreFactory: db name not found in env")
 	}
@@ -101,8 +106,6 @@ func configStoreFactory(connectionSettings map[string]any) (*ConfigStore, error)
 	switch strings.ToLower(fmt.Sprint(dbName)) {
 	case postgresDb:
 		storer = &postgresStore{}
-	// case scyllaDb:
-	// 	storer = &scyllaStore{}
 	default:
 		return nil, fmt.Errorf("db not found %s", dbName)
 	}
@@ -116,14 +119,12 @@ func configStoreFactory(connectionSettings map[string]any) (*ConfigStore, error)
 
 func dataStoreFactory(connectionSettings map[string]any) (*DataStore, error) {
 	var storer dataStorer
-	dbName, ok := connectionSettings["db"]
+	dbName, ok := connectionSettings[common.EnvDBName]
 	if !ok {
 		return nil, fmt.Errorf("db name not found in env")
 	}
 
 	switch strings.ToLower(fmt.Sprint(dbName)) {
-	// case scyllaDb:
-	// 	storer = &scyllaStore{}
 	case postgresDb:
 		storer = &postgresStore{}
 	case mysqlDb:
@@ -140,7 +141,7 @@ func dataStoreFactory(connectionSettings map[string]any) (*DataStore, error) {
 
 func cacheStoreFactory(connectionSettings map[string]any) (*CacheStore, error) {
 	var storer cacheStorer
-	dbName, ok := connectionSettings["db"]
+	dbName, ok := connectionSettings[common.EnvDBName]
 	if !ok {
 		return nil, fmt.Errorf("db name not found in env")
 	}
@@ -161,7 +162,7 @@ func cacheStoreFactory(connectionSettings map[string]any) (*CacheStore, error) {
 
 func appCacheStoreFactory(connectionSettings map[string]any) (*AppCacheStore, error) {
 	var storer appCacheStorer
-	dbName, ok := connectionSettings["db"]
+	dbName, ok := connectionSettings[common.EnvDBName]
 	if !ok {
 		return nil, fmt.Errorf("method cacheStoreFactory: db name not found in env")
 	}

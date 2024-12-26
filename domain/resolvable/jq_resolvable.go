@@ -2,22 +2,21 @@ package resolvable
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"ifttt/handler/common"
-	"reflect"
 	"sync"
 
-	"github.com/fatih/structs"
 	"github.com/itchyny/gojq"
 )
 
 type jqResolvable struct {
-	Query Resolvable `json:"query" mapstructure:"query"`
-	Input any        `json:"input" mapstructure:"input"`
+	Query any `json:"query" mapstructure:"query"`
+	Input any `json:"input" mapstructure:"input"`
 }
 
 func (j *jqResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
-	queryResolved, err := j.Query.Resolve(ctx, dependencies)
+	queryResolved, err := resolveIfNested(j.Query, ctx, dependencies)
 	if err != nil {
 		return nil, err
 	}
@@ -26,11 +25,14 @@ func (j *jqResolvable) Resolve(ctx context.Context, dependencies map[common.IntI
 		return nil, err
 	}
 
-	return runJQQuery(fmt.Sprint(queryResolved), inputResolved, ctx)
+	return runJQQuery(fmt.Sprint(queryResolved), inputResolved)
 }
 
-func runJQQuery(queryString string, input any, ctx context.Context) (any, error) {
-	jqInput := convertToGoJQCompatible(input)
+func runJQQuery(queryString string, input any) (any, error) {
+	jqInput, err := convertToGoJQCompatible(input)
+	if err != nil {
+		return nil, err
+	}
 
 	if queryString[0] != '.' {
 		queryString = "." + queryString
@@ -41,7 +43,7 @@ func runJQQuery(queryString string, input any, ctx context.Context) (any, error)
 	}
 
 	var resultVals []any
-	resultIter := query.Run(jqInput)
+	resultIter := query.Run((any)(jqInput))
 
 	for {
 		v, ok := resultIter.Next()
@@ -52,7 +54,7 @@ func runJQQuery(queryString string, input any, ctx context.Context) (any, error)
 			if haltErr, ok := err.(*gojq.HaltError); ok && haltErr.Value() == nil {
 				break
 			}
-			return nil, err
+			return nil, fmt.Errorf("invalid jq setup with query %s: %s", queryString, err)
 		}
 		resultVals = append(resultVals, v)
 	}
@@ -67,41 +69,21 @@ func runJQQuery(queryString string, input any, ctx context.Context) (any, error)
 	}
 }
 
-func convertToGoJQCompatible(input any) any {
-	if syncMap, ok := input.(*sync.Map); ok {
-		unsyncedValue := common.UnSyncMap(syncMap)
-		return convertMapToGoJQCompatible(reflect.ValueOf(unsyncedValue))
-	}
-
-	v := reflect.Indirect(reflect.ValueOf(input))
-	switch v.Kind() {
-	case reflect.Map:
-		return convertMapToGoJQCompatible(v)
-	case reflect.Slice:
-		return convertSliceToGoJQCompatible(v)
-	case reflect.Struct:
-		return convertMapToGoJQCompatible(reflect.ValueOf(structs.Map(input)))
+func convertToGoJQCompatible(input any) (any, error) {
+	switch o := input.(type) {
+	case *sync.Map:
+		return convertToGoJQCompatible(common.SyncMapUnsync(o))
 	default:
-		return input
-	}
-}
-
-func convertMapToGoJQCompatible(v reflect.Value) map[string]any {
-	compatibleMap := make(map[string]any)
-	for _, key := range v.MapKeys() {
-		value := v.MapIndex(key).Interface()
-		if keyStr, ok := key.Interface().(string); ok {
-			compatibleMap[keyStr] = convertToGoJQCompatible(value)
+		{
+			marshalled, err := json.Marshal(input)
+			if err != nil {
+				return nil, err
+			}
+			var a any
+			if err := json.Unmarshal(marshalled, &a); err != nil {
+				return nil, err
+			}
+			return a, nil
 		}
 	}
-	return compatibleMap
-}
-
-func convertSliceToGoJQCompatible(v reflect.Value) []any {
-	compatibleSlice := make([]any, v.Len())
-	for i := 0; i < v.Len(); i++ {
-		value := v.Index(i).Interface()
-		compatibleSlice[i] = convertToGoJQCompatible(value)
-	}
-	return compatibleSlice
 }

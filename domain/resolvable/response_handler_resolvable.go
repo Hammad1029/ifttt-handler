@@ -12,7 +12,7 @@ import (
 type ResponseResolvable struct {
 	ResponseCode        string       `json:"responseCode" mapstructure:"responseCode"`
 	ResponseDescription string       `json:"responseDescription" mapstructure:"responseDescription"`
-	Response            responseData `json:"response" mapstructure:"response"`
+	Data                responseData `json:"data" mapstructure:"data"`
 }
 
 type responseData struct {
@@ -31,11 +31,11 @@ func (r *ResponseResolvable) Resolve(ctx context.Context, dependencies map[commo
 	reqData := GetRequestData(ctx)
 
 	if tracer, ok := requestState.Load(common.ContextTracer); ok {
-		r.Response.Tracer = tracer.(string)
+		r.Data.Tracer = tracer.(string)
 	}
 
-	if r.Response.Errors == nil {
-		r.Response.Errors = &errorsData{}
+	if r.Data.Errors == nil {
+		r.Data.Errors = &errorsData{}
 	}
 
 	if r.ResponseCode == "" || r.ResponseDescription == "" {
@@ -43,7 +43,9 @@ func (r *ResponseResolvable) Resolve(ctx context.Context, dependencies map[commo
 		r.ResponseDescription = common.ResponseDescriptionSuccess
 	}
 
-	r.Response.Data = common.UnSyncMap(reqData.Response)
+	if len(r.Data.Errors.System) == 0 && len(r.Data.Errors.Validation) == 0 {
+		r.Data.Data = common.SyncMapUnsync(reqData.Response)
+	}
 
 	resChanUncasted, ok := requestState.Load(common.ContextResponseChannel)
 	if !ok {
@@ -88,21 +90,21 @@ func (r *ResponseResolvable) channelSend(resChan chan ResponseResolvable, ctx co
 }
 
 func (r *ResponseResolvable) AddValidationErrors(vErrs []requestvalidator.ValidationError) {
-	if r.Response.Errors == nil {
-		r.Response.Errors = &errorsData{}
+	if r.Data.Errors == nil {
+		r.Data.Errors = &errorsData{}
 	}
 	for _, err := range vErrs {
 		if err.Internal {
-			r.Response.Errors.System = append(r.Response.Errors.System, err.ErrorInfo.Error())
+			r.Data.Errors.System = append(r.Data.Errors.System, err.ErrorInfo.Error())
 		} else {
-			r.Response.Errors.Validation = append(r.Response.Errors.Validation, err.ErrorInfo.Error())
+			r.Data.Errors.Validation = append(r.Data.Errors.Validation, err.ErrorInfo.Error())
 		}
 	}
 }
 
 func (r *ResponseResolvable) addError(err error) {
-	if r.Response.Errors == nil {
-		r.Response.Errors = &errorsData{}
+	if r.Data.Errors == nil {
+		r.Data.Errors = &errorsData{}
 	}
-	r.Response.Errors.System = append(r.Response.Errors.System, err.Error())
+	r.Data.Errors.System = append(r.Data.Errors.System, err.Error())
 }

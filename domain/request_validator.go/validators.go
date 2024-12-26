@@ -14,15 +14,10 @@ func ValidateMap(schema *map[string]RequestParameter, m *map[string]any) []Valid
 	var wg sync.WaitGroup
 	validationErrors := []ValidationError{}
 
-	absentFromRequest, absentFromSchema := lo.Difference(lo.Keys(*schema), lo.Keys(*m))
+	absentFromRequest, _ := lo.Difference(lo.Keys(*schema), lo.Keys(*m))
 	for _, key := range absentFromRequest {
 		validationErrors = append(validationErrors, ValidationError{
 			ErrorInfo: fmt.Errorf("key %s missing in request", key),
-		})
-	}
-	for _, key := range absentFromSchema {
-		validationErrors = append(validationErrors, ValidationError{
-			ErrorInfo: fmt.Errorf("key %s not part of schema", key),
 		})
 	}
 	if len(validationErrors) != 0 {
@@ -52,7 +47,7 @@ func ValidateMap(schema *map[string]RequestParameter, m *map[string]any) []Valid
 func (s *RequestParameter) validateValue(val any) []ValidationError {
 	if val == nil {
 		if s.Required {
-			return []ValidationError{{ErrorInfo: fmt.Errorf("key is requires")}}
+			return []ValidationError{{ErrorInfo: fmt.Errorf("key is required")}}
 		}
 		return nil
 	}

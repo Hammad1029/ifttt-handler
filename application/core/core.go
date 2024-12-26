@@ -52,9 +52,11 @@ func NewServerCore() (*ServerCore, error) {
 	logger := common.CreateLogrus()
 	serverCore.Logger = logger
 	serverCore.ResolvableDependencies = map[common.IntIota]any{
-		common.DependencyRawQueryRepo: serverCore.DataStore.RawQueryRepo,
-		common.DependencyAppCacheRepo: serverCore.AppCacheStore.AppCacheRepo,
-		common.DependencyDbDumpRepo:   serverCore.DataStore.DumpRepo,
+		common.DependencyRawQueryRepo:  serverCore.DataStore.RawQueryRepo,
+		common.DependencyAppCacheRepo:  serverCore.AppCacheStore.AppCacheRepo,
+		common.DependencyDbDumpRepo:    serverCore.DataStore.DumpRepo,
+		common.DependencyOrmSchemaRepo: serverCore.CacheStore.OrmSchemaRepo,
+		common.DependencyOrmQueryRepo:  serverCore.DataStore.OrmQueryRepo,
 	}
 
 	return &serverCore, nil
@@ -89,46 +91,11 @@ func (c *ServerCore) PreparePreConfig(config map[string]resolvable.Resolvable, c
 	return context.Cause(ctx)
 }
 
-func (c *ServerCore) InitMiddleWare(triggerFlows *[]api.TriggerFlow, ctx context.Context) error {
+func (c *ServerCore) InitExecution(triggerFlows *[]api.TriggerCondition, ctx context.Context) error {
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 
-	common.LogWithTracer(common.LogSystem, "initiating pre/post-ware", nil, false, ctx)
-	var flowWG sync.WaitGroup
-	for _, flow := range *triggerFlows {
-		flowWG.Add(1)
-		go func(f *api.TriggerFlow) {
-			defer flowWG.Done()
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				{
-					common.LogWithTracer(common.LogSystem, fmt.Sprintf("initiating trigger %d | %s", f.ID, f.Name), nil, false, ctx)
-					if err := c.execRule(
-						f.StartState, f.BranchFlows, f.Rules, f.ID, ctx,
-					); err != nil {
-						cancel(err)
-					}
-				}
-			}
-		}(&flow)
-	}
-	flowWG.Wait()
-	common.LogWithTracer(common.LogSystem, "pre/post-ware finished executing", nil, false, ctx)
-
-	if err := context.Cause(ctx); err != nil && err != context.Canceled {
-		common.LogWithTracer(common.LogSystem, "error in pre/post", err, true, ctx)
-		return err
-	}
-	return nil
-}
-
-func (c *ServerCore) InitMainWare(triggerFlows *[]api.TriggerCondition, ctx context.Context) error {
-	ctx, cancel := context.WithCancelCause(ctx)
-	defer cancel(nil)
-
-	common.LogWithTracer(common.LogSystem, "initiating mainware", nil, false, ctx)
+	common.LogWithTracer(common.LogSystem, "initiating triggers", nil, false, ctx)
 	var flowWG sync.WaitGroup
 	for _, flow := range *triggerFlows {
 		flowWG.Add(1)
@@ -155,10 +122,10 @@ func (c *ServerCore) InitMainWare(triggerFlows *[]api.TriggerCondition, ctx cont
 		}(&flow)
 	}
 	flowWG.Wait()
-	common.LogWithTracer(common.LogSystem, "mainware finished executing", nil, false, ctx)
+	common.LogWithTracer(common.LogSystem, "triggers finished executing", nil, false, ctx)
 
 	if err := context.Cause(ctx); err != nil && err != context.Canceled {
-		common.LogWithTracer(common.LogSystem, "error in mainware", err, true, ctx)
+		common.LogWithTracer(common.LogSystem, "error in triggers", err, true, ctx)
 		return err
 	}
 	return nil
@@ -185,13 +152,23 @@ func (c *ServerCore) execRule(
 			fmt.Sprintf("trigger %d: executing rule %d | %s", triggerId, rule.ID, rule.Name), nil, false, ctx)
 	}
 
+	common.LogWithTracer(common.LogSystem,
+		fmt.Sprintf("trigger %d rule %d | executing Pre", triggerId, rule.ID), nil, false, ctx)
 	if err := c.resolveArray(rule.Pre, ctx); err != nil {
 		return fmt.Errorf("could not resolve pre: %s", err)
 	}
 
-	rVal, err := c.solveRuleSwitch(&rule.Switch, ctx)
+	common.LogWithTracer(common.LogSystem,
+		fmt.Sprintf("trigger %d rule %d | evaluating cases", triggerId, rule.ID), nil, false, ctx)
+	rVal, err := c.solveRuleSwitch(&rule.Switch, triggerId, rule.ID, ctx)
 	if err != nil {
 		return fmt.Errorf("could not solve switch: %s", err)
+	}
+
+	common.LogWithTracer(common.LogSystem,
+		fmt.Sprintf("trigger %d rule %d | executing finally", triggerId, rule.ID), nil, false, ctx)
+	if err := c.resolveArray(rule.Finally, ctx); err != nil {
+		return fmt.Errorf("could not resolve finally: %s", err)
 	}
 
 	nextState, ok := branch.States[rVal.(uint)]
@@ -201,14 +178,18 @@ func (c *ServerCore) execRule(
 		return nil
 	}
 
+	common.LogWithTracer(common.LogSystem,
+		fmt.Sprintf("trigger %d rule %d | moving to next state %d", triggerId, rule.ID, nextState), nil, false, ctx)
 	return c.execRule(nextState, branchMap, rules, triggerId, ctx)
 }
 
-func (c *ServerCore) solveRuleSwitch(s *api.RuleSwitch, ctx context.Context) (any, error) {
-	for _, currCase := range s.Cases {
+func (c *ServerCore) solveRuleSwitch(s *api.RuleSwitch, triggerId uint, ruleId uint, ctx context.Context) (any, error) {
+	for idx, currCase := range s.Cases {
 		if ev, err := currCase.Condition.EvaluateGroup(ctx, c.ResolvableDependencies); err != nil {
 			return nil, fmt.Errorf("method solveRuleSwitch: error in solving case: %s", err)
 		} else if ev {
+			common.LogWithTracer(common.LogSystem,
+				fmt.Sprintf("trigger %d rule %d | case %d matched", triggerId, ruleId, idx), nil, false, ctx)
 			if rVal, err := c.doRuleCase(&currCase, ctx); err != nil {
 				return nil, err
 			} else {
@@ -216,6 +197,8 @@ func (c *ServerCore) solveRuleSwitch(s *api.RuleSwitch, ctx context.Context) (an
 			}
 		}
 	}
+	common.LogWithTracer(common.LogSystem,
+		fmt.Sprintf("trigger %d rule %d | no case matched. performing default", triggerId, ruleId), nil, false, ctx)
 	if rVal, err := c.doRuleCase(&s.Default, ctx); err != nil {
 		return nil, err
 	} else {
@@ -232,6 +215,7 @@ func (c *ServerCore) doRuleCase(s *api.RuleSwitchCase, ctx context.Context) (uin
 
 func (c *ServerCore) resolveArray(resolvables []resolvable.Resolvable, ctx context.Context) error {
 	for _, r := range resolvables {
+		common.LogWithTracer(common.LogSystem, fmt.Sprintf("resolving %s", r.ResolveType), r, false, ctx)
 		if _, err := r.Resolve(ctx, c.ResolvableDependencies); err != nil {
 			return err
 		}

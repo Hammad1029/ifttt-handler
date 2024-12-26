@@ -16,7 +16,7 @@ func NewRedisAppCacheRepository(base *RedisBaseRepository) *RedisAppCacheReposit
 }
 
 func (r *RedisAppCacheRepository) SetKey(key string, val any, ttl uint, ctx context.Context) error {
-	if err := r.client.Set(ctx, key, val, time.Duration(ttl)).Err(); err != nil {
+	if err := r.client.Set(ctx, key, val, time.Duration(ttl)*time.Second).Err(); err != nil {
 		return err
 	}
 	return nil

@@ -32,7 +32,7 @@ func (r *getRequestResolvable) Resolve(ctx context.Context, dependencies map[com
 }
 
 func (r *getResponseResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
-	return common.UnSyncMap(GetRequestData(ctx).Response), nil
+	return common.SyncMapGet(GetRequestData(ctx).Response, "."), nil
 }
 
 func (s *getStoreResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {

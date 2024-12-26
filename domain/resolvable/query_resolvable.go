@@ -14,7 +14,6 @@ import (
 
 type queryResolvable struct {
 	QueryString          string                `json:"queryString" mapstructure:"queryString"`
-	QueryHash            string                `json:"queryHash" mapstructure:"queryHash"`
 	Return               bool                  `json:"return" mapstructure:"return"`
 	Named                bool                  `json:"named" mapstructure:"named"`
 	NamedParameters      map[string]Resolvable `json:"namedParameters" mapstructure:"namedParameters"`
@@ -31,7 +30,6 @@ type queryData struct {
 
 type queryRequest struct {
 	QueryString          string         `json:"queryString" mapstructure:"queryString"`
-	QueryHash            string         `json:"queryHash" mapstructure:"queryHash"`
 	Return               bool           `json:"return" mapstructure:"return"`
 	Named                bool           `json:"named" mapstructure:"named"`
 	NamedParameters      map[string]any `json:"namedParameters" mapstructure:"namedParameters"`
@@ -87,7 +85,6 @@ func (q *queryResolvable) createQueryRequest(ctx context.Context, dependencies m
 	var req queryRequest
 
 	req.QueryString = q.QueryString
-	req.QueryHash = q.QueryHash
 	req.Return = q.Return
 	req.Named = q.Named
 
