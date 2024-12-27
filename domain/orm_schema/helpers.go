@@ -1,31 +1,39 @@
 package orm_schema
 
-import (
-	"fmt"
-	"strings"
-)
+import "context"
 
-func (s *Schema) GetPrimaryKey() *Constraint {
-	for _, c := range s.Constraints {
-		if c.ConstraintType == "PRIMARY KEY" {
-			return &c
-		}
+func GetAndStoreModels(persistent PersistentRepository, cache CacheRepository, ctx context.Context) error {
+	models, err := persistent.GetAllModels()
+	if err != nil {
+		return err
+	} else if models == nil {
+		return nil
+	}
+
+	modelsMap := make(map[string]Model)
+	for _, m := range *models {
+		modelsMap[m.Name] = m
+	}
+	if err := cache.SetModels(&modelsMap, ctx); err != nil {
+		return err
 	}
 	return nil
 }
 
-func BuildProjectionGroups(projections map[string]string) (map[string]map[string]string, error) {
-	groups := map[string]map[string]string{}
-	for k, v := range projections {
-		split := strings.Split(k, ".")
-		groupName := split[0]
-		if len(split) < 2 {
-			return nil, fmt.Errorf("invalid projection: %s", k)
-		}
-		if _, ok := groups[groupName]; !ok {
-			groups[groupName] = map[string]string{}
-		}
-		groups[groupName][k] = v
+func GetAndStoreAssociations(persistent PersistentRepository, cache CacheRepository, ctx context.Context) error {
+	associations, err := persistent.GetAllAssociations()
+	if err != nil {
+		return err
+	} else if associations == nil {
+		return nil
 	}
-	return groups, nil
+
+	associationsMap := make(map[string]ModelAssociation)
+	for _, m := range *associations {
+		associationsMap[m.Name] = m
+	}
+	if err := cache.SetAssociations(&associationsMap, ctx); err != nil {
+		return err
+	}
+	return nil
 }

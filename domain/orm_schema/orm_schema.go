@@ -1,34 +1,38 @@
 package orm_schema
 
-type Schema struct {
-	TableName   string       `mapstructure:"tableName" json:"tableName"`
-	Columns     []Column     `mapstructure:"columns" json:"columns"`
-	Constraints []Constraint `mapstructure:"constraints" json:"constraints"`
+type Model struct {
+	Name                   string             `mapstructure:"name" json:"name"`
+	Table                  string             `mapstructure:"table" json:"table"`
+	Projections            []Projection       `mapstructure:"projections" json:"projections"`
+	PrimaryKey             string             `mapstructure:"primaryKey" json:"primaryKey"`
+	OwningAssociations     []ModelAssociation `mapstructure:"owningAssociations" json:"owningAssociations"`
+	ReferencedAssociations []ModelAssociation `mapstructure:"referencedAssociations" json:"referencedAssociations"`
 }
 
-type Column struct {
-	TableName              string `mapstructure:"tableName" json:"tableName"`
-	OrdinalPosition        int    `mapstructure:"ordinalPosition" json:"ordinalPosition"`
-	ColumnName             string `mapstructure:"columnName" json:"columnName"`
-	DataType               string `mapstructure:"dataType" json:"dataType"`
-	ColumnDefault          string `mapstructure:"columnDefault" json:"columnDefault"`
-	IsNullable             string `mapstructure:"isNullable" json:"isNullable"`
-	CharacterMaximumLength int    `mapstructure:"characterMaximumLength" json:"characterMaximumLength"`
-	NumericPrecision       int    `mapstructure:"numericPrecision" json:"numericPrecision"`
+type Projection struct {
+	Column   string `mapstructure:"column" json:"column"`
+	As       string `mapstructure:"as" json:"as"`
+	DataType string `mapstructure:"dataType" json:"dataType"`
 }
 
-type Constraint struct {
-	TableName       string `mapstructure:"tableName" json:"tableName"`
-	ConstraintName  string `mapstructure:"constraintName" json:"constraintName"`
-	ConstraintType  string `mapstructure:"constraintType" json:"constraintType"`
-	ColumnName      string `mapstructure:"columnName" json:"columnName"`
-	ReferencesTable string `mapstructure:"referencesTable" json:"referencesTable"`
-	ReferencesField string `mapstructure:"referencesField" json:"referencesField"`
+type ModelAssociation struct {
+	Name                 string `mapstructure:"name" json:"name"`
+	Type                 string `mapstructure:"type" json:"type"`
+	TableName            string `mapstructure:"tableName" json:"tableName"`
+	ColumnName           string `mapstructure:"columnName" json:"columnName"`
+	ReferencesTable      string `mapstructure:"referencesTable" json:"referencesTable"`
+	ReferencesField      string `mapstructure:"referencesField" json:"referencesField"`
+	JoinTable            string `mapstructure:"joinTable" json:"joinTable"`
+	JoinTableSourceField string `mapstructure:"joinTableSourceField" json:"joinTableSourceField"`
+	JoinTableTargetField string `mapstructure:"joinTableTargetField" json:"joinTableTargetField"`
+	OwningModelID        uint   `mapstructure:"owningModelID" json:"owningModelID"`
+	ReferencesModelID    uint   `mapstructure:"referencesModelID" json:"referencesModelID"`
+	OwningModel          Model  `mapstructure:"owningModel" json:"owningModel"`
+	ReferencesModel      Model  `mapstructure:"referencesModel" json:"referencesModel"`
 }
 
 type Populate struct {
-	Table    string     `json:"table" mapstructure:"table"`
-	Column   string     `json:"column" mapstructure:"column"`
-	Alias    string     `json:"alias" mapstructure:"alias"`
-	Populate []Populate `json:"populate" mapstructure:"populate"`
+	Model    string     `mapstructure:"model" json:"model"`
+	As       string     `mapstructure:"as" json:"as"`
+	Populate []Populate `mapstructure:"populate" json:"populate"`
 }

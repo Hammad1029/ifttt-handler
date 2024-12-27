@@ -5,144 +5,138 @@ import (
 	"fmt"
 	"ifttt/handler/common"
 	"ifttt/handler/domain/orm_schema"
-	"strings"
+	"sync"
+
+	"github.com/samber/lo"
 )
 
 type ormResolvable struct {
+	Query              *queryResolvable      `json:"query" mapstructure:"query"`
 	Operation          string                `json:"operation" mapstructure:"operation"`
-	Table              string                `json:"table" mapstructure:"table"`
-	Projections        map[string]string     `json:"projections" mapstructure:"projections"`
+	Model              string                `json:"model" mapstructure:"model"`
 	ConditionsTemplate string                `json:"conditionsTemplate" mapstructure:"conditionsTemplate"`
 	ConditionsValue    []any                 `json:"conditionsValue" mapstructure:"conditionsValue"`
-	Columns            map[string]any        `json:"columns" mapstructure:"columns"`
 	Populate           []orm_schema.Populate `json:"populate" mapstructure:"populate"`
 }
 
-type OrmQueryBuilderRepository interface {
-	ExecuteSelect(
-		tableName string,
-		projections map[string]string,
-		populate []orm_schema.Populate,
-		conditionsTemplate string,
-		conditionsValue []any,
-		schemaRepo orm_schema.CacheRepository,
-		ctx context.Context,
-	) ([]map[string]any, error)
-}
-
 func (o *ormResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
-	schemaRepo, ok := dependencies[common.DependencyOrmSchemaRepo].(orm_schema.CacheRepository)
+	ormRepo, ok := dependencies[common.DependencyOrmCacheRepo].(orm_schema.CacheRepository)
 	if !ok {
-		return nil, fmt.Errorf("could not cast schema repo")
+		return nil, fmt.Errorf("could not cast orm repo")
 	}
 
-	qb, ok := dependencies[common.DependencyOrmQueryRepo].(OrmQueryBuilderRepository)
-	if !ok {
-		return nil, fmt.Errorf("dependency orm query repo not found")
+	if o.Query == nil {
+		return nil, fmt.Errorf("query is null")
 	}
 
-	schema, err := schemaRepo.GetSchema(o.Table, ctx)
+	model, err := ormRepo.GetModel(o.Model, ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	switch o.Operation {
 	case common.OrmSelect:
-		conditionsResolved, err := resolveSlice(&o.ConditionsValue, ctx, dependencies)
-		if err != nil {
+		if results, err := o.Query.Resolve(ctx, dependencies); err != nil {
 			return nil, err
-		}
-		res, err := qb.ExecuteSelect(
-			o.Table, o.Projections, o.Populate, o.ConditionsTemplate, conditionsResolved, schemaRepo, ctx,
-		)
-		if err != nil {
+		} else if queryData, ok := results.(*queryData); !ok {
+			return nil, fmt.Errorf("could not cast results to query data")
+		} else if transformed, err := o.transformResults(
+			queryData.Results, model.Name, model, &o.Populate, ormRepo, ctx); err != nil {
 			return nil, err
+		} else {
+			queryData.Results = &transformed
+			return queryData, nil
 		}
-		projectionGroups, err := orm_schema.BuildProjectionGroups(o.Projections)
-		if err != nil {
-			return nil, err
-		}
-		primaryKey := schema.GetPrimaryKey()
-		if primaryKey == nil {
-			return nil, fmt.Errorf("primary key not found")
-		}
-		results, err := o.transformResults(
-			&res, schema.TableName, &o.Populate, &projectionGroups, primaryKey, schemaRepo, ctx,
-		)
-		if err != nil {
-			return nil, err
-		}
-		return results, nil
 	default:
 		return nil, fmt.Errorf("unsupported operation: %s", o.Operation)
 	}
 }
 
 func (o *ormResolvable) transformResults(
-	rawResults *[]map[string]any, alias string, populate *[]orm_schema.Populate,
-	projectionGroups *map[string]map[string]string, primaryKey *orm_schema.Constraint,
-	schemaRepo orm_schema.CacheRepository, ctx context.Context,
+	rawResults *[]map[string]any,
+	alias string,
+	currModel *orm_schema.Model,
+	populate *[]orm_schema.Populate,
+	ormRepo orm_schema.CacheRepository,
+	ctx context.Context,
 ) ([]map[string]any, error) {
-	groupedResults := map[any]map[string]any{}
+	pKeyAccessor := fmt.Sprintf("%s.%s", alias, currModel.PrimaryKey)
+	grouped := lo.GroupBy(*rawResults, func(row map[string]any) string {
+		return fmt.Sprint(row[pKeyAccessor])
+	})
+	delete(grouped, fmt.Sprint(nil))
 
-	for _, row := range *rawResults {
-		pKeyValue, ok := row[fmt.Sprintf("%s.%s", alias, primaryKey.ColumnName)]
-		if !ok {
-			return nil, fmt.Errorf("primary key not found in recordset: %s.%s",
-				primaryKey.TableName, primaryKey.ColumnName)
-		} else if _, ok := groupedResults[primaryKey.ColumnName]; !ok {
-			groupedResults[pKeyValue] = map[string]any{}
-			for _, p := range *populate {
-				arr, ok := groupedResults[pKeyValue][p.Alias]
-				if !ok {
-					arr = []map[string]any{}
-				}
-				arrCasted, ok := arr.([]map[string]any)
-				if !ok {
-					return nil, fmt.Errorf("could not cast %s.%s to array", pKeyValue, p.Alias)
-				}
-				childSchema, err := schemaRepo.GetSchema(p.Table, ctx)
-				if err != nil {
-					return nil, fmt.Errorf("could not get schema %s: %s", p.Table, err)
-				}
-				if childPrimaryKey := childSchema.GetPrimaryKey(); childPrimaryKey == nil {
-					return nil, fmt.Errorf("primary key not found")
-				} else if pVal, ok := row[fmt.Sprintf("%s.%s", p.Alias, childPrimaryKey.ColumnName)]; ok && pVal != nil {
-					if childResults, err := o.transformResults(
-						rawResults, p.Alias, &p.Populate, projectionGroups, primaryKey, schemaRepo, ctx,
-					); err != nil {
-						return nil, err
-					} else {
-						arrCasted = append(arrCasted, childResults...)
-					}
-				}
-				groupedResults[pKeyValue][p.Alias] = arrCasted
-			}
-			if pGroup, ok := (*projectionGroups)[alias]; !ok {
-				return nil, fmt.Errorf("projection group not found for %s", alias)
-			} else {
-				for k, v := range pGroup {
-					if v == "" {
-						split := strings.Split(k, ".")
-						if len(split) < 2 {
-							return nil, fmt.Errorf("invalid projection %s", k)
+	transformed := sync.Map{}
+	wg := sync.WaitGroup{}
+	cancelCtx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+
+	for k, g := range grouped {
+		wg.Add(1)
+		go func(pKey string, rowGroup []map[string]any) {
+			select {
+			case <-cancelCtx.Done():
+				return
+			default:
+				{
+					baseRow := rowGroup[0]
+					transformedRow := o.projectRow(&baseRow, &currModel.Projections, alias)
+					for _, p := range *populate {
+						childModel, err := ormRepo.GetModel(p.Model, ctx)
+						if err != nil || childModel == nil {
+							cancel(err)
+							return
 						}
-						groupedResults[pKeyValue][split[len(split)-1]] = row[k]
-					} else if val, ok := row[v]; ok {
-						groupedResults[pKeyValue][v] = val
-					} else {
-						return nil, fmt.Errorf("invalid projection %s", k)
+						childAlias := fmt.Sprintf("%s_%s", alias, p.As)
+						childGroups, err := o.transformResults(&rowGroup, childAlias, childModel, &p.Populate, ormRepo, ctx)
+						if err != nil {
+							cancel(fmt.Errorf("could not transform alias %s for model %s", p.As, p.Model))
+							return
+						}
+						transformedRow[p.As] = childGroups
 					}
+					transformed.Store(pKey, transformedRow)
 				}
 			}
+			wg.Done()
+		}(k, g)
+	}
+	wg.Wait()
+
+	flattened := make([]map[string]any, 0, len(grouped))
+	transformed.Range(func(_, value any) bool {
+		if mapped, ok := value.(map[string]any); ok {
+			flattened = append(flattened, mapped)
+			return true
+		} else {
+			cancel(fmt.Errorf("could not cast sync.Map value to map[string]any"))
+			return false
 		}
+	})
 
+	if err := context.Cause(cancelCtx); err != nil {
+		return nil, err
 	}
+	return flattened, nil
+}
 
-	transformedResults := []map[string]any{}
-	for _, row := range groupedResults {
-		transformedResults = append(transformedResults, row)
+func (o *ormResolvable) projectRow(
+	row *map[string]any, projections *[]orm_schema.Projection, alias string,
+) map[string]any {
+	projectedRow := map[string]any{}
+	for _, p := range *projections {
+		accessor := fmt.Sprintf("%s.%s", alias, p.Column)
+		if colVal, ok := (*row)[accessor]; ok && colVal != nil {
+			projectedRow[p.As] = colVal
+		} else if p.DataType == common.DatabaseTypeString {
+			projectedRow[p.As] = new(string)
+		} else if p.DataType == common.DatabaseTypeNumber {
+			projectedRow[p.As] = new(int)
+		} else if p.DataType == common.DatabaseTypeBoolean {
+			projectedRow[p.As] = new(bool)
+		} else {
+			projectedRow[p.As] = colVal
+		}
 	}
-
-	return transformedResults, nil
+	return projectedRow
 }

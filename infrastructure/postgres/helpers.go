@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"ifttt/handler/domain/api"
+	"ifttt/handler/domain/orm_schema"
 	requestvalidator "ifttt/handler/domain/request_validator.go"
 	"ifttt/handler/domain/resolvable"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 func (pgRule *rules) toDomain() (*api.Rule, error) {
@@ -142,4 +145,40 @@ func (c *crons) toDomain() (*api.Cron, error) {
 	}
 
 	return &dCron, nil
+}
+
+func (o *orm_model) fromDomain(dModel *orm_schema.Model) error {
+	return mapstructure.Decode(dModel, o)
+}
+
+// func (o *orm_projection) fromDomain(dProjection *orm_schema.Projection) error {
+// 	return mapstructure.Decode(dProjection, o)
+// }
+
+func (o *orm_association) fromDomain(dAssociation *orm_schema.ModelAssociation) error {
+	return mapstructure.Decode(dAssociation, o)
+}
+
+func (o *orm_model) toDomain() (*orm_schema.Model, error) {
+	var domain orm_schema.Model
+	if err := mapstructure.Decode(o, &domain); err != nil {
+		return nil, err
+	}
+	return &domain, nil
+}
+
+// func (o *orm_projection) toDomain() (*orm_schema.Projection, error) {
+// 	var domain orm_schema.Projection
+// 	if err := mapstructure.Decode(o, &domain); err != nil {
+// 		return nil, err
+// 	}
+// 	return &domain, nil
+// }
+
+func (o *orm_association) toDomain() (*orm_schema.ModelAssociation, error) {
+	var domain orm_schema.ModelAssociation
+	if err := mapstructure.Decode(o, &domain); err != nil {
+		return nil, err
+	}
+	return &domain, nil
 }

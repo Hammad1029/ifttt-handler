@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/samber/lo"
 )
 
 var currCore *core.ServerCore
@@ -35,7 +34,15 @@ func Init() {
 		panic(err)
 	}
 
-	if err := getAndStoreORMSchemas(ctx); err != nil {
+	if err := orm_schema.GetAndStoreModels(
+		currCore.ConfigStore.OrmRepo, currCore.CacheStore.OrmRepo, ctx,
+	); err != nil {
+		panic(err)
+	}
+
+	if err := orm_schema.GetAndStoreAssociations(
+		currCore.ConfigStore.OrmRepo, currCore.CacheStore.OrmRepo, ctx,
+	); err != nil {
 		panic(err)
 	}
 
@@ -90,48 +97,6 @@ func createCronJobs(ctx context.Context) error {
 			}
 		}
 		currCore.Cron.Start()
-	}
-
-	return nil
-}
-
-func getAndStoreORMSchemas(ctx context.Context) error {
-	var schemas []orm_schema.Schema
-
-	tableNames, err := currCore.DataStore.OrmSchemaRepo.GetTableNames()
-	if err != nil {
-		return err
-	}
-	columns, err := currCore.DataStore.OrmSchemaRepo.GetAllColumns(tableNames)
-	if err != nil {
-		return err
-	}
-	constraints, err := currCore.DataStore.OrmSchemaRepo.GetAllConstraints(tableNames)
-	if err != nil {
-		return err
-	}
-
-	groupedColumns := lo.GroupBy(*columns, func(col orm_schema.Column) string {
-		return col.TableName
-	})
-	groupedConstraints := lo.GroupBy(*constraints, func(constraint orm_schema.Constraint) string {
-		return constraint.TableName
-	})
-
-	var newSchema orm_schema.Schema
-	for _, tableName := range tableNames {
-		newSchema.TableName = tableName
-		if columns, ok := groupedColumns[newSchema.TableName]; ok {
-			newSchema.Columns = columns
-		}
-		if constraints, ok := groupedConstraints[newSchema.TableName]; ok {
-			newSchema.Constraints = constraints
-		}
-		schemas = append(schemas, newSchema)
-	}
-
-	if err := currCore.CacheStore.OrmSchemaRepo.StoreSchema(&schemas, ctx); err != nil {
-		return err
 	}
 
 	return nil

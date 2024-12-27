@@ -52,16 +52,37 @@ type rules struct {
 	Finally     pgtype.JSONB `gorm:"type:jsonb;default:'[]';not null" mapstructure:"finally"`
 }
 
-type data_scehma struct {
+type orm_model struct {
 	gorm.Model
-	Table   string                `gorm:"type:varchar(50);not null;unique" mapstructure:"table"`
-	Columns []data_schema_columns `gorm:"many2many:data_schema_column_bindings;joinForeignKey:SchemaId;joinReferences:ColumnId;" mapstructure:"columns"`
+	Name                   string            `gorm:"type:varchar(255);not null" mapstructure:"name" json:"name"`
+	Table                  string            `gorm:"type:varchar(255);not null" mapstructure:"table" json:"table"`
+	PrimaryKey             string            `gorm:"type:varchar(255);not null" mapstructure:"primaryKey" json:"primaryKey"`
+	Projections            []orm_projection  `gorm:"foreignKey:ModelID" mapstructure:"projections" json:"projections"`
+	OwningAssociations     []orm_association `gorm:"foreignKey:OwningModelID" mapstructure:"owningAssociations" json:"owningAssociations"`
+	ReferencedAssociations []orm_association `gorm:"foreignKey:ReferencesModelID" mapstructure:"referencedAssociations" json:"referencedAssociations"`
 }
 
-type data_schema_columns struct {
-	Get      bool        `mapstructure:"get"`
-	As       string      `gorm:"type:bool;default:true" mapstructure:"as"`
-	DataType string      `mapstructure:"data_type"`
-	SubModel data_scehma `mapstructure:"sub_model"`
-	Populate bool        `gorm:"type:bool;default:false" mapstructure:"populate"`
+type orm_projection struct {
+	gorm.Model
+	ModelID  uint   `gorm:"not null"`
+	Column   string `gorm:"type:varchar(255);not null" mapstructure:"column" json:"column"`
+	As       string `gorm:"type:varchar(255);not null" mapstructure:"as" json:"as"`
+	DataType string `gorm:"type:varchar(255);not null" mapstructure:"dataType" json:"dataType"`
+}
+
+type orm_association struct {
+	gorm.Model
+	Name                 string    `gorm:"type:varchar(255);not null" mapstructure:"name" json:"name"`
+	Type                 string    `gorm:"type:varchar(255);not null" mapstructure:"type" json:"type"`
+	TableName            string    `gorm:"type:varchar(255);not null" mapstructure:"tableName" json:"tableName"`
+	ColumnName           string    `gorm:"type:varchar(255);not null" mapstructure:"columnName" json:"columnName"`
+	ReferencesTable      string    `gorm:"type:varchar(255);not null" mapstructure:"referencesTable" json:"referencesTable"`
+	ReferencesField      string    `gorm:"type:varchar(255);not null" mapstructure:"referencesField" json:"referencesField"`
+	JoinTable            string    `gorm:"type:varchar(255);not null" mapstructure:"joinTable" json:"joinTable"`
+	JoinTableSourceField string    `gorm:"type:varchar(255);not null" mapstructure:"joinTableSourceField" json:"joinTableSourceField"`
+	JoinTableTargetField string    `gorm:"type:varchar(255);not null" mapstructure:"joinTableTargetField" json:"joinTableTargetField"`
+	OwningModelID        uint      `gorm:"not null" mapstructure:"owningModelID" json:"owningModelID"`
+	ReferencesModelID    uint      `gorm:"not null" mapstructure:"referencesModelID" json:"referencesModelID"`
+	OwningModel          orm_model `gorm:"foreignKey:OwningModelID" mapstructure:"owningModel" json:"owningModel"`
+	ReferencesModel      orm_model `gorm:"foreignKey:ReferencesModelID" mapstructure:"referencesModel" json:"referencesModel"`
 }

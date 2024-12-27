@@ -5,12 +5,14 @@ import (
 )
 
 type PersistentRepository interface {
-	GetTableNames() ([]string, error)
-	GetAllColumns(tables []string) (*[]Column, error)
-	GetAllConstraints(tables []string) (*[]Constraint, error)
+	GetAllModels() (*[]Model, error)
+	GetAllAssociations() (*[]ModelAssociation, error)
 }
 
 type CacheRepository interface {
-	GetSchema(tableName string, ctx context.Context) (*Schema, error)
-	StoreSchema(schemas *[]Schema, ctx context.Context) error
+	GetModel(name string, ctx context.Context) (*Model, error)
+	SetModels(schemas *map[string]Model, ctx context.Context) error
+
+	GetAssociation(name string, ctx context.Context) (*ModelAssociation, error)
+	SetAssociations(associations *map[string]ModelAssociation, ctx context.Context) error
 }

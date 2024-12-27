@@ -38,21 +38,20 @@ type ConfigStore struct {
 	Store    configStorer
 	APIRepo  api.APIPersistentRepository
 	CronRepo api.CronPersistentRepository
+	OrmRepo  orm_schema.PersistentRepository
 }
 
 type CacheStore struct {
-	Store         cacheStorer
-	APIRepo       api.APICacheRepository
-	CronRepo      api.CronCacheRepository
-	OrmSchemaRepo orm_schema.CacheRepository
+	Store    cacheStorer
+	APIRepo  api.APICacheRepository
+	CronRepo api.CronCacheRepository
+	OrmRepo  orm_schema.CacheRepository
 }
 
 type DataStore struct {
-	Store         dataStorer
-	RawQueryRepo  resolvable.RawQueryRepository
-	DumpRepo      resolvable.DbDumpRepository
-	OrmSchemaRepo orm_schema.PersistentRepository
-	OrmQueryRepo  resolvable.OrmQueryBuilderRepository
+	Store        dataStorer
+	RawQueryRepo resolvable.RawQueryRepository
+	DumpRepo     resolvable.DbDumpRepository
 }
 
 type AppCacheStore struct {

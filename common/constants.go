@@ -9,7 +9,7 @@ const (
 	DependencyAppCacheRepo
 	DependencyDbDumpRepo
 	DependencyLogger
-	DependencyOrmSchemaRepo
+	DependencyOrmCacheRepo
 	DependencyOrmQueryRepo
 )
 
@@ -27,9 +27,10 @@ const (
 )
 
 const (
-	RedisApis    = "api"
-	RedisCrons   = "cron"
-	RedisSchemas = "schema"
+	RedisApis        = "api"
+	RedisCrons       = "cron"
+	RedisSchemas     = "schema"
+	RedisAssociatons = "association"
 )
 
 const (
@@ -101,4 +102,10 @@ const (
 	OrmUpdate = "update"
 	OrmInsert = "insert"
 	OrmDelete = "delete"
+)
+
+const (
+	DatabaseTypeString  = "string"
+	DatabaseTypeNumber  = "number"
+	DatabaseTypeBoolean = "boolean"
 )
