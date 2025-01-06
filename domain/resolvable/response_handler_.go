@@ -9,7 +9,7 @@ import (
 	"github.com/fatih/structs"
 )
 
-type ResponseResolvable struct {
+type Response struct {
 	ResponseCode        string       `json:"responseCode" mapstructure:"responseCode"`
 	ResponseDescription string       `json:"responseDescription" mapstructure:"responseDescription"`
 	Data                responseData `json:"data" mapstructure:"data"`
@@ -26,7 +26,7 @@ type errorsData struct {
 	Validation []string `json:"validation" mapstructure:"validation"`
 }
 
-func (r *ResponseResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
+func (r *Response) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	requestState := common.GetCtxState(ctx)
 	reqData := GetRequestData(ctx)
 
@@ -52,7 +52,7 @@ func (r *ResponseResolvable) Resolve(ctx context.Context, dependencies map[commo
 		return nil, fmt.Errorf("response channel not found")
 	}
 
-	if responseChannel, ok := resChanUncasted.(chan ResponseResolvable); ok {
+	if responseChannel, ok := resChanUncasted.(chan Response); ok {
 		r.channelSend(responseChannel, ctx)
 	} else {
 		return nil, fmt.Errorf("method Resolve: response channel type assertion failed")
@@ -61,7 +61,7 @@ func (r *ResponseResolvable) Resolve(ctx context.Context, dependencies map[commo
 	return nil, nil
 }
 
-func (r *ResponseResolvable) ManualSend(resChan chan ResponseResolvable, pErr error, ctx context.Context) {
+func (r *Response) ManualSend(resChan chan Response, pErr error, ctx context.Context) {
 	if !common.GetResponseSent(ctx) {
 		if pErr != nil {
 			r.addError(pErr)
@@ -76,7 +76,7 @@ func (r *ResponseResolvable) ManualSend(resChan chan ResponseResolvable, pErr er
 	}
 }
 
-func (r *ResponseResolvable) channelSend(resChan chan ResponseResolvable, ctx context.Context) {
+func (r *Response) channelSend(resChan chan Response, ctx context.Context) {
 	if ok := common.SetResponseSent(ctx); ok {
 		if reqData := GetRequestData(ctx); reqData != nil {
 			reqData.AggregatedResponse = structs.Map(r)
@@ -89,7 +89,7 @@ func (r *ResponseResolvable) channelSend(resChan chan ResponseResolvable, ctx co
 	}
 }
 
-func (r *ResponseResolvable) AddValidationErrors(vErrs []requestvalidator.ValidationError) {
+func (r *Response) AddValidationErrors(vErrs []requestvalidator.ValidationError) {
 	if r.Data.Errors == nil {
 		r.Data.Errors = &errorsData{}
 	}
@@ -102,7 +102,7 @@ func (r *ResponseResolvable) AddValidationErrors(vErrs []requestvalidator.Valida
 	}
 }
 
-func (r *ResponseResolvable) addError(err error) {
+func (r *Response) addError(err error) {
 	if r.Data.Errors == nil {
 		r.Data.Errors = &errorsData{}
 	}

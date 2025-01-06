@@ -17,7 +17,7 @@ import (
 	"github.com/samber/lo"
 )
 
-type apiCallResolvable struct {
+type apiCall struct {
 	Method  string         `json:"method" mapstructure:"method"`
 	URL     Resolvable     `json:"url" mapstructure:"url"`
 	Headers map[string]any `json:"headers" mapstructure:"headers"`
@@ -56,7 +56,7 @@ type apiMetadata struct {
 	Error      string    `json:"error" mapstructure:"error"`
 }
 
-func (a *apiCallResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
+func (a *apiCall) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	callData, err := a.createCallData(ctx, dependencies)
 	if err != nil {
 		return nil, fmt.Errorf("apiCallResolvable: could not create calldata: %s", err)
@@ -71,7 +71,7 @@ func (a *apiCallResolvable) Resolve(ctx context.Context, dependencies map[common
 	return callData, nil
 }
 
-func (a *apiCallResolvable) createCallData(ctx context.Context, dependencies map[common.IntIota]any) (*callData, error) {
+func (a *apiCall) createCallData(ctx context.Context, dependencies map[common.IntIota]any) (*callData, error) {
 	var callData callData
 	callData.Metadata = a.createMetadata()
 	request, err := a.createRequest(ctx, dependencies)
@@ -83,14 +83,14 @@ func (a *apiCallResolvable) createCallData(ctx context.Context, dependencies map
 	return &callData, nil
 }
 
-func (a *apiCallResolvable) createMetadata() *apiMetadata {
+func (a *apiCall) createMetadata() *apiMetadata {
 	return &apiMetadata{
 		Timeout: a.Timeout,
 		Async:   a.Async,
 	}
 }
 
-func (a *apiCallResolvable) createRequest(ctx context.Context, dependencies map[common.IntIota]any) (*apiRequest, error) {
+func (a *apiCall) createRequest(ctx context.Context, dependencies map[common.IntIota]any) (*apiRequest, error) {
 	var request apiRequest
 
 	allowedMethods := []string{"GET", "POST"}
@@ -105,13 +105,13 @@ func (a *apiCallResolvable) createRequest(ctx context.Context, dependencies map[
 	}
 	request.URL = fmt.Sprint(resolvedURL)
 
-	if bodyResolved, err := resolveIfNested(a.Body, ctx, dependencies); err != nil {
+	if bodyResolved, err := resolveMaybe(a.Body, ctx, dependencies); err != nil {
 		return nil, fmt.Errorf("could not resolve request body: %s", err)
 	} else if err := mapstructure.Decode(bodyResolved, &request.Body); err != nil {
 		return nil, fmt.Errorf("could not decode resolved request body: %s", err)
 	}
 
-	if headersResolved, err := resolveIfNested(a.Headers, ctx, dependencies); err != nil {
+	if headersResolved, err := resolveMaybe(a.Headers, ctx, dependencies); err != nil {
 		return nil, fmt.Errorf("could not resolve headers: %s", err)
 	} else if err := mapstructure.Decode(headersResolved, &request.Headers); err != nil {
 		return nil, fmt.Errorf("could not decode resolved headers: %s", err)

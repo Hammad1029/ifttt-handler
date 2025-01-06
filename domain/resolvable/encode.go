@@ -13,12 +13,12 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type encodeResolvable struct {
+type encode struct {
 	Input Resolvable `json:"input" mapstructure:"input"`
 	Alg   string     `json:"alg" mapstructure:"alg"`
 }
 
-func (e *encodeResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
+func (e *encode) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	inputResolved, err := e.Input.Resolve(ctx, dependencies)
 	if err != nil {
 		return nil, err

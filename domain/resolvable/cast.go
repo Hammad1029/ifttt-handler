@@ -8,16 +8,16 @@ import (
 	"strconv"
 )
 
-type castResolvable struct {
+type cast struct {
 	Input any    `json:"input" mapstructure:"input"`
 	To    string `json:"to" mapstructure:"to"`
 }
 
-func (c *castResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
+func (c *cast) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	if c.To != common.CastToString && c.To != common.CastToNumber && c.To != common.CastToBoolean {
 		return nil, fmt.Errorf("cast to %s failed: datatype not found", c.To)
 	}
-	resolved, err := resolveIfNested(c.Input, ctx, dependencies)
+	resolved, err := resolveMaybe(c.Input, ctx, dependencies)
 	if err != nil {
 		return nil, err
 	}

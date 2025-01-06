@@ -31,7 +31,7 @@ type apis struct {
 
 type api_trigger_flow_json struct {
 	If      api.Condition `json:"if" mapstructure:"if"`
-	Trigger uint          `json:"trigger" mapstructure:"trigger"`
+	Trigger string        `json:"trigger" mapstructure:"trigger"`
 }
 
 type trigger_flows struct {

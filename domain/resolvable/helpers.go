@@ -12,56 +12,64 @@ import (
 
 func resolvableFactory(rType string) resolvableInterface {
 	switch rType {
-	case AccessorJqResolvable:
-		return &jqResolvable{}
-	case AccessorGetRequestResolvable:
-		return &getRequestResolvable{}
-	case AccessorGetResponseResolvable:
-		return &getResponseResolvable{}
-	case AccessorGetStoreResolvable:
-		return &getStoreResolvable{}
-	case AccessorGetConstResolvable:
-		return &getConstResolvable{}
-	case AccessorArithmetic:
+	case accessorJq:
+		return &jq{}
+	case accessorGetRequest:
+		return &getRequest{}
+	case accessorGetResponse:
+		return &getResponse{}
+	case accessorGetStore:
+		return &getStore{}
+	case accessorGetConst:
+		return &getConst{}
+	case accessorArithmetic:
 		return &arithmetic{}
-	case AccessorQueryResolvable:
-		return &queryResolvable{}
-	case AccessorApiCallResolvable:
-		return &apiCallResolvable{}
-	case AccessorSetResResolvable:
-		return &setResResolvable{}
-	case AccessorSetStoreResolvable:
-		return &setStoreResolvable{}
-	case AccessorSetLogResolvable:
-		return &setLogResolvable{}
-	case AccessorResponseResolvable:
-		return &ResponseResolvable{}
-	case AccessorPreConfigResolvable:
-		return &getPreConfigResolvable{}
-	case AccessorStringInterpolationResolvable:
-		return &stringInterpolationResolvable{}
-	case AccessorEncodeResolvable:
-		return &encodeResolvable{}
-	case AccessorSetCacheResolvable:
-		return &setCacheResolvable{}
-	case AccessorGetCacheResolvable:
-		return &getCacheResolvable{}
-	case AccessorUUIDResolvable:
-		return &uuidResolvable{}
-	case AccessorHeadersResolvable:
-		return &getHeadersResolvable{}
-	case AccessorDbDumpResolvable:
-		return &dbDumpResolvable{}
-	case AccessorCastResolvable:
-		return &castResolvable{}
-	case AccessorOrmResolvable:
-		return &ormResolvable{}
+	case accessorQuery:
+		return &query{}
+	case accessorApiCall:
+		return &apiCall{}
+	case accessorSetRes:
+		return &setRes{}
+	case accessorSetStore:
+		return &setStore{}
+	case accessorSetLog:
+		return &setLog{}
+	case accessorResponse:
+		return &Response{}
+	case accessorPreConfig:
+		return &getPreConfig{}
+	case accessorStringInterpolation:
+		return &stringInterpolation{}
+	case accessorEncode:
+		return &encode{}
+	case accessorSetCache:
+		return &setCache{}
+	case accessorGetCache:
+		return &getCache{}
+	case accessorUUID:
+		return &generateUUID{}
+	case accessorHeaders:
+		return &getHeaders{}
+	case accessorCast:
+		return &cast{}
+	case accessorOrm:
+		return &orm{}
+	case accessorForEach:
+		return &forEach{}
+	case accessorGetIter:
+		return &getIter{}
+	case accessorDateInput:
+		return &dateInput{}
+	case accessorDateManipulator:
+		return &dateManipulator{}
+	case accessorDateFunc:
+		return &dateFunc{}
 	default:
 		return nil
 	}
 }
 
-func resolveIfNested(original any, ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
+func resolveMaybe(original any, ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	var err error
 
 	switch o := original.(type) {
@@ -84,7 +92,7 @@ func resolveIfNested(original any, ctx context.Context, dependencies map[common.
 					if err := mapstructure.Decode(o, &mapCloned); err != nil {
 						return nil, err
 					}
-					return resolveMap(&mapCloned, ctx, dependencies)
+					return resolveMapMaybe(&mapCloned, ctx, dependencies)
 				}
 			case reflect.Slice, reflect.Array:
 				{
@@ -92,7 +100,7 @@ func resolveIfNested(original any, ctx context.Context, dependencies map[common.
 					if err := mapstructure.Decode(o, &oArr); err != nil {
 						return nil, err
 					}
-					return resolveSlice(&oArr, ctx, dependencies)
+					return resolveSliceMaybe(&oArr, ctx, dependencies)
 				}
 			default:
 				return original, nil
@@ -101,7 +109,7 @@ func resolveIfNested(original any, ctx context.Context, dependencies map[common.
 	}
 }
 
-func resolveMap(
+func resolveMapMaybe(
 	m *map[string]any, ctx context.Context, dependencies map[common.IntIota]any,
 ) (map[string]any, error) {
 	var wg sync.WaitGroup
@@ -118,7 +126,7 @@ func resolveMap(
 			case <-cancelCtx.Done():
 				return
 			default:
-				if resVal, err := resolveIfNested(v, cancelCtx, dependencies); err != nil {
+				if resVal, err := resolveMaybe(v, cancelCtx, dependencies); err != nil {
 					cancel(err)
 				} else {
 					resolvedMap.Store(k, resVal)
@@ -135,33 +143,33 @@ func resolveMap(
 	return common.SyncMapUnsync(&resolvedMap), nil
 }
 
-func resolveSlice(s *[]any, ctx context.Context, dependencies map[common.IntIota]any,
+func resolveSliceMaybe(s *[]any, ctx context.Context, dependencies map[common.IntIota]any,
 ) ([]any, error) {
 	var wg sync.WaitGroup
 	cancelCtx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 
-	resolvedSlice := []any{}
+	resolvedSlice := make([]any, len(*s))
 	mtx := sync.Mutex{}
 
-	for _, value := range *s {
+	for idx, value := range *s {
 		wg.Add(1)
-		go func(v any) {
+		go func(i int, v any) {
 			defer wg.Done()
 			select {
 			case <-cancelCtx.Done():
 				return
 			default:
-				if resVal, err := resolveIfNested(v, cancelCtx, dependencies); err != nil {
+				if resVal, err := resolveMaybe(v, cancelCtx, dependencies); err != nil {
 					cancel(err)
 				} else {
 					mtx.Lock()
-					resolvedSlice = append(resolvedSlice, resVal)
+					resolvedSlice[i] = resVal
 					mtx.Unlock()
 				}
 				return
 			}
-		}(value)
+		}(idx, value)
 	}
 
 	wg.Wait()
@@ -169,4 +177,16 @@ func resolveSlice(s *[]any, ctx context.Context, dependencies map[common.IntIota
 		return nil, fmt.Errorf("could not perform concurrent resolve on slice: %s", err)
 	}
 	return resolvedSlice, nil
+}
+
+func ResolveArrayMust(
+	resolvables *[]Resolvable, ctx context.Context, dependencies map[common.IntIota]any,
+) error {
+	for _, r := range *resolvables {
+		common.LogWithTracer(common.LogSystem, fmt.Sprintf("resolving %s", r.ResolveType), r, false, ctx)
+		if _, err := r.Resolve(ctx, dependencies); err != nil {
+			return err
+		}
+	}
+	return nil
 }

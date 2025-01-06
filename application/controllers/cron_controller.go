@@ -29,7 +29,7 @@ func cronController(cronJobName string, core *core.ServerCore, parentCtx context
 
 	requestData := request_data.RequestData{}
 	requestData.Initialize()
-	resChan := make(chan resolvable.ResponseResolvable, 1)
+	resChan := make(chan resolvable.Response, 1)
 
 	var contextState sync.Map
 	contextState.Store(common.ContextLogStage, common.LogStageInitation)
@@ -72,7 +72,7 @@ func cronController(cronJobName string, core *core.ServerCore, parentCtx context
 			"Cron received: %s | Start time: %s", cronJobName, startTime.String(),
 		))
 		core.Logger.Error("could not assign tracer", err)
-		res := &resolvable.ResponseResolvable{
+		res := &resolvable.Response{
 			ResponseCode:        "500",
 			ResponseDescription: "Could not assign tracer",
 		}
@@ -91,7 +91,7 @@ func cronController(cronJobName string, core *core.ServerCore, parentCtx context
 		defer cancel(err)
 		common.LogWithTracer(common.LogSystem,
 			fmt.Sprintf("cron not found | path: %s", cronJobName), err, true, ctx)
-		res := &resolvable.ResponseResolvable{
+		res := &resolvable.Response{
 			ResponseCode:        "404",
 			ResponseDescription: "Cron not found",
 		}
@@ -106,7 +106,7 @@ func cronController(cronJobName string, core *core.ServerCore, parentCtx context
 	if err := core.PreparePreConfig(job.PreConfig, ctx); err != nil {
 		defer cancel(err)
 		common.LogWithTracer(common.LogSystem, "could not prepare pre config", err, true, ctx)
-		res := &resolvable.ResponseResolvable{
+		res := &resolvable.Response{
 			ResponseCode:        "500",
 			ResponseDescription: "Could not prepare pre config",
 		}
@@ -122,10 +122,10 @@ func cronController(cronJobName string, core *core.ServerCore, parentCtx context
 			cancel(err)
 		}
 
-		var res resolvable.ResponseResolvable
+		var res resolvable.Response
 		err := context.Cause(cancelCtx)
 		if err != nil {
-			res = resolvable.ResponseResolvable{
+			res = resolvable.Response{
 				ResponseCode:        common.ResponseCodeSystemError,
 				ResponseDescription: common.ResponseDescriptionSystemError,
 			}

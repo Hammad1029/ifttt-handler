@@ -10,30 +10,29 @@ import (
 	"github.com/itchyny/gojq"
 )
 
-type jqResolvable struct {
+type jq struct {
 	Query any `json:"query" mapstructure:"query"`
 	Input any `json:"input" mapstructure:"input"`
 }
 
-func (j *jqResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
-	queryResolved, err := resolveIfNested(j.Query, ctx, dependencies)
+func (j *jq) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
+	queryResolved, err := resolveMaybe(j.Query, ctx, dependencies)
 	if err != nil {
 		return nil, err
 	}
-	inputResolved, err := resolveIfNested(j.Input, ctx, dependencies)
+	inputResolved, err := resolveMaybe(j.Input, ctx, dependencies)
+	if err != nil {
+		return nil, err
+	}
+	jqCompatibleInput, err := convertToGoJQCompatible(inputResolved)
 	if err != nil {
 		return nil, err
 	}
 
-	return runJQQuery(fmt.Sprint(queryResolved), inputResolved)
+	return runJQQuery(fmt.Sprint(queryResolved), jqCompatibleInput)
 }
 
 func runJQQuery(queryString string, input any) (any, error) {
-	jqInput, err := convertToGoJQCompatible(input)
-	if err != nil {
-		return nil, err
-	}
-
 	if queryString[0] != '.' {
 		queryString = "." + queryString
 	}
@@ -43,7 +42,7 @@ func runJQQuery(queryString string, input any) (any, error) {
 	}
 
 	var resultVals []any
-	resultIter := query.Run((any)(jqInput))
+	resultIter := query.Run((any)(input))
 
 	for {
 		v, ok := resultIter.Next()
@@ -54,7 +53,7 @@ func runJQQuery(queryString string, input any) (any, error) {
 			if haltErr, ok := err.(*gojq.HaltError); ok && haltErr.Value() == nil {
 				break
 			}
-			return nil, fmt.Errorf("invalid jq setup with query %s: %s", queryString, err)
+			return nil, err
 		}
 		resultVals = append(resultVals, v)
 	}
@@ -76,6 +75,7 @@ func convertToGoJQCompatible(input any) (any, error) {
 	default:
 		{
 			marshalled, err := json.Marshal(input)
+			fmt.Print(string(marshalled))
 			if err != nil {
 				return nil, err
 			}

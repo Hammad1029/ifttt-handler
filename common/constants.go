@@ -1,13 +1,12 @@
 package common
 
 const (
-	DateTimeFormat = "2006-01-02T15:04:05.000"
+	DateTimeFormat = "2006-01-02 15:04:05.000"
 )
 
 const (
 	DependencyRawQueryRepo = iota
 	DependencyAppCacheRepo
-	DependencyDbDumpRepo
 	DependencyLogger
 	DependencyOrmCacheRepo
 	DependencyOrmQueryRepo
@@ -24,6 +23,7 @@ const (
 	ContextExternalExecTime
 	ContextResponseSent
 	ContextLogStage
+	ContextIter
 )
 
 const (
@@ -77,7 +77,6 @@ const (
 )
 
 const (
-	ExternalTripDump  = "dump"
 	ExternalTripQuery = "query"
 	ExternalTripApi   = "api"
 )
@@ -108,4 +107,16 @@ const (
 	DatabaseTypeString  = "string"
 	DatabaseTypeNumber  = "number"
 	DatabaseTypeBoolean = "boolean"
+)
+
+const (
+	AssociationsHasOne        = "hasOne"
+	AssociationsHasMany       = "hasMany"
+	AssociationsBelongsTo     = "belongsTo"
+	AssociationsBelongsToMany = "belongsToMany"
+)
+
+const (
+	DateOperatorAdd      = "+"
+	DateOperatorSubtract = "-"
 )

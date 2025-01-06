@@ -40,12 +40,12 @@ type TriggerFlow struct {
 	Description string               `json:"description" mapstructure:"description"`
 	Class       Class                `json:"class" mapstructure:"class"`
 	StartState  uint                 `json:"startState" mapstructure:"startState"`
-	Rules       map[uint]*Rule       `json:"rules" mapstructure:"rules"`
+	Rules       map[string]*Rule     `json:"rules" mapstructure:"rules"`
 	BranchFlows map[uint]*BranchFlow `json:"branchFlows" mapstructure:"branchFlows"`
 }
 
 type BranchFlow struct {
-	Rule   uint          `json:"rule" mapstructure:"rule"`
+	Rule   string        `json:"rule" mapstructure:"rule"`
 	States map[uint]uint `json:"states" mapstructure:"states"`
 }
 

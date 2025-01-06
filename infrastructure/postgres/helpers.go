@@ -39,7 +39,7 @@ func (t *trigger_flows) toDomain() (*api.TriggerFlow, error) {
 		Name:        t.Name,
 		Description: t.Description,
 		StartState:  t.StartState,
-		Rules:       map[uint]*api.Rule{},
+		Rules:       map[string]*api.Rule{},
 		BranchFlows: map[uint]*api.BranchFlow{},
 	}
 	for _, r := range t.Rules {
@@ -48,7 +48,7 @@ func (t *trigger_flows) toDomain() (*api.TriggerFlow, error) {
 			return nil,
 				fmt.Errorf("could not convert to domain rule: %s", err)
 		}
-		domanTFlow.Rules[r.ID] = dRule
+		domanTFlow.Rules[r.Name] = dRule
 	}
 
 	if err := json.Unmarshal(t.BranchFlows.Bytes, &domanTFlow.BranchFlows); err != nil {
@@ -84,9 +84,9 @@ func (a *apis) toDomain() (*api.Api, error) {
 		return nil, err
 	}
 
-	triggerFlowMap := make(map[uint]trigger_flows)
+	triggerFlowMap := make(map[string]trigger_flows)
 	for _, tFlow := range a.Triggers {
-		triggerFlowMap[tFlow.ID] = tFlow
+		triggerFlowMap[tFlow.Name] = tFlow
 	}
 
 	for _, tc := range tConditions {
@@ -126,9 +126,9 @@ func (c *crons) toDomain() (*api.Cron, error) {
 			fmt.Errorf("could not cast pgApi: %s", err)
 	}
 
-	triggerFlowMap := make(map[uint]trigger_flows)
+	triggerFlowMap := make(map[string]trigger_flows)
 	for _, tFlow := range c.TriggerFlowRef {
-		triggerFlowMap[tFlow.ID] = tFlow
+		triggerFlowMap[tFlow.Name] = tFlow
 	}
 
 	for _, tc := range tConditions {

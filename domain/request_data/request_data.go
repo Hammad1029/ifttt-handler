@@ -26,7 +26,6 @@ func (r *RequestData) Initialize() {
 	r.Store = &sync.Map{}
 	r.Response = &sync.Map{}
 	r.ExternalTrips = &sync.Map{}
-	r.ExternalTrips.Store(common.ExternalTripDump, &[]map[string]any{})
 	r.ExternalTrips.Store(common.ExternalTripApi, &[]map[string]any{})
 	r.ExternalTrips.Store(common.ExternalTripQuery, &[]map[string]any{})
 }

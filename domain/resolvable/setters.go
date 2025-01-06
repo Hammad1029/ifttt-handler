@@ -6,17 +6,17 @@ import (
 	"ifttt/handler/common"
 )
 
-type setResResolvable map[string]any
+type setRes map[string]any
 
-type setStoreResolvable map[string]any
+type setStore map[string]any
 
-type setLogResolvable struct {
+type setLog struct {
 	LogData any    `json:"logData" mapstructure:"logData"`
 	LogType string `json:"logType" mapstructure:"logType"`
 }
 
-func (s *setResResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
-	resolvedMap, err := resolveMap((*map[string]any)(s), ctx, dependencies)
+func (s *setRes) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
+	resolvedMap, err := resolveMapMaybe((*map[string]any)(s), ctx, dependencies)
 	if err != nil {
 		return nil, err
 	}
@@ -34,8 +34,8 @@ func (s *setResResolvable) Resolve(ctx context.Context, dependencies map[common.
 	return nil, nil
 }
 
-func (s *setStoreResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
-	resolvedMap, err := resolveMap((*map[string]any)(s), ctx, dependencies)
+func (s *setStore) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
+	resolvedMap, err := resolveMapMaybe((*map[string]any)(s), ctx, dependencies)
 	if err != nil {
 		return nil, err
 	}
@@ -53,8 +53,8 @@ func (s *setStoreResolvable) Resolve(ctx context.Context, dependencies map[commo
 	return nil, nil
 }
 
-func (s *setLogResolvable) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
-	logDataResolved, err := resolveIfNested(s.LogData, ctx, dependencies)
+func (s *setLog) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
+	logDataResolved, err := resolveMaybe(s.LogData, ctx, dependencies)
 	if err != nil {
 		return nil, err
 	}

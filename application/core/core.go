@@ -54,7 +54,6 @@ func NewServerCore() (*ServerCore, error) {
 	serverCore.ResolvableDependencies = map[common.IntIota]any{
 		common.DependencyRawQueryRepo: serverCore.DataStore.RawQueryRepo,
 		common.DependencyAppCacheRepo: serverCore.AppCacheStore.AppCacheRepo,
-		common.DependencyDbDumpRepo:   serverCore.DataStore.DumpRepo,
 		common.DependencyOrmCacheRepo: serverCore.CacheStore.OrmRepo,
 	}
 
@@ -131,7 +130,7 @@ func (c *ServerCore) InitExecution(triggerFlows *[]api.TriggerCondition, ctx con
 }
 
 func (c *ServerCore) execRule(
-	state uint, branchMap map[uint]*api.BranchFlow, rules map[uint]*api.Rule, triggerId uint, ctx context.Context,
+	state uint, branchMap map[uint]*api.BranchFlow, rules map[string]*api.Rule, triggerId uint, ctx context.Context,
 ) error {
 	common.LogWithTracer(common.LogSystem,
 		fmt.Sprintf("trigger %d: executing state %d", triggerId, state), nil, false, ctx)
@@ -145,7 +144,7 @@ func (c *ServerCore) execRule(
 
 	rule, ok := rules[branch.Rule]
 	if !ok {
-		return fmt.Errorf("trigger %d: rule %d for state %d not found", triggerId, branch.Rule, state)
+		return fmt.Errorf("trigger %d: rule %s for state %d not found", triggerId, branch.Rule, state)
 	} else {
 		common.LogWithTracer(common.LogSystem,
 			fmt.Sprintf("trigger %d: executing rule %d | %s", triggerId, rule.ID, rule.Name), nil, false, ctx)
@@ -153,20 +152,20 @@ func (c *ServerCore) execRule(
 
 	common.LogWithTracer(common.LogSystem,
 		fmt.Sprintf("trigger %d rule %d | executing Pre", triggerId, rule.ID), nil, false, ctx)
-	if err := c.resolveArray(rule.Pre, ctx); err != nil {
+	if err := resolvable.ResolveArrayMust(&rule.Pre, ctx, c.ResolvableDependencies); err != nil {
 		return fmt.Errorf("could not resolve pre: %s", err)
 	}
 
 	common.LogWithTracer(common.LogSystem,
-		fmt.Sprintf("trigger %d rule %d | evaluating cases", triggerId, rule.ID), nil, false, ctx)
+		fmt.Sprintf("trigger %d rule %s | evaluating cases", triggerId, rule.Name), nil, false, ctx)
 	rVal, err := c.solveRuleSwitch(&rule.Switch, triggerId, rule.ID, ctx)
 	if err != nil {
 		return fmt.Errorf("could not solve switch: %s", err)
 	}
 
 	common.LogWithTracer(common.LogSystem,
-		fmt.Sprintf("trigger %d rule %d | executing finally", triggerId, rule.ID), nil, false, ctx)
-	if err := c.resolveArray(rule.Finally, ctx); err != nil {
+		fmt.Sprintf("trigger %d rule %s | executing finally", triggerId, rule.Name), nil, false, ctx)
+	if err := resolvable.ResolveArrayMust(&rule.Finally, ctx, c.ResolvableDependencies); err != nil {
 		return fmt.Errorf("could not resolve finally: %s", err)
 	}
 
@@ -206,18 +205,8 @@ func (c *ServerCore) solveRuleSwitch(s *api.RuleSwitch, triggerId uint, ruleId u
 }
 
 func (c *ServerCore) doRuleCase(s *api.RuleSwitchCase, ctx context.Context) (uint, error) {
-	if err := c.resolveArray(s.Do, ctx); err != nil {
+	if err := resolvable.ResolveArrayMust(&s.Do, ctx, c.ResolvableDependencies); err != nil {
 		return 0, err
 	}
 	return s.Return, nil
-}
-
-func (c *ServerCore) resolveArray(resolvables []resolvable.Resolvable, ctx context.Context) error {
-	for _, r := range resolvables {
-		common.LogWithTracer(common.LogSystem, fmt.Sprintf("resolving %s", r.ResolveType), r, false, ctx)
-		if _, err := r.Resolve(ctx, c.ResolvableDependencies); err != nil {
-			return err
-		}
-	}
-	return nil
 }

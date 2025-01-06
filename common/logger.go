@@ -23,35 +23,35 @@ func CreateLogrus() *logrus.Logger {
 }
 
 func LogWithTracer(user string, msg string, data any, err bool, ctx context.Context) {
-	ctxState := GetCtxState(ctx)
-	logCtx, ok := ctxState.Load(ContextLogger)
-	if !ok {
-		return
-	}
-	logger, ok := logCtx.(*logrus.Logger)
-	if !ok {
-		return
-	}
-	tracer, ok := ctxState.Load(ContextTracer)
-	if !ok {
-		return
-	}
-	logStage, ok := ctxState.Load(ContextLogStage)
-	if !ok {
-		return
-	}
+	// ctxState := GetCtxState(ctx)
+	// logCtx, ok := ctxState.Load(ContextLogger)
+	// if !ok {
+	// 	return
+	// }
+	// logger, ok := logCtx.(*logrus.Logger)
+	// if !ok {
+	// 	return
+	// }
+	// tracer, ok := ctxState.Load(ContextTracer)
+	// if !ok {
+	// 	return
+	// }
+	// logStage, ok := ctxState.Load(ContextLogStage)
+	// if !ok {
+	// 	return
+	// }
 
-	logFields := logrus.Fields{
-		"stage":  logStage,
-		"tracer": tracer,
-		"user":   user,
-		"data":   data,
-	}
-	if err {
-		logger.WithFields(logFields).Error(msg)
-	} else {
-		logger.WithFields(logFields).Info(msg)
-	}
+	// logFields := logrus.Fields{
+	// 	"stage":  logStage,
+	// 	"tracer": tracer,
+	// 	"user":   user,
+	// 	"data":   data,
+	// }
+	// if err {
+	// 	logger.WithFields(logFields).Error(msg)
+	// } else {
+	// 	logger.WithFields(logFields).Info(msg)
+	// }
 }
 
 type LogEnd struct {

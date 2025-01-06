@@ -8,6 +8,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 const mysqlDb = "mysql"
@@ -33,7 +34,9 @@ func (m *mysqlStore) init(config map[string]any) error {
 		"%s:%s@tcp(%s:%s)/%s?parseTime=true",
 		m.config.Username, m.config.Password, m.config.Host, m.config.Port, m.config.Database,
 	)
-	if db, err := gorm.Open(mysql.Open(connectionString), &gorm.Config{}); err != nil {
+	if db, err := gorm.Open(mysql.Open(connectionString), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Info),
+	}); err != nil {
 		return err
 	} else {
 		m.store = db
@@ -46,6 +49,5 @@ func (m *mysqlStore) createDataStore() *DataStore {
 	return &DataStore{
 		Store:        m,
 		RawQueryRepo: mysqlInfra.NewMySqlRawQueryRepository(mysqlBase),
-		DumpRepo:     mysqlInfra.NewMySqlDbDumpRepository(mysqlBase),
 	}
 }

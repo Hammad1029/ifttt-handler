@@ -41,7 +41,7 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 		logData := common.LogEnd{Start: time.Now()}
 		requestData := request_data.RequestData{}
 		requestData.Initialize()
-		resChan := make(chan resolvable.ResponseResolvable, 1)
+		resChan := make(chan resolvable.Response, 1)
 
 		var contextState sync.Map
 		contextState.Store(common.ContextLogStage, common.LogStageInitation)
@@ -83,7 +83,7 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 				"Request recieved: %s | Start time: %s", c.Path(), logData.Start.String(),
 			))
 			core.Logger.Error("could not assign tracer", err)
-			res := &resolvable.ResponseResolvable{
+			res := &resolvable.Response{
 				ResponseCode:        "500",
 				ResponseDescription: "Could not assign tracer",
 			}
@@ -102,7 +102,7 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 			defer cancel(err)
 			common.LogWithTracer(common.LogSystem,
 				fmt.Sprintf("api not found | path: %s", c.Path()), err, true, ctx)
-			res := &resolvable.ResponseResolvable{
+			res := &resolvable.Response{
 				ResponseCode:        "404",
 				ResponseDescription: "API not found",
 			}
@@ -121,7 +121,7 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 			if err := c.BodyParser(&requestData.ReqBody); err != nil {
 				defer cancel(err)
 				common.LogWithTracer(common.LogSystem, "could not parse body", err, true, ctx)
-				res := &resolvable.ResponseResolvable{
+				res := &resolvable.Response{
 					ResponseCode:        "400",
 					ResponseDescription: "Error in parsing body",
 				}
@@ -142,7 +142,7 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 		if err := requestvalidator.ValidateMap(&api.Request, &requestData.ReqBody); len(err) != 0 {
 			defer cancel(nil)
 			common.LogWithTracer(common.LogSystem, "request validation failed", err, false, ctx)
-			res := &resolvable.ResponseResolvable{
+			res := &resolvable.Response{
 				ResponseCode:        "400",
 				ResponseDescription: "Validation error",
 			}
@@ -157,7 +157,7 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 		if err := core.PreparePreConfig(api.PreConfig, ctx); err != nil {
 			defer cancel(err)
 			common.LogWithTracer(common.LogSystem, "could not prepare pre config", err, true, ctx)
-			res := &resolvable.ResponseResolvable{
+			res := &resolvable.Response{
 				ResponseCode:        "500",
 				ResponseDescription: "Could not prepare pre config",
 			}
@@ -175,13 +175,13 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 				cancel(err)
 			}
 
-			res := resolvable.ResponseResolvable{
+			res := resolvable.Response{
 				ResponseCode:        common.ResponseCodeExhaust,
 				ResponseDescription: common.ResponseDescriptionExhaust,
 			}
 			err := context.Cause(cancelCtx)
 			if err != nil {
-				res = resolvable.ResponseResolvable{
+				res = resolvable.Response{
 					ResponseCode:        common.ResponseCodeSystemError,
 					ResponseDescription: common.ResponseDescriptionSystemError,
 				}
