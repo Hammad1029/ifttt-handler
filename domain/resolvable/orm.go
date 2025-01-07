@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"ifttt/handler/common"
 	"ifttt/handler/domain/orm_schema"
-	"sort"
-	"strconv"
 	"sync"
 
 	"github.com/samber/lo"
@@ -76,10 +74,13 @@ func (o *orm) transformResults(
 	} else {
 		pKeyAccessor = currModel.PrimaryKey
 	}
-	grouped := lo.GroupBy(*rawResults, func(row map[string]any) string {
-		return fmt.Sprint(row[pKeyAccessor])
+	pkeyOrder := lo.Uniq(lo.Map(*rawResults, func(row map[string]any, _ int) any {
+		return row[pKeyAccessor]
+	}))
+	grouped := lo.GroupBy(*rawResults, func(row map[string]any) any {
+		return row[pKeyAccessor]
 	})
-	delete(grouped, fmt.Sprint(nil))
+	delete(grouped, nil)
 
 	transformed := sync.Map{}
 	wg := sync.WaitGroup{}
@@ -88,7 +89,7 @@ func (o *orm) transformResults(
 
 	for k, g := range grouped {
 		wg.Add(1)
-		go func(pKey string, rowGroup []map[string]any) {
+		go func(pKey any, rowGroup []map[string]any) {
 			defer wg.Done()
 			select {
 			case <-cancelCtx.Done():
@@ -116,12 +117,16 @@ func (o *orm) transformResults(
 						childAlias := fmt.Sprintf("%s_%s", alias, p.As)
 						childGroups, err := o.transformResults(&rowGroup, childAlias, childModel, &p.Project, &p.Populate, ormRepo, ctx)
 						if err != nil {
-							cancel(fmt.Errorf("could not transform alias %s for model %s", p.As, p.Model))
+							cancel(fmt.Errorf("could not transform alias %s for model %s: %s", childAlias, p.Model, err))
 							return
 						}
-						if (association.Type == common.AssociationsHasOne ||
-							association.Type == common.AssociationsBelongsTo) && len(childGroups) > 0 {
-							transformedRow[p.As] = childGroups[0]
+						if association.Type == common.AssociationsHasOne ||
+							association.Type == common.AssociationsBelongsTo {
+							if len(childGroups) > 0 {
+								transformedRow[p.As] = childGroups[0]
+							} else {
+								transformedRow[p.As] = nil
+							}
 						} else {
 							transformedRow[p.As] = childGroups
 						}
@@ -133,30 +138,18 @@ func (o *orm) transformResults(
 	}
 	wg.Wait()
 
-	pKeysString := []string{}
-	transformed.Range(func(key, _ any) bool {
-		pKeysString = append(pKeysString, fmt.Sprint(key))
-		return true
-	})
-
-	pKeysSorted := make([]int, len(pKeysString))
-	for i, str := range pKeysString {
-		if num, err := strconv.Atoi(str); err != nil {
-			return nil, fmt.Errorf("error converting pkey to int: %v", err)
-		} else {
-			pKeysSorted[i] = num
-		}
-	}
-	sort.Ints(pKeysSorted)
-
 	flattened := make([]map[string]any, 0, len(grouped))
-	for _, k := range pKeysSorted {
-		value, _ := transformed.Load(fmt.Sprint(k))
-		if mapped, ok := value.(map[string]any); ok {
-			flattened = append(flattened, mapped)
-		} else {
+	for _, pKey := range pkeyOrder {
+		if pKey == nil {
+			continue
+		} else if row, ok := transformed.Load(pKey); !ok {
+			cancel(fmt.Errorf("row for pkey %d not found", pKey))
+			break
+		} else if mapped, ok := row.(map[string]any); !ok {
 			cancel(fmt.Errorf("could not cast sync.Map value to map[string]any"))
 			break
+		} else {
+			flattened = append(flattened, mapped)
 		}
 	}
 
@@ -177,17 +170,24 @@ func (o *orm) projectRow(
 		} else {
 			accessor = p.Column
 		}
-		if colVal, ok := (*row)[accessor]; ok && colVal != nil {
-			projectedRow[p.As] = colVal
+
+		if colVal, ok := (*row)[accessor]; !ok || colVal == nil {
+			switch p.DataType {
+			case common.DatabaseTypeString:
+				projectedRow[p.As] = new(string)
+			case common.DatabaseTypeNumber:
+				projectedRow[p.As] = new(int)
+			case common.DatabaseTypeBoolean:
+				projectedRow[p.As] = new(bool)
+			default:
+				projectedRow[p.As] = nil
+			}
 		} else if p.DataType == common.DatabaseTypeString {
-			projectedRow[p.As] = new(string)
-		} else if p.DataType == common.DatabaseTypeNumber {
-			projectedRow[p.As] = new(int)
-		} else if p.DataType == common.DatabaseTypeBoolean {
-			projectedRow[p.As] = new(bool)
+			projectedRow[p.As] = fmt.Sprint(colVal)
 		} else {
 			projectedRow[p.As] = colVal
 		}
+
 	}
 	return projectedRow
 }
