@@ -74,22 +74,27 @@ func (o *orm) transformResults(
 	} else {
 		pKeyAccessor = currModel.PrimaryKey
 	}
-	pkeyOrder := lo.Uniq(lo.Map(*rawResults, func(row map[string]any, _ int) any {
-		return row[pKeyAccessor]
+	pKeyOrder := lo.Uniq(lo.FilterMap(*rawResults, func(row map[string]any, _ int) (any, bool) {
+		return row[pKeyAccessor], row[pKeyAccessor] != nil
 	}))
 	grouped := lo.GroupBy(*rawResults, func(row map[string]any) any {
 		return row[pKeyAccessor]
 	})
 	delete(grouped, nil)
 
-	transformed := sync.Map{}
+	flattened := make([]map[string]any, len(pKeyOrder))
 	wg := sync.WaitGroup{}
 	cancelCtx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 
-	for k, g := range grouped {
+	for idx, key := range pKeyOrder {
+		rowGroup, ok := grouped[key]
+		if !ok {
+			return nil, fmt.Errorf("group for key %s not found", key)
+		}
+
 		wg.Add(1)
-		go func(pKey any, rowGroup []map[string]any) {
+		go func(idx int, rowGroup []map[string]any) {
 			defer wg.Done()
 			select {
 			case <-cancelCtx.Done():
@@ -104,6 +109,7 @@ func (o *orm) transformResults(
 						transformedRow = o.projectRow(&baseRow, &currModel.Projections, alias)
 					}
 					for _, p := range *populate {
+
 						childModel, err := ormRepo.GetModel(p.Model, ctx)
 						if err != nil || childModel == nil {
 							cancel(err)
@@ -131,27 +137,12 @@ func (o *orm) transformResults(
 							transformedRow[p.As] = childGroups
 						}
 					}
-					transformed.Store(pKey, transformedRow)
+					flattened[idx] = transformedRow
 				}
 			}
-		}(k, g)
+		}(idx, rowGroup)
 	}
 	wg.Wait()
-
-	flattened := make([]map[string]any, 0, len(grouped))
-	for _, pKey := range pkeyOrder {
-		if pKey == nil {
-			continue
-		} else if row, ok := transformed.Load(pKey); !ok {
-			cancel(fmt.Errorf("row for pkey %d not found", pKey))
-			break
-		} else if mapped, ok := row.(map[string]any); !ok {
-			cancel(fmt.Errorf("could not cast sync.Map value to map[string]any"))
-			break
-		} else {
-			flattened = append(flattened, mapped)
-		}
-	}
 
 	if err := context.Cause(cancelCtx); err != nil {
 		return nil, err
