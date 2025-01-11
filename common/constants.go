@@ -10,6 +10,7 @@ const (
 	DependencyLogger
 	DependencyOrmCacheRepo
 	DependencyOrmQueryRepo
+	DependencyResponseProfileCacheRepo
 )
 
 var ReservedPaths = []string{"^/test/.*", "^/auth/.*"}
@@ -27,10 +28,11 @@ const (
 )
 
 const (
-	RedisApis        = "api"
-	RedisCrons       = "cron"
-	RedisSchemas     = "schema"
-	RedisAssociatons = "association"
+	RedisApis            = "api"
+	RedisCrons           = "cron"
+	RedisSchemas         = "schema"
+	RedisAssociatons     = "association"
+	RedisResponseProfile = "response_profile"
 )
 
 const (
@@ -60,12 +62,28 @@ const (
 )
 
 const (
-	ResponseCodeSuccess            = "00"
-	ResponseDescriptionSuccess     = "SUCCESS"
-	ResponseCodeExhaust            = "100"
-	ResponseDescriptionExhaust     = "EXHAUSTED RESPONSE"
-	ResponseCodeSystemError        = "200"
-	ResponseDescriptionSystemError = "SYSTEM ERROR"
+	ResponseCodeSuccess IntIota = iota
+	ResponseCodeExhaust
+	ResponseCodeSystemMalfunction
+	ResponseCodeBadRequest
+)
+
+var ResponseCodes = map[IntIota]string{
+	ResponseCodeSuccess:           "000",
+	ResponseCodeExhaust:           "010",
+	ResponseCodeBadRequest:        "400",
+	ResponseCodeSystemMalfunction: "500",
+}
+
+const (
+	InternalResponseCode        = "responseCode"
+	InternalResponseDescription = "responseDescription"
+	InternalResponseData        = "data"
+	InternalResponseErrors      = "errors"
+)
+
+const (
+	ResponseHeaderTracer = "tracer"
 )
 
 const (

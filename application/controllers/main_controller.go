@@ -84,13 +84,15 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 			))
 			core.Logger.Error("could not assign tracer", err)
 			res := &resolvable.Response{
-				ResponseCode:        "500",
+				ResponseCode:        common.ResponseCodes[common.ResponseCodeSystemMalfunction],
 				ResponseDescription: "Could not assign tracer",
 			}
 			res.ManualSend(resChan, err, ctx)
-			return c.JSON(res)
+			return res.FiberReturn(c, ctx, core.ResolvableDependencies)
 		} else {
-			contextState.Store(common.ContextTracer, tracer.String())
+			tracerStr := tracer.String()
+			c.Set(common.ResponseHeaderTracer, tracerStr)
+			contextState.Store(common.ContextTracer, tracerStr)
 			common.LogWithTracer(common.LogSystem, fmt.Sprintf(
 				"Request recieved: %s | Start time: %s", c.Path(), logData.Start.String(),
 			), nil, false, ctx)
@@ -103,11 +105,11 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 			common.LogWithTracer(common.LogSystem,
 				fmt.Sprintf("api not found | path: %s", c.Path()), err, true, ctx)
 			res := &resolvable.Response{
-				ResponseCode:        "404",
+				ResponseCode:        common.ResponseCodes[common.ResponseCodeBadRequest],
 				ResponseDescription: "API not found",
 			}
 			res.ManualSend(resChan, err, ctx)
-			return c.JSON(res)
+			return res.FiberReturn(c, ctx, core.ResolvableDependencies)
 		} else {
 			logData.ApiName = api.Name
 			logData.ApiPath = api.Path
@@ -122,11 +124,11 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 				defer cancel(err)
 				common.LogWithTracer(common.LogSystem, "could not parse body", err, true, ctx)
 				res := &resolvable.Response{
-					ResponseCode:        "400",
+					ResponseCode:        common.ResponseCodes[common.ResponseCodeBadRequest],
 					ResponseDescription: "Error in parsing body",
 				}
 				res.ManualSend(resChan, err, ctx)
-				return c.JSON(res)
+				return res.FiberReturn(c, ctx, core.ResolvableDependencies)
 			}
 			common.LogWithTracer(common.LogSystem, "request parsed", map[string]any{
 				"body":    requestData.ReqBody,
@@ -143,12 +145,14 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 			defer cancel(nil)
 			common.LogWithTracer(common.LogSystem, "request validation failed", err, false, ctx)
 			res := &resolvable.Response{
-				ResponseCode:        "400",
+				ResponseCode:        common.ResponseCodes[common.ResponseCodeBadRequest],
 				ResponseDescription: "Validation error",
 			}
-			res.AddValidationErrors(err)
+			for _, e := range err {
+				res.AddError(e.ErrorInfo)
+			}
 			res.ManualSend(resChan, nil, ctx)
-			return c.JSON(res)
+			return res.FiberReturn(c, ctx, core.ResolvableDependencies)
 		} else {
 			common.LogWithTracer(common.LogSystem, "request validation passed", nil, false, ctx)
 		}
@@ -158,11 +162,11 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 			defer cancel(err)
 			common.LogWithTracer(common.LogSystem, "could not prepare pre config", err, true, ctx)
 			res := &resolvable.Response{
-				ResponseCode:        "500",
+				ResponseCode:        common.ResponseCodes[common.ResponseCodeSystemMalfunction],
 				ResponseDescription: "Could not prepare pre config",
 			}
 			res.ManualSend(resChan, err, ctx)
-			return c.JSON(res)
+			return res.FiberReturn(c, ctx, core.ResolvableDependencies)
 		} else {
 			common.LogWithTracer(common.LogSystem, "pre config resolution done", nil, false, ctx)
 		}
@@ -176,20 +180,18 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 			}
 
 			res := resolvable.Response{
-				ResponseCode:        common.ResponseCodeExhaust,
-				ResponseDescription: common.ResponseDescriptionExhaust,
+				ResponseCode: common.ResponseCodes[common.ResponseCodeExhaust],
 			}
 			err := context.Cause(cancelCtx)
 			if err != nil {
 				res = resolvable.Response{
-					ResponseCode:        common.ResponseCodeSystemError,
-					ResponseDescription: common.ResponseDescriptionSystemError,
+					ResponseCode: common.ResponseCodes[common.ResponseCodeSystemMalfunction],
 				}
 			}
 			res.ManualSend(resChan, err, ctx)
 		}()
 
 		res := <-resChan
-		return c.JSON(res)
+		return res.FiberReturn(c, ctx, core.ResolvableDependencies)
 	}
 }

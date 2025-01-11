@@ -52,9 +52,10 @@ func NewServerCore() (*ServerCore, error) {
 	logger := common.CreateLogrus()
 	serverCore.Logger = logger
 	serverCore.ResolvableDependencies = map[common.IntIota]any{
-		common.DependencyRawQueryRepo: serverCore.DataStore.RawQueryRepo,
-		common.DependencyAppCacheRepo: serverCore.AppCacheStore.AppCacheRepo,
-		common.DependencyOrmCacheRepo: serverCore.CacheStore.OrmRepo,
+		common.DependencyRawQueryRepo:             serverCore.DataStore.RawQueryRepo,
+		common.DependencyAppCacheRepo:             serverCore.AppCacheStore.AppCacheRepo,
+		common.DependencyOrmCacheRepo:             serverCore.CacheStore.OrmRepo,
+		common.DependencyResponseProfileCacheRepo: serverCore.CacheStore.ResponseProfileRepo,
 	}
 
 	return &serverCore, nil

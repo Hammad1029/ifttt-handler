@@ -8,6 +8,7 @@ import (
 	"ifttt/handler/application/core"
 	"ifttt/handler/common"
 	"ifttt/handler/domain/orm_schema"
+	responseprofiles "ifttt/handler/domain/response_profiles"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -26,22 +27,33 @@ func Init() {
 	app := fiber.New()
 	ctx := context.Background()
 
+	currCore.Logger.Info("creating APIs")
 	if err := createApis(app, ctx); err != nil {
 		panic(err)
 	}
 
+	currCore.Logger.Info("creating Cron Jobs")
 	if err := createCronJobs(ctx); err != nil {
 		panic(err)
 	}
 
+	currCore.Logger.Info("getting and storing models")
 	if err := orm_schema.GetAndStoreModels(
 		currCore.ConfigStore.OrmRepo, currCore.CacheStore.OrmRepo, ctx,
 	); err != nil {
 		panic(err)
 	}
 
+	currCore.Logger.Info("getting and storing associations")
 	if err := orm_schema.GetAndStoreAssociations(
 		currCore.ConfigStore.OrmRepo, currCore.CacheStore.OrmRepo, ctx,
+	); err != nil {
+		panic(err)
+	}
+
+	currCore.Logger.Info("getting and storing response profiles")
+	if err := responseprofiles.GetAndStoreProfiles(
+		currCore.ConfigStore.ResponseProfileRepo, currCore.CacheStore.ResponseProfileRepo, ctx,
 	); err != nil {
 		panic(err)
 	}

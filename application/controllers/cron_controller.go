@@ -126,8 +126,7 @@ func cronController(cronJobName string, core *core.ServerCore, parentCtx context
 		err := context.Cause(cancelCtx)
 		if err != nil {
 			res = resolvable.Response{
-				ResponseCode:        common.ResponseCodeSystemError,
-				ResponseDescription: common.ResponseDescriptionSystemError,
+				ResponseCode: common.ResponseCodes[common.ResponseCodeSystemMalfunction],
 			}
 		}
 		res.ManualSend(resChan, err, ctx)

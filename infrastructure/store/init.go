@@ -7,6 +7,7 @@ import (
 	"ifttt/handler/domain/api"
 	"ifttt/handler/domain/orm_schema"
 	"ifttt/handler/domain/resolvable"
+	responseprofiles "ifttt/handler/domain/response_profiles"
 	"strings"
 )
 
@@ -35,17 +36,19 @@ type appCacheStorer interface {
 }
 
 type ConfigStore struct {
-	Store    configStorer
-	APIRepo  api.APIPersistentRepository
-	CronRepo api.CronPersistentRepository
-	OrmRepo  orm_schema.PersistentRepository
+	Store               configStorer
+	APIRepo             api.APIPersistentRepository
+	CronRepo            api.CronPersistentRepository
+	OrmRepo             orm_schema.PersistentRepository
+	ResponseProfileRepo responseprofiles.PersistentRepository
 }
 
 type CacheStore struct {
-	Store    cacheStorer
-	APIRepo  api.APICacheRepository
-	CronRepo api.CronCacheRepository
-	OrmRepo  orm_schema.CacheRepository
+	Store               cacheStorer
+	APIRepo             api.APICacheRepository
+	CronRepo            api.CronCacheRepository
+	OrmRepo             orm_schema.CacheRepository
+	ResponseProfileRepo responseprofiles.CacheRepository
 }
 
 type DataStore struct {
