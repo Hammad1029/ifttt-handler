@@ -7,8 +7,8 @@ import (
 	"ifttt/handler/application/controllers"
 	"ifttt/handler/application/core"
 	"ifttt/handler/common"
+	eventprofiles "ifttt/handler/domain/event_profiles"
 	"ifttt/handler/domain/orm_schema"
-	responseprofiles "ifttt/handler/domain/response_profiles"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -52,8 +52,8 @@ func Init() {
 	}
 
 	currCore.Logger.Info("getting and storing response profiles")
-	if err := responseprofiles.GetAndStoreProfiles(
-		currCore.ConfigStore.ResponseProfileRepo, currCore.CacheStore.ResponseProfileRepo, ctx,
+	if err := eventprofiles.GetAndStoreProfiles(
+		currCore.ConfigStore.EventProfileRepo, currCore.CacheStore.EventProfileRepo, ctx,
 	); err != nil {
 		panic(err)
 	}

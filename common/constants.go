@@ -10,7 +10,7 @@ const (
 	DependencyLogger
 	DependencyOrmCacheRepo
 	DependencyOrmQueryRepo
-	DependencyResponseProfileCacheRepo
+	DependencyEventProfileCacheRepo
 )
 
 var ReservedPaths = []string{"^/test/.*", "^/auth/.*"}
@@ -19,7 +19,7 @@ const (
 	ContextState IntIota = iota
 	ContextLogger
 	ContextRequestData
-	ContextResponseChannel
+	ContextEventChannel
 	ContextTracer
 	ContextExternalExecTime
 	ContextResponseSent
@@ -28,11 +28,11 @@ const (
 )
 
 const (
-	RedisApis            = "api"
-	RedisCrons           = "cron"
-	RedisSchemas         = "schema"
-	RedisAssociatons     = "association"
-	RedisResponseProfile = "response_profile"
+	RedisApis         = "api"
+	RedisCrons        = "cron"
+	RedisSchemas      = "schema"
+	RedisAssociatons  = "association"
+	RedisEventProfile = "event_profile"
 )
 
 const (
@@ -62,28 +62,24 @@ const (
 )
 
 const (
-	ResponseCodeSuccess IntIota = iota
-	ResponseCodeExhaust
-	ResponseCodeSystemMalfunction
-	ResponseCodeBadRequest
+	EventSuccess IntIota = iota
+	EventExhaust
+	EventSystemMalfunction
+	EventNotFound
+	EventBadRequest
 )
 
-var ResponseCodes = map[IntIota]string{
-	ResponseCodeSuccess:           "000",
-	ResponseCodeExhaust:           "010",
-	ResponseCodeBadRequest:        "400",
-	ResponseCodeSystemMalfunction: "500",
+var EventCodes = map[IntIota]string{
+	EventSuccess:           "000",
+	EventExhaust:           "010",
+	EventBadRequest:        "400",
+	EventNotFound:          "404",
+	EventSystemMalfunction: "500",
 }
 
 const (
-	InternalResponseCode        = "responseCode"
-	InternalResponseDescription = "responseDescription"
-	InternalResponseData        = "data"
-	InternalResponseErrors      = "errors"
-)
-
-const (
-	ResponseHeaderTracer = "tracer"
+	ResponseHeaderTracer      = "tracer"
+	ResponseHeaderContentType = "Content-Type"
 )
 
 const (
@@ -138,3 +134,8 @@ const (
 	DateOperatorAdd      = "+"
 	DateOperatorSubtract = "-"
 )
+
+var ResponseDefaultMalfunction = map[string]string{
+	"responseCode":        EventCodes[EventSystemMalfunction],
+	"responseDescription": "Could not map response to profile",
+}

@@ -1,4 +1,4 @@
-package responseprofiles
+package eventprofiles
 
 import "context"
 
@@ -8,5 +8,5 @@ type PersistentRepository interface {
 
 type CacheRepository interface {
 	StoreProfiles(profiles *map[string]Profile, ctx context.Context) error
-	GetProfileByCode(code string, ctx context.Context) (*Profile, error)
+	GetProfileByTrigger(trigger string, ctx context.Context) (*Profile, error)
 }

@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"ifttt/handler/domain/api"
+	eventprofiles "ifttt/handler/domain/event_profiles"
 	"ifttt/handler/domain/orm_schema"
 	requestvalidator "ifttt/handler/domain/request_validator.go"
 	"ifttt/handler/domain/resolvable"
-	responseprofiles "ifttt/handler/domain/response_profiles"
 
 	"github.com/mitchellh/mapstructure"
 )
@@ -172,48 +172,27 @@ func (o *orm_association) toDomain() (*orm_schema.ModelAssociation, error) {
 	return &domain, nil
 }
 
-func (p *response_profile) toDomain() (*responseprofiles.Profile, error) {
-	dProfile := responseprofiles.Profile{
-		MappedCode: p.MappedCode,
-		HttpStatus: p.HttpStatus,
+func (p *event_profile) toDomain() (*eventprofiles.Profile, error) {
+	dProfile := eventprofiles.Profile{
+		ID:                 p.ID,
+		Trigger:            p.Trigger,
+		ResponseHTTPStatus: p.ResponseHTTPStatus,
+		Internal:           p.Internal,
+		UseBody:            p.UseBody,
 	}
-	if dCode, err := p.Code.toDomain(); err != nil {
+	if err := json.Unmarshal(p.ResponseBody.Bytes, &dProfile.ResponseBody); err != nil {
 		return nil, err
-	} else {
-		dProfile.Code = *dCode
 	}
-	if dDescription, err := p.Description.toDomain(); err != nil {
-		return nil, err
-	} else {
-		dProfile.Description = *dDescription
-	}
-	if dData, err := p.Data.toDomain(); err != nil {
-		return nil, err
-	} else {
-		dProfile.Data = *dData
-	}
-	if dErrors, err := p.Errors.toDomain(); err != nil {
-		return nil, err
-	} else {
-		dProfile.Errors = *dErrors
-	}
-	if p.MappedProfiles != nil && len(*p.MappedProfiles) > 0 {
-		if dP, err := (*p.MappedProfiles)[0].toDomain(); err != nil {
-			return nil, err
-		} else {
-			dProfile.MappedProfile = dP
+	if p.MappedProfiles != nil {
+		mappedProfiles := make([]eventprofiles.Profile, 0, len(*p.MappedProfiles))
+		for _, mp := range *p.MappedProfiles {
+			if dP, err := mp.toDomain(); err != nil {
+				return nil, err
+			} else {
+				mappedProfiles = append(mappedProfiles, *dP)
+			}
 		}
+		dProfile.MappedProfiles = &mappedProfiles
 	}
 	return &dProfile, nil
-}
-
-func (p *response_profile_field) toDomain() (*responseprofiles.Field, error) {
-	dField := responseprofiles.Field{
-		Key:      p.Key,
-		Disabled: p.Disabled,
-	}
-	if err := json.Unmarshal(p.Default.Bytes, &dField.Default); err != nil {
-		return nil, err
-	}
-	return &dField, nil
 }

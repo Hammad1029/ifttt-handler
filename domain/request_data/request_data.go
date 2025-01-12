@@ -9,6 +9,7 @@ import (
 
 type RequestData struct {
 	sync.Mutex
+	Errors             []error           `json:"errors" mapstructure:"errors"`
 	ReqBody            map[string]any    `json:"reqBody" mapstructure:"reqBody"`
 	Headers            map[string]string `json:"headers" mapstructure:"headers"`
 	AggregatedResponse map[string]any    `json:"aggregatedResponse" mapstructure:"aggregatedResponse"`
@@ -19,6 +20,7 @@ type RequestData struct {
 }
 
 func (r *RequestData) Initialize() {
+	r.Errors = []error{}
 	r.ReqBody = make(map[string]any)
 	r.Headers = make(map[string]string)
 	r.AggregatedResponse = make(map[string]any)
@@ -39,6 +41,12 @@ func (r *RequestData) UnSync() *map[string]any {
 		"store":               common.SyncMapUnsync(r.Store),
 		"response":            common.SyncMapUnsync(r.Response),
 		"externalTrips":       common.SyncMapUnsync(r.ExternalTrips),
+	}
+}
+
+func (e *RequestData) AddErrors(errArgs ...error) {
+	if len(errArgs) != 0 {
+		e.Errors = append(e.Errors, errArgs...)
 	}
 }
 

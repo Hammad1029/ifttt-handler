@@ -143,7 +143,6 @@ func (o *orm) transformResults(
 		}(idx, rowGroup)
 	}
 	wg.Wait()
-
 	if err := context.Cause(cancelCtx); err != nil {
 		return nil, err
 	}

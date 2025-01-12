@@ -41,18 +41,19 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 		logData := common.LogEnd{Start: time.Now()}
 		requestData := request_data.RequestData{}
 		requestData.Initialize()
-		resChan := make(chan resolvable.Response, 1)
+		eventChan := make(chan resolvable.Event, 1)
 
 		var contextState sync.Map
 		contextState.Store(common.ContextLogStage, common.LogStageInitation)
 		contextState.Store(common.ContextLogger, core.Logger)
 		contextState.Store(common.ContextExternalExecTime, uint64(0))
 		contextState.Store(common.ContextResponseSent, false)
-		contextState.Store(common.ContextResponseChannel, resChan)
+		contextState.Store(common.ContextEventChannel, eventChan)
 		contextState.Store(common.ContextRequestData, &requestData)
 
 		cancelCtx, cancel := context.WithCancelCause(parentCtx)
 		ctx := context.WithValue(cancelCtx, common.ContextState, &contextState)
+		defer cancel(nil)
 
 		go func(requestData *request_data.RequestData, logData *common.LogEnd, ctxState *sync.Map) {
 			<-cancelCtx.Done()
@@ -76,122 +77,109 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 				logData.Error != "", ctx)
 		}(&requestData, &logData, &contextState)
 
-		tracer, err := uuid.NewRandom()
-		if err != nil {
-			cancel(err)
-			core.Logger.Info(fmt.Sprintf(
-				"Request recieved: %s | Start time: %s", c.Path(), logData.Start.String(),
-			))
-			core.Logger.Error("could not assign tracer", err)
-			res := &resolvable.Response{
-				ResponseCode:        common.ResponseCodes[common.ResponseCodeSystemMalfunction],
-				ResponseDescription: "Could not assign tracer",
-			}
-			res.ManualSend(resChan, err, ctx)
-			return res.FiberReturn(c, ctx, core.ResolvableDependencies)
-		} else {
-			tracerStr := tracer.String()
-			c.Set(common.ResponseHeaderTracer, tracerStr)
-			contextState.Store(common.ContextTracer, tracerStr)
-			common.LogWithTracer(common.LogSystem, fmt.Sprintf(
-				"Request recieved: %s | Start time: %s", c.Path(), logData.Start.String(),
-			), nil, false, ctx)
-		}
-
-		contextState.Store(common.ContextLogStage, common.LogStageMemload)
-		api, err := core.CacheStore.APIRepo.GetApiByPath(c.Path(), ctx)
-		if api == nil || err != nil {
-			defer cancel(err)
-			common.LogWithTracer(common.LogSystem,
-				fmt.Sprintf("api not found | path: %s", c.Path()), err, true, ctx)
-			res := &resolvable.Response{
-				ResponseCode:        common.ResponseCodes[common.ResponseCodeBadRequest],
-				ResponseDescription: "API not found",
-			}
-			res.ManualSend(resChan, err, ctx)
-			return res.FiberReturn(c, ctx, core.ResolvableDependencies)
-		} else {
-			logData.ApiName = api.Name
-			logData.ApiPath = api.Path
-			common.LogWithTracer(common.LogSystem,
-				fmt.Sprintf("api found | path: %s | name: %s", api.Path, api.Name),
-				api, false, ctx)
-		}
-
-		if api.Method != http.MethodGet {
-			contextState.Store(common.ContextLogStage, common.LogStageParsing)
-			if err := c.BodyParser(&requestData.ReqBody); err != nil {
-				defer cancel(err)
-				common.LogWithTracer(common.LogSystem, "could not parse body", err, true, ctx)
-				res := &resolvable.Response{
-					ResponseCode:        common.ResponseCodes[common.ResponseCodeBadRequest],
-					ResponseDescription: "Error in parsing body",
-				}
-				res.ManualSend(resChan, err, ctx)
-				return res.FiberReturn(c, ctx, core.ResolvableDependencies)
-			}
-			common.LogWithTracer(common.LogSystem, "request parsed", map[string]any{
-				"body":    requestData.ReqBody,
-				"headers": requestData.Headers,
-			}, false, ctx)
-		}
-
-		for k, v := range c.GetReqHeaders() {
-			requestData.Headers[k] = strings.Join(v, ",")
-		}
-
-		contextState.Store(common.ContextLogStage, common.LogStageValidation)
-		if err := requestvalidator.ValidateMap(&api.Request, &requestData.ReqBody); len(err) != 0 {
-			defer cancel(nil)
-			common.LogWithTracer(common.LogSystem, "request validation failed", err, false, ctx)
-			res := &resolvable.Response{
-				ResponseCode:        common.ResponseCodes[common.ResponseCodeBadRequest],
-				ResponseDescription: "Validation error",
-			}
-			for _, e := range err {
-				res.AddError(e.ErrorInfo)
-			}
-			res.ManualSend(resChan, nil, ctx)
-			return res.FiberReturn(c, ctx, core.ResolvableDependencies)
-		} else {
-			common.LogWithTracer(common.LogSystem, "request validation passed", nil, false, ctx)
-		}
-
-		contextState.Store(common.ContextLogStage, common.LogStagePreConfig)
-		if err := core.PreparePreConfig(api.PreConfig, ctx); err != nil {
-			defer cancel(err)
-			common.LogWithTracer(common.LogSystem, "could not prepare pre config", err, true, ctx)
-			res := &resolvable.Response{
-				ResponseCode:        common.ResponseCodes[common.ResponseCodeSystemMalfunction],
-				ResponseDescription: "Could not prepare pre config",
-			}
-			res.ManualSend(resChan, err, ctx)
-			return res.FiberReturn(c, ctx, core.ResolvableDependencies)
-		} else {
-			common.LogWithTracer(common.LogSystem, "pre config resolution done", nil, false, ctx)
-		}
-
 		go func() {
-			defer cancel(nil)
+			if tracer, err := uuid.NewRandom(); err != nil {
+				requestData.AddErrors(err)
+				core.Logger.Info(fmt.Sprintf(
+					"Request recieved: %s | Start time: %s", c.Path(), logData.Start.String(),
+				))
+				cancel(err)
+				core.Logger.Error("could not assign tracer", err)
+				event := &resolvable.Event{Trigger: common.EventCodes[common.EventSystemMalfunction]}
+				event.ChannelSend(eventChan, ctx)
+				return
+			} else {
+				tracerStr := tracer.String()
+				c.Set(common.ResponseHeaderTracer, tracerStr)
+				c.Set(common.ResponseHeaderContentType, "application/json")
+				contextState.Store(common.ContextTracer, tracerStr)
+				common.LogWithTracer(common.LogSystem, fmt.Sprintf(
+					"Request recieved: %s | Start time: %s", c.Path(), logData.Start.String(),
+				), nil, false, ctx)
+			}
+
+			contextState.Store(common.ContextLogStage, common.LogStageMemload)
+			api, err := core.CacheStore.APIRepo.GetApiByPath(c.Path(), ctx)
+			if api == nil || err != nil {
+				requestData.AddErrors(err)
+				defer cancel(err)
+				common.LogWithTracer(common.LogSystem,
+					fmt.Sprintf("api not found | path: %s", c.Path()), err, true, ctx)
+				event := &resolvable.Event{Trigger: common.EventCodes[common.EventNotFound]}
+				event.ChannelSend(eventChan, ctx)
+				return
+			} else {
+				logData.ApiName = api.Name
+				logData.ApiPath = api.Path
+				common.LogWithTracer(common.LogSystem,
+					fmt.Sprintf("api found | path: %s | name: %s", api.Path, api.Name),
+					api, false, ctx)
+			}
+
+			if api.Method != http.MethodGet {
+				contextState.Store(common.ContextLogStage, common.LogStageParsing)
+				if err := c.BodyParser(&requestData.ReqBody); err != nil {
+					defer cancel(err)
+					requestData.AddErrors(err)
+					common.LogWithTracer(common.LogSystem, "could not parse body", err, true, ctx)
+					event := &resolvable.Event{Trigger: common.EventCodes[common.EventBadRequest]}
+					event.ChannelSend(eventChan, ctx)
+					return
+				}
+				common.LogWithTracer(common.LogSystem, "request parsed", map[string]any{
+					"body":    requestData.ReqBody,
+					"headers": requestData.Headers,
+				}, false, ctx)
+			}
+
+			for k, v := range c.GetReqHeaders() {
+				requestData.Headers[k] = strings.Join(v, ",")
+			}
+
+			contextState.Store(common.ContextLogStage, common.LogStageValidation)
+			if vErr := requestvalidator.ValidateMap(&api.Request, &requestData.ReqBody); len(vErr) != 0 {
+				defer cancel(nil)
+				err := requestvalidator.Normalize(vErr)
+				requestData.AddErrors(err...)
+				common.LogWithTracer(common.LogSystem, "request validation failed", vErr, false, ctx)
+				event := &resolvable.Event{Trigger: common.EventCodes[common.EventBadRequest]}
+				event.ChannelSend(eventChan, ctx)
+				return
+			} else {
+				common.LogWithTracer(common.LogSystem, "request validation passed", nil, false, ctx)
+			}
+
+			contextState.Store(common.ContextLogStage, common.LogStagePreConfig)
+			if err := core.PreparePreConfig(api.PreConfig, ctx); err != nil {
+				defer cancel(err)
+				requestData.AddErrors(err)
+				common.LogWithTracer(common.LogSystem, "could not prepare pre config", err, true, ctx)
+				event := &resolvable.Event{Trigger: common.EventCodes[common.EventSystemMalfunction]}
+				event.ChannelSend(eventChan, ctx)
+				return
+			} else {
+				common.LogWithTracer(common.LogSystem, "pre config resolution done", nil, false, ctx)
+			}
 
 			contextState.Store(common.ContextLogStage, common.LogStageExecution)
 			if err := core.InitExecution(api.Triggers, ctx); err != nil {
 				cancel(err)
 			}
-
-			res := resolvable.Response{
-				ResponseCode: common.ResponseCodes[common.ResponseCodeExhaust],
-			}
-			err := context.Cause(cancelCtx)
+			eventTrigger := common.EventCodes[common.EventExhaust]
+			err = context.Cause(cancelCtx)
 			if err != nil {
-				res = resolvable.Response{
-					ResponseCode: common.ResponseCodes[common.ResponseCodeSystemMalfunction],
-				}
+				eventTrigger = common.EventCodes[common.EventSystemMalfunction]
+				requestData.AddErrors(err)
 			}
-			res.ManualSend(resChan, err, ctx)
+			event := &resolvable.Event{Trigger: eventTrigger}
+			event.ChannelSend(eventChan, ctx)
 		}()
 
-		res := <-resChan
-		return res.FiberReturn(c, ctx, core.ResolvableDependencies)
+		eventRes := <-eventChan
+		if response, status, err := eventRes.HandlerTrigger(ctx, c.Context(), core.ResolvableDependencies); err != nil {
+			return c.Status(status).JSON(common.ResponseDefaultMalfunction)
+		} else {
+			return c.Status(status).JSON(response)
+		}
 	}
 }

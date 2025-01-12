@@ -6,6 +6,8 @@ import (
 	"ifttt/handler/domain/request_data"
 )
 
+type getErrors struct{}
+
 type getRequest struct{}
 
 type getResponse struct{}
@@ -25,6 +27,10 @@ func GetRequestData(ctx context.Context) *request_data.RequestData {
 		return reqData.(*request_data.RequestData)
 	}
 	return nil
+}
+
+func (r *getErrors) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
+	return GetRequestData(ctx).Errors, nil
 }
 
 func (r *getRequest) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {

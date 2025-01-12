@@ -15,6 +15,7 @@ type Resolvable struct {
 
 const (
 	accessorJq                  = "jq"
+	accessorGetErrors           = "getErrors"
 	accessorGetRequest          = "getReq"
 	accessorGetResponse         = "getRes"
 	accessorGetStore            = "getStore"
@@ -25,7 +26,7 @@ const (
 	accessorSetRes              = "setRes"
 	accessorSetStore            = "setStore"
 	accessorSetLog              = "log"
-	accessorResponse            = "sendRes"
+	accessorEvent               = "event"
 	accessorPreConfig           = "getPreConfig"
 	accessorStringInterpolation = "stringInterpolation"
 	accessorEncode              = "encode"
