@@ -48,7 +48,7 @@ func (f *forEach) Resolve(ctx context.Context, dependencies map[common.IntIota]a
 			default:
 				ctx = context.WithValue(ctx, common.ContextIter,
 					forEachElement{Element: inputIndirect.Index(idx).Interface(), Index: idx})
-				if err := ResolveArrayMust(f.Do, ctx, dependencies); err != nil {
+				if _, err := ResolveArrayMust(f.Do, ctx, dependencies); err != nil {
 					cancel(err)
 				}
 			}

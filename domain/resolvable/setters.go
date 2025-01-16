@@ -16,7 +16,7 @@ type setLog struct {
 }
 
 func (s *setRes) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
-	resolvedMap, err := resolveMapMaybe((*map[string]any)(s), ctx, dependencies)
+	resolvedMap, err := resolveMapMaybeParallel((*map[string]any)(s), ctx, dependencies)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +35,7 @@ func (s *setRes) Resolve(ctx context.Context, dependencies map[common.IntIota]an
 }
 
 func (s *setStore) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
-	resolvedMap, err := resolveMapMaybe((*map[string]any)(s), ctx, dependencies)
+	resolvedMap, err := resolveMapMaybeParallel((*map[string]any)(s), ctx, dependencies)
 	if err != nil {
 		return nil, err
 	}

@@ -30,7 +30,12 @@ func GetRequestData(ctx context.Context) *request_data.RequestData {
 }
 
 func (r *getErrors) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
-	return GetRequestData(ctx).Errors, nil
+	err := GetRequestData(ctx).Errors
+	errStr := make([]string, 0, len(err))
+	for _, e := range err {
+		errStr = append(errStr, e.Error())
+	}
+	return errStr, nil
 }
 
 func (r *getRequest) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/fatih/structs"
-	"github.com/mitchellh/mapstructure"
 )
 
 type query struct {
@@ -50,7 +49,27 @@ type RawQueryRepository interface {
 }
 
 func (q *query) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
-	queryData, err := q.createQueryData(ctx, dependencies)
+	var (
+		namedResolved      map[string]any
+		positionalResolved []any
+		err                error
+	)
+
+	if q.Named {
+		namedResolved, err = resolveMapMustParallel(&q.NamedParameters, ctx, dependencies)
+	} else {
+		positionalResolved, err = resolveArrayMustParallel(&q.PositionalParameters, ctx, dependencies)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("could resolve parameters for query: %s", err)
+	} else {
+		return q.init(positionalResolved, namedResolved, ctx, dependencies)
+	}
+}
+
+func (q *query) init(positional []any, named map[string]any, ctx context.Context, dependencies map[common.IntIota]any) (*queryData, error) {
+	queryData, err := q.createQueryData(positional, named, ctx, dependencies)
 	if err != nil {
 		return nil, fmt.Errorf("queryResolvable: could not create query data: %s", err)
 	}
@@ -64,43 +83,19 @@ func (q *query) Resolve(ctx context.Context, dependencies map[common.IntIota]any
 	return queryData, nil
 }
 
-func (q *query) createQueryData(ctx context.Context, dependencies map[common.IntIota]any) (*queryData, error) {
-	var queryData queryData
-	queryRequest, err := q.createQueryRequest(ctx, dependencies)
-	if err != nil {
-		return nil, fmt.Errorf("could not create query request: %s", err)
+func (q *query) createQueryData(positional []any, named map[string]any, ctx context.Context, dependencies map[common.IntIota]any) (*queryData, error) {
+	req := queryRequest{
+		QueryString:          q.QueryString,
+		Named:                q.Named,
+		NamedParameters:      named,
+		PositionalParameters: positional,
 	}
-	queryData.Request = queryRequest
-	queryData.Metadata = q.createQueryMetadata()
-	queryData.Results = &[]map[string]any{}
+	queryData := queryData{
+		Request:  &req,
+		Metadata: q.createQueryMetadata(),
+		Results:  &[]map[string]any{},
+	}
 	return &queryData, nil
-}
-
-func (q *query) createQueryRequest(ctx context.Context, dependencies map[common.IntIota]any) (*queryRequest, error) {
-	var req queryRequest
-
-	req.QueryString = q.QueryString
-	req.Named = q.Named
-
-	if req.Named {
-		parametersResolved, err := resolveMaybe(q.NamedParameters, ctx, dependencies)
-		if err != nil {
-			return nil, fmt.Errorf("could not resolve named parameters: %s", err)
-		}
-		if err := mapstructure.Decode(parametersResolved, &req.NamedParameters); err != nil {
-			return nil, fmt.Errorf("could not decode resolved named parameters to map[string]any: %s", err)
-		}
-	} else {
-		parametersResolved, err := resolveMaybe(q.PositionalParameters, ctx, dependencies)
-		if err != nil {
-			return nil, fmt.Errorf("could not resolve positional parameters: %s", err)
-		}
-		if err := mapstructure.Decode(parametersResolved, &req.PositionalParameters); err != nil {
-			return nil, fmt.Errorf("could not decode resolved positional parameters to []any: %s", err)
-		}
-	}
-
-	return &req, nil
 }
 
 func (q *query) createQueryMetadata() *queryMetadata {

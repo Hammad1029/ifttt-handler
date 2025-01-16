@@ -158,7 +158,8 @@ func (p *MySqlRawQueryRepository) Named(queryString string, parameters map[strin
 func (p *MySqlRawQueryRepository) getTableName(query string) string {
 	parts := strings.Fields(query)
 	for i, part := range parts {
-		if strings.ToUpper(part) == "INTO" || strings.ToUpper(part) == "UPDATE" {
+		if strings.ToUpper(part) == "INTO" ||
+			strings.ToUpper(part) == "UPDATE" || strings.ToUpper(part) == "FROM" {
 			if i+1 < len(parts) {
 				return strings.TrimSpace(parts[i+1])
 			}

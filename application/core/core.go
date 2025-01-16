@@ -153,7 +153,7 @@ func (c *ServerCore) execRule(
 
 	common.LogWithTracer(common.LogSystem,
 		fmt.Sprintf("trigger %d rule %d | executing Pre", triggerId, rule.ID), nil, false, ctx)
-	if err := resolvable.ResolveArrayMust(&rule.Pre, ctx, c.ResolvableDependencies); err != nil {
+	if _, err := resolvable.ResolveArrayMust(&rule.Pre, ctx, c.ResolvableDependencies); err != nil {
 		return fmt.Errorf("could not resolve pre: %s", err)
 	}
 
@@ -166,7 +166,7 @@ func (c *ServerCore) execRule(
 
 	common.LogWithTracer(common.LogSystem,
 		fmt.Sprintf("trigger %d rule %s | executing finally", triggerId, rule.Name), nil, false, ctx)
-	if err := resolvable.ResolveArrayMust(&rule.Finally, ctx, c.ResolvableDependencies); err != nil {
+	if _, err := resolvable.ResolveArrayMust(&rule.Finally, ctx, c.ResolvableDependencies); err != nil {
 		return fmt.Errorf("could not resolve finally: %s", err)
 	}
 
@@ -206,7 +206,7 @@ func (c *ServerCore) solveRuleSwitch(s *api.RuleSwitch, triggerId uint, ruleId u
 }
 
 func (c *ServerCore) doRuleCase(s *api.RuleSwitchCase, ctx context.Context) (uint, error) {
-	if err := resolvable.ResolveArrayMust(&s.Do, ctx, c.ResolvableDependencies); err != nil {
+	if _, err := resolvable.ResolveArrayMust(&s.Do, ctx, c.ResolvableDependencies); err != nil {
 		return 0, err
 	}
 	return s.Return, nil

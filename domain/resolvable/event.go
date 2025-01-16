@@ -37,14 +37,14 @@ func (e *Event) ChannelSend(eventChan chan Event, ctx context.Context) {
 	}
 }
 
-func (e *Event) HandlerTrigger(ctx context.Context, fiberCtx context.Context, dependencies map[common.IntIota]any) (map[string]any, int, error) {
+func (e *Event) HandlerTrigger(ctx context.Context, dependencies map[common.IntIota]any) (map[string]any, int, error) {
 	profileRepo, ok := dependencies[common.DependencyEventProfileCacheRepo].(eventprofiles.CacheRepository)
 	if !ok {
 		return nil, 0, fmt.Errorf("could not get event profile repo")
 	}
 
 	var useProfile *eventprofiles.Profile
-	if internalProfile, err := profileRepo.GetProfileByTrigger(e.Trigger, fiberCtx); err != nil {
+	if internalProfile, err := profileRepo.GetProfileByTrigger(e.Trigger, ctx); err != nil {
 		return nil, 0, err
 	} else if internalProfile == nil {
 		return nil, 0, fmt.Errorf("profile for trigger %s not found", e.Trigger)
@@ -55,11 +55,11 @@ func (e *Event) HandlerTrigger(ctx context.Context, fiberCtx context.Context, de
 	}
 
 	var response map[string]any
+	reqData := GetRequestData(ctx)
 	if !useProfile.UseBody {
-		reqData := GetRequestData(ctx)
 		response = common.SyncMapUnsync(reqData.Response)
-	} else if resolved, err := resolveMapMaybe(&useProfile.ResponseBody, ctx, dependencies); err != nil {
-		return nil, 0, err
+	} else if resolved, err := resolveMapMaybeParallel(&useProfile.ResponseBody, ctx, dependencies); err != nil {
+		return nil, useProfile.ResponseHTTPStatus, err
 	} else {
 		response = resolved
 	}

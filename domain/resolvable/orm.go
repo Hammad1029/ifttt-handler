@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"ifttt/handler/common"
 	"ifttt/handler/domain/orm_schema"
+	"strconv"
 	"sync"
 
 	"github.com/samber/lo"
@@ -23,14 +24,20 @@ type orm struct {
 }
 
 func (o *orm) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
+	if o.Query == nil {
+		return nil, fmt.Errorf("query resolvable is null")
+	}
+
 	ormRepo, ok := dependencies[common.DependencyOrmCacheRepo].(orm_schema.CacheRepository)
 	if !ok {
 		return nil, fmt.Errorf("could not cast orm repo")
 	}
 
-	if o.Query == nil {
-		return nil, fmt.Errorf("query resolvable is null")
-	}
+	var (
+		namedResolved      map[string]any
+		positionalResolved []any
+		err                error
+	)
 
 	model, err := ormRepo.GetModel(o.Model, ctx)
 	if err != nil {
@@ -38,21 +45,83 @@ func (o *orm) Resolve(ctx context.Context, dependencies map[common.IntIota]any) 
 	}
 
 	switch o.Operation {
-	case common.OrmSelect, common.OrmInsert:
-		if results, err := o.Query.Resolve(ctx, dependencies); err != nil {
-			return nil, err
-		} else if queryData, ok := results.(*queryData); !ok {
-			return nil, fmt.Errorf("could not cast results to query data")
-		} else if transformed, err := o.transformResults(
-			queryData.Results, model.Name, model, o.Project, o.Populate, ormRepo, ctx); err != nil {
-			return nil, err
-		} else {
-			queryData.Results = &transformed
-			return queryData, nil
-		}
+	case common.OrmSelect:
+		positionalResolved, err = resolveArrayMustParallel(&o.Query.PositionalParameters, ctx, dependencies)
+	case common.OrmInsert:
+		namedResolved, err = resolveMapMustParallel(&o.Query.NamedParameters, ctx, dependencies)
 	default:
 		return nil, fmt.Errorf("unsupported operation: %s", o.Operation)
 	}
+
+	if err != nil {
+		return nil, err
+	} else if err := o.verifyParameters(&positionalResolved, &namedResolved, model, ctx); err != nil {
+		return nil, err
+	} else if queryData, err := o.Query.init(positionalResolved, namedResolved, ctx, dependencies); err != nil {
+		return nil, err
+	} else if transformed, err := o.transformResults(
+		queryData.Results, model.Name, model, o.Project, o.Populate, ormRepo, ctx); err != nil {
+		return nil, err
+	} else {
+		queryData.Results = &transformed
+		return queryData, nil
+	}
+}
+
+func (o *orm) verifyParameters(
+	positional *[]any, named *map[string]any, model *orm_schema.Model, ctx context.Context,
+) error {
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+
+	wg := sync.WaitGroup{}
+	safeMap := sync.Map{}
+	available := make(map[string]orm_schema.Projection, len(model.Projections))
+	for _, p := range model.Projections {
+		available[p.Column] = p
+	}
+
+	if positional != nil {
+	}
+	if named != nil {
+		for key, param := range *named {
+			wg.Add(1)
+			go func(k string, v any) {
+				defer wg.Done()
+				projection, ok := available[k]
+				if !ok {
+					cancel(fmt.Errorf("config for column %s not found", k))
+				}
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					if sanitized, err := o.sanitize(v, true, &projection); err != nil {
+						cancel(err)
+					} else {
+						select {
+						case <-ctx.Done():
+							return
+						default:
+							safeMap.Store(k, sanitized)
+						}
+					}
+				}
+
+			}(key, param)
+		}
+		wg.Wait()
+
+		if err := context.Cause(ctx); err != nil {
+			return err
+		}
+		safeMap.Range(func(key, value any) bool {
+			(*named)[fmt.Sprint(key)] = value
+			return true
+		})
+	}
+
+	return nil
 }
 
 func (o *orm) transformResults(
@@ -102,42 +171,57 @@ func (o *orm) transformResults(
 			default:
 				{
 					baseRow := rowGroup[0]
-					var transformedRow map[string]any
+					var (
+						transformedRow map[string]any
+						err            error
+					)
 					if len(*customProjections) > 0 {
-						transformedRow = o.projectRow(&baseRow, customProjections, alias)
+						transformedRow, err = o.projectRow(&baseRow, customProjections, alias, ctx)
 					} else {
-						transformedRow = o.projectRow(&baseRow, &currModel.Projections, alias)
+						transformedRow, err = o.projectRow(&baseRow, &currModel.Projections, alias, ctx)
 					}
-					for _, p := range *populate {
+					if err != nil {
+						cancel(err)
+						return
+					}
+					select {
+					case <-ctx.Done():
+						return
+					default:
+						{
 
-						childModel, err := ormRepo.GetModel(p.Model, ctx)
-						if err != nil || childModel == nil {
-							cancel(err)
-							return
-						}
-						association := o.findAssociation(currModel, childModel)
-						if association == nil {
-							cancel(fmt.Errorf("association not found between %s and %s", currModel.Name, childModel.Name))
-							return
-						}
-						childAlias := fmt.Sprintf("%s_%s", alias, p.As)
-						childGroups, err := o.transformResults(&rowGroup, childAlias, childModel, &p.Project, &p.Populate, ormRepo, ctx)
-						if err != nil {
-							cancel(fmt.Errorf("could not transform alias %s for model %s: %s", childAlias, p.Model, err))
-							return
-						}
-						if association.Type == common.AssociationsHasOne ||
-							association.Type == common.AssociationsBelongsTo {
-							if len(childGroups) > 0 {
-								transformedRow[p.As] = childGroups[0]
-							} else {
-								transformedRow[p.As] = nil
+							for _, p := range *populate {
+
+								childModel, err := ormRepo.GetModel(p.Model, ctx)
+								if err != nil || childModel == nil {
+									cancel(err)
+									return
+								}
+								association := o.findAssociation(currModel, childModel)
+								if association == nil {
+									cancel(fmt.Errorf("association not found between %s and %s", currModel.Name, childModel.Name))
+									return
+								}
+								childAlias := fmt.Sprintf("%s_%s", alias, p.As)
+								childGroups, err := o.transformResults(&rowGroup, childAlias, childModel, &p.Project, &p.Populate, ormRepo, ctx)
+								if err != nil {
+									cancel(fmt.Errorf("could not transform alias %s for model %s: %s", childAlias, p.Model, err))
+									return
+								}
+								if association.Type == common.AssociationsHasOne ||
+									association.Type == common.AssociationsBelongsTo {
+									if len(childGroups) > 0 {
+										transformedRow[p.As] = childGroups[0]
+									} else {
+										transformedRow[p.As] = nil
+									}
+								} else {
+									transformedRow[p.As] = childGroups
+								}
 							}
-						} else {
-							transformedRow[p.As] = childGroups
+							flattened[idx] = transformedRow
 						}
 					}
-					flattened[idx] = transformedRow
 				}
 			}
 		}(idx, rowGroup)
@@ -150,36 +234,50 @@ func (o *orm) transformResults(
 }
 
 func (o *orm) projectRow(
-	row *map[string]any, projections *[]orm_schema.Projection, alias string,
-) map[string]any {
-	projectedRow := map[string]any{}
-	var accessor string
-	for _, p := range *projections {
-		if o.Operation == common.OrmSelect {
-			accessor = fmt.Sprintf("%s.%s", alias, p.Column)
-		} else {
-			accessor = p.Column
-		}
+	row *map[string]any, projections *[]orm_schema.Projection, alias string, ctx context.Context,
+) (map[string]any, error) {
+	safeRow := sync.Map{}
+	wg := sync.WaitGroup{}
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
 
-		if colVal, ok := (*row)[accessor]; !ok || colVal == nil {
-			switch p.DataType {
-			case common.DatabaseTypeString:
-				projectedRow[p.As] = new(string)
-			case common.DatabaseTypeNumber:
-				projectedRow[p.As] = new(int)
-			case common.DatabaseTypeBoolean:
-				projectedRow[p.As] = new(bool)
-			default:
-				projectedRow[p.As] = nil
+	for _, projection := range *projections {
+		wg.Add(1)
+		proj := projection
+		go func(p *orm_schema.Projection) {
+			defer wg.Done()
+			var accessor string
+			if o.Operation == common.OrmSelect {
+				accessor = fmt.Sprintf("%s.%s", alias, p.Column)
+			} else {
+				accessor = p.Column
 			}
-		} else if p.DataType == common.DatabaseTypeString {
-			projectedRow[p.As] = fmt.Sprint(colVal)
-		} else {
-			projectedRow[p.As] = colVal
-		}
-
+			colVal, exists := (*row)[accessor]
+			if sanitized, err := o.sanitize(colVal, exists, p); err != nil {
+				cancel(err)
+			} else {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					safeRow.Store(p.As, sanitized)
+				}
+			}
+		}(&proj)
 	}
-	return projectedRow
+	wg.Wait()
+
+	if err := context.Cause(ctx); err != nil {
+		return nil, err
+	}
+
+	projectedRow := make(map[string]any, len(*projections))
+	safeRow.Range(func(key, value any) bool {
+		projectedRow[fmt.Sprint(key)] = value
+		return true
+	})
+
+	return projectedRow, nil
 }
 
 func (o *orm) findAssociation(
@@ -195,4 +293,52 @@ func (o *orm) findAssociation(
 		}
 	}
 	return nil
+}
+
+func (o *orm) sanitize(val any, exists bool, projection *orm_schema.Projection) (any, error) {
+	switch projection.ModelType {
+	case common.DatabaseTypeString:
+		if exists && val != nil {
+			return fmt.Sprint(val), nil
+		} else if projection.NotNull {
+			return "", nil
+		} else {
+			return nil, nil
+		}
+	case common.DatabaseTypeBoolean:
+		if exists && projection.ModelType == projection.SchemaType {
+			return val, nil
+		} else if exists {
+			if val, err := strconv.ParseBool(fmt.Sprint(val)); err != nil {
+				return nil, fmt.Errorf("cast to %s failed: %s", projection.ModelType, err)
+			} else {
+				return val, nil
+			}
+		} else {
+			return false, nil
+		}
+
+	case common.DatabaseTypeNumber:
+		if exists && val != nil && projection.ModelType == projection.SchemaType {
+			return val, nil
+		} else if exists && val != nil && projection.SchemaType == common.DatabaseTypeString {
+			if val, err := strconv.ParseFloat(fmt.Sprint(val), 64); err != nil {
+				return nil, fmt.Errorf("cast to %s failed: %s", projection.ModelType, err)
+			} else {
+				return val, nil
+			}
+		} else if exists && val != nil && projection.SchemaType == common.DatabaseTypeBoolean {
+			if val, err := strconv.ParseBool(fmt.Sprint(val)); err != nil {
+				return nil, fmt.Errorf("cast to %s failed: %s", projection.ModelType, err)
+			} else {
+				return val, nil
+			}
+		} else if projection.NotNull {
+			return 0, nil
+		} else {
+			return nil, nil
+		}
+	default:
+		return val, nil
+	}
 }

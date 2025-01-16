@@ -57,7 +57,7 @@ func (d *dateFunc) Resolve(ctx context.Context, dependencies map[common.IntIota]
 	} else if d.UTC {
 		dateStr = dateInput.UTC().ToISOString()
 	} else {
-		dateStr = dateInput.Format(common.DateTimeFormat)
+		dateStr = dateInput.Format(common.DateTimeFormatGeneric)
 	}
 
 	return dateStr, nil

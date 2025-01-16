@@ -94,7 +94,7 @@ func resolveMaybe(original any, ctx context.Context, dependencies map[common.Int
 					if err := mapstructure.Decode(o, &mapCloned); err != nil {
 						return nil, err
 					}
-					return resolveMapMaybe(&mapCloned, ctx, dependencies)
+					return resolveMapMaybeParallel(&mapCloned, ctx, dependencies)
 				}
 			case reflect.Slice, reflect.Array:
 				{
@@ -102,7 +102,7 @@ func resolveMaybe(original any, ctx context.Context, dependencies map[common.Int
 					if err := mapstructure.Decode(o, &oArr); err != nil {
 						return nil, err
 					}
-					return resolveSliceMaybe(&oArr, ctx, dependencies)
+					return resolveArrayMaybeParallel(&oArr, ctx, dependencies)
 				}
 			default:
 				return original, nil
@@ -111,7 +111,41 @@ func resolveMaybe(original any, ctx context.Context, dependencies map[common.Int
 	}
 }
 
-func resolveMapMaybe(
+func resolveMapMustParallel(
+	m *map[string]Resolvable, ctx context.Context, dependencies map[common.IntIota]any,
+) (map[string]any, error) {
+	var wg sync.WaitGroup
+	cancelCtx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+
+	resolvedMap := sync.Map{}
+
+	for key, value := range *m {
+		wg.Add(1)
+		go func(k string, v Resolvable) {
+			defer wg.Done()
+			select {
+			case <-cancelCtx.Done():
+				return
+			default:
+				if resVal, err := v.Resolve(cancelCtx, dependencies); err != nil {
+					cancel(err)
+				} else {
+					resolvedMap.Store(k, resVal)
+				}
+				return
+			}
+		}(key, value)
+	}
+
+	wg.Wait()
+	if err := context.Cause(cancelCtx); err != nil {
+		return nil, fmt.Errorf("could not perform concurrent resolve on map: %s", err)
+	}
+	return common.SyncMapUnsync(&resolvedMap), nil
+}
+
+func resolveMapMaybeParallel(
 	m *map[string]any, ctx context.Context, dependencies map[common.IntIota]any,
 ) (map[string]any, error) {
 	var wg sync.WaitGroup
@@ -145,50 +179,104 @@ func resolveMapMaybe(
 	return common.SyncMapUnsync(&resolvedMap), nil
 }
 
-func resolveSliceMaybe(s *[]any, ctx context.Context, dependencies map[common.IntIota]any,
-) ([]any, error) {
-	var wg sync.WaitGroup
-	cancelCtx, cancel := context.WithCancelCause(ctx)
-	defer cancel(nil)
-
-	resolvedSlice := make([]any, len(*s))
-	mtx := sync.Mutex{}
-
-	for idx, value := range *s {
-		wg.Add(1)
-		go func(i int, v any) {
-			defer wg.Done()
-			select {
-			case <-cancelCtx.Done():
-				return
-			default:
-				if resVal, err := resolveMaybe(v, cancelCtx, dependencies); err != nil {
-					cancel(err)
-				} else {
-					mtx.Lock()
-					resolvedSlice[i] = resVal
-					mtx.Unlock()
-				}
-				return
-			}
-		}(idx, value)
-	}
-
-	wg.Wait()
-	if err := context.Cause(cancelCtx); err != nil {
-		return nil, fmt.Errorf("could not perform concurrent resolve on slice: %s", err)
-	}
-	return resolvedSlice, nil
-}
-
 func ResolveArrayMust(
 	resolvables *[]Resolvable, ctx context.Context, dependencies map[common.IntIota]any,
-) error {
-	for _, r := range *resolvables {
-		common.LogWithTracer(common.LogSystem, fmt.Sprintf("resolving %s", r.ResolveType), r, false, ctx)
-		if _, err := r.Resolve(ctx, dependencies); err != nil {
-			return err
+) ([]any, error) {
+	rVals := make([]any, len(*resolvables))
+	for idx, r := range *resolvables {
+		if v, err := r.Resolve(ctx, dependencies); err != nil {
+			return nil, err
+		} else {
+			rVals[idx] = v
 		}
 	}
-	return nil
+	return rVals, nil
+}
+
+func resolveArrayMustParallel(
+	resolvables *[]Resolvable, ctx context.Context, dependencies map[common.IntIota]any,
+) ([]any, error) {
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+
+	wg := sync.WaitGroup{}
+	mtx := sync.Mutex{}
+	rVals := make([]any, len(*resolvables))
+
+	for idx, res := range *resolvables {
+		wg.Add(1)
+		go func(i int, r Resolvable) {
+			defer wg.Done()
+			if v, err := r.Resolve(ctx, dependencies); err != nil {
+				cancel(err)
+				return
+			} else {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					mtx.Lock()
+					rVals[i] = v
+					mtx.Unlock()
+				}
+			}
+		}(idx, res)
+	}
+	wg.Wait()
+
+	if err := context.Cause(ctx); err != nil {
+		return nil, err
+	}
+	return rVals, nil
+}
+
+func ResolveArrayMaybe(
+	resolvables *[]any, ctx context.Context, dependencies map[common.IntIota]any,
+) ([]any, error) {
+	rVals := make([]any, len(*resolvables))
+	for idx, r := range *resolvables {
+		if v, err := resolveMaybe(r, ctx, dependencies); err != nil {
+			return nil, err
+		} else {
+			rVals[idx] = v
+		}
+	}
+	return rVals, nil
+}
+
+func resolveArrayMaybeParallel(
+	resolvables *[]any, ctx context.Context, dependencies map[common.IntIota]any,
+) ([]any, error) {
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+
+	wg := sync.WaitGroup{}
+	mtx := sync.Mutex{}
+	rVals := make([]any, len(*resolvables))
+
+	for idx, res := range *resolvables {
+		wg.Add(1)
+		go func(i int, r any) {
+			defer wg.Done()
+			if v, err := resolveMaybe(r, ctx, dependencies); err != nil {
+				cancel(err)
+				return
+			} else {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					mtx.Lock()
+					rVals[i] = v
+					mtx.Unlock()
+				}
+			}
+		}(idx, res)
+	}
+	wg.Wait()
+
+	if err := context.Cause(ctx); err != nil {
+		return nil, err
+	}
+	return rVals, nil
 }

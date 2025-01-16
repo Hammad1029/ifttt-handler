@@ -51,8 +51,8 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 		contextState.Store(common.ContextEventChannel, eventChan)
 		contextState.Store(common.ContextRequestData, &requestData)
 
-		cancelCtx, cancel := context.WithCancelCause(parentCtx)
-		ctx := context.WithValue(cancelCtx, common.ContextState, &contextState)
+		valueCtx := context.WithValue(parentCtx, common.ContextState, &contextState)
+		cancelCtx, cancel := context.WithCancelCause(valueCtx)
 		defer cancel(nil)
 
 		go func(requestData *request_data.RequestData, logData *common.LogEnd, ctxState *sync.Map) {
@@ -69,15 +69,15 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 			logData.InternalExecTime = logData.ExecutionTime - logData.ExternalExecTime
 			logData.RequestData = *requestData.UnSync()
 
-			cancelCause := context.Cause(cancelCtx)
+			cancelCause := context.Cause(valueCtx)
 			if cancelCause != nil && cancelCause != context.Canceled {
 				logData.Error = cancelCause.Error()
 			}
 			common.LogWithTracer(common.LogSystem, "request end", structs.Map(logData),
-				logData.Error != "", ctx)
+				logData.Error != "", cancelCtx)
 		}(&requestData, &logData, &contextState)
 
-		go func() {
+		go func(ctx context.Context) {
 			if tracer, err := uuid.NewRandom(); err != nil {
 				requestData.AddErrors(err)
 				core.Logger.Info(fmt.Sprintf(
@@ -118,7 +118,7 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 
 			if api.Method != http.MethodGet {
 				contextState.Store(common.ContextLogStage, common.LogStageParsing)
-				if err := c.BodyParser(&requestData.ReqBody); err != nil {
+				if err := common.BodyParser(c, &requestData.ReqBody); err != nil {
 					defer cancel(err)
 					requestData.AddErrors(err)
 					common.LogWithTracer(common.LogSystem, "could not parse body", err, true, ctx)
@@ -166,17 +166,17 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 				cancel(err)
 			}
 			eventTrigger := common.EventCodes[common.EventExhaust]
-			err = context.Cause(cancelCtx)
+			err = context.Cause(ctx)
 			if err != nil {
 				eventTrigger = common.EventCodes[common.EventSystemMalfunction]
 				requestData.AddErrors(err)
 			}
 			event := &resolvable.Event{Trigger: eventTrigger}
 			event.ChannelSend(eventChan, ctx)
-		}()
+		}(cancelCtx)
 
 		eventRes := <-eventChan
-		if response, status, err := eventRes.HandlerTrigger(ctx, c.Context(), core.ResolvableDependencies); err != nil {
+		if response, status, err := eventRes.HandlerTrigger(valueCtx, core.ResolvableDependencies); err != nil {
 			return c.Status(status).JSON(common.ResponseDefaultMalfunction)
 		} else {
 			return c.Status(status).JSON(response)

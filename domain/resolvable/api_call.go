@@ -105,13 +105,13 @@ func (a *apiCall) createRequest(ctx context.Context, dependencies map[common.Int
 	}
 	request.URL = fmt.Sprint(resolvedURL)
 
-	if bodyResolved, err := resolveMaybe(a.Body, ctx, dependencies); err != nil {
+	if bodyResolved, err := resolveMapMaybeParallel(&a.Body, ctx, dependencies); err != nil {
 		return nil, fmt.Errorf("could not resolve request body: %s", err)
 	} else if err := mapstructure.Decode(bodyResolved, &request.Body); err != nil {
 		return nil, fmt.Errorf("could not decode resolved request body: %s", err)
 	}
 
-	if headersResolved, err := resolveMaybe(a.Headers, ctx, dependencies); err != nil {
+	if headersResolved, err := resolveMapMaybeParallel(&a.Headers, ctx, dependencies); err != nil {
 		return nil, fmt.Errorf("could not resolve headers: %s", err)
 	} else if err := mapstructure.Decode(headersResolved, &request.Headers); err != nil {
 		return nil, fmt.Errorf("could not decode resolved headers: %s", err)

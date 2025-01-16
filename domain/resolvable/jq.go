@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"ifttt/handler/common"
+	"strings"
 	"sync"
 
 	"github.com/itchyny/gojq"
@@ -33,6 +34,7 @@ func (j *jq) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (
 }
 
 func runJQQuery(queryString string, input any) (any, error) {
+	arrayReturn := strings.Contains(queryString, "[]")
 	if queryString[0] != '.' {
 		queryString = "." + queryString
 	}
@@ -60,8 +62,14 @@ func runJQQuery(queryString string, input any) (any, error) {
 
 	switch len(resultVals) {
 	case 0:
+		if arrayReturn {
+			return []any{}, nil
+		}
 		return nil, nil
 	case 1:
+		if arrayReturn {
+			return []any{resultVals[0]}, nil
+		}
 		return resultVals[0], nil
 	default:
 		return resultVals, nil
@@ -75,7 +83,6 @@ func convertToGoJQCompatible(input any) (any, error) {
 	default:
 		{
 			marshalled, err := json.Marshal(input)
-			fmt.Print(string(marshalled))
 			if err != nil {
 				return nil, err
 			}

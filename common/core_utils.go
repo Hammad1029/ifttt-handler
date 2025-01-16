@@ -2,7 +2,12 @@ package common
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"net/url"
 	"sync"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 var evaluators map[string]func(a, b any) bool = map[string]func(a, b any) bool{
@@ -105,7 +110,10 @@ func GetArithmeticOperator(operator string) *func(a, b any) any {
 }
 
 func GetCtxState(ctx context.Context) *sync.Map {
-	return ctx.Value(ContextState).(*sync.Map)
+	if state, ok := ctx.Value(ContextState).(*sync.Map); ok {
+		return state
+	}
+	return nil
 }
 
 func GetResponseSent(ctx context.Context) bool {
@@ -128,4 +136,29 @@ func SetResponseSent(ctx context.Context) bool {
 	}
 	requestState.Store(ContextResponseSent, true)
 	return true
+}
+
+func BodyParser(c *fiber.Ctx, output *map[string]any) error {
+	bodyBytes := c.Body()
+	bodyStr := string(bodyBytes)
+	contentType := c.Get("Content-Type")
+	switch contentType {
+	case "application/json", "application/json; charset=UTF-8":
+		if err := json.Unmarshal(bodyBytes, output); err != nil {
+			return err
+		}
+	case "application/x-www-form-urlencoded":
+		if values, err := url.ParseQuery(bodyStr); err != nil {
+			return err
+		} else {
+			for k, v := range values {
+				if len(v) > 0 {
+					(*output)[k] = v[0]
+				}
+			}
+		}
+	default:
+		return fmt.Errorf("no parser for %s", contentType)
+	}
+	return nil
 }

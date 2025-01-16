@@ -40,6 +40,7 @@ func (c *cast) Resolve(ctx context.Context, dependencies map[common.IntIota]any)
 		} else {
 			return val, nil
 		}
+	default:
+		return nil, fmt.Errorf("cast to %s not possible", c.To)
 	}
-	return nil, nil
 }
