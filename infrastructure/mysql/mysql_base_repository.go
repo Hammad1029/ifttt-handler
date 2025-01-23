@@ -1,14 +1,14 @@
 package infrastructure
 
 import (
-	"gorm.io/gorm"
+	"database/sql"
 )
 
 type MySqlBaseRepository struct {
-	client *gorm.DB
+	client *sql.DB
 }
 
-func NewMySqlBaseRepository(client *gorm.DB) *MySqlBaseRepository {
+func NewMySqlBaseRepository(client *sql.DB) *MySqlBaseRepository {
 	if client == nil {
 		panic("missing mysql client")
 	}

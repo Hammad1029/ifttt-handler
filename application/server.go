@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/pprof"
 )
 
 var currCore *core.ServerCore
@@ -25,6 +26,7 @@ func Init() {
 
 	port := config.GetConfigProp("app.port")
 	app := fiber.New()
+	app.Use(pprof.New())
 	ctx := context.Background()
 
 	currCore.Logger.Info("creating APIs")

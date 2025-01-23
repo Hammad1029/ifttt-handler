@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/samber/lo"
@@ -91,4 +92,27 @@ func RegexpArrayMatch(patterns []string, input string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+func ExtractFromQuery(query string) (string, string) {
+	var (
+		operation string
+		table     string
+	)
+
+	query = strings.TrimSpace(strings.ToUpper(query))
+	if words := strings.Fields(query); len(words) == 0 {
+		return operation, table
+	} else {
+		operation = words[0]
+	}
+
+	if pattern, exists := SQLRegex[operation]; !exists {
+		return operation, table
+	} else if matches := pattern.FindStringSubmatch(query); len(matches) > 1 {
+		table = matches[0]
+	}
+
+	return operation, table
+
 }

@@ -43,7 +43,7 @@ func (r *getRequest) Resolve(ctx context.Context, dependencies map[common.IntIot
 }
 
 func (r *getResponse) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
-	return common.SyncMapGet(GetRequestData(ctx).Response, "."), nil
+	return GetRequestData(ctx).Response, nil
 }
 
 func (s *getStore) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {

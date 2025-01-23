@@ -2,9 +2,7 @@ package infrastructure
 
 import (
 	"context"
-	"fmt"
-	"ifttt/handler/common"
-	"strings"
+	"database/sql"
 )
 
 type MySqlRawQueryRepository struct {
@@ -15,163 +13,109 @@ func NewMySqlRawQueryRepository(base *MySqlBaseRepository) *MySqlRawQueryReposit
 	return &MySqlRawQueryRepository{MySqlBaseRepository: base}
 }
 
-func (p *MySqlRawQueryRepository) Positional(queryString string, parameters []any, ctx context.Context) (*[]map[string]any, error) {
-	var results []map[string]any
-	lowerQuery := strings.TrimSpace(strings.ToLower(queryString))
-
-	tx := p.client.WithContext(ctx).Begin()
-	if tx.Error != nil {
-		return nil, tx.Error
-	}
-
-	if strings.HasPrefix(lowerQuery, common.OrmSelect) {
-		if err := p.client.WithContext(ctx).Raw(queryString, parameters...).Scan(&results).Error; err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-	} else if strings.HasPrefix(lowerQuery, common.OrmInsert) {
-		if err := tx.Exec(queryString, parameters...).Error; err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-		tableName := p.getTableName(queryString)
-		if tableName == "" {
-			tx.Rollback()
-			return nil, fmt.Errorf("table not found in query")
-		}
-		returnQuery := fmt.Sprintf("SELECT * FROM %s WHERE id = LAST_INSERT_ID()", tableName)
-		if err := tx.Raw(returnQuery).Scan(&results).Error; err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-	} else if strings.HasPrefix(lowerQuery, common.OrmUpdate) {
-		if err := tx.Exec(queryString, parameters...).Error; err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-		// tableName := p.getTableName(queryString)
-		// if tableName == "" {
-		// 	tx.Rollback()
-		// 	return nil, fmt.Errorf("table not found in query")
-		// }
-		// whereClause := p.getWhereClause(queryString)
-		// returnQuery := fmt.Sprintf("SELECT * FROM %s %s", tableName, whereClause)
-		// if err := tx.Raw(returnQuery, parameters...).Scan(&results).Error; err != nil {
-		// 	tx.Rollback()
-		// 	return nil, err
-		// }
-	} else if strings.HasPrefix(lowerQuery, common.OrmDelete) {
-		tableName := p.getTableName(queryString)
-		if tableName == "" {
-			tx.Rollback()
-			return nil, fmt.Errorf("table not found in query")
-		}
-		whereClause := p.getWhereClause(queryString)
-		returnQuery := fmt.Sprintf("SELECT * FROM %s %s", tableName, whereClause)
-		if err := tx.Raw(returnQuery, parameters...).Scan(&results).Error; err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-		if err := tx.Exec(queryString, parameters...).Error; err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-	}
-
-	if err := tx.Commit().Error; err != nil {
-		tx.Rollback()
+func (m *MySqlRawQueryRepository) ScanPositional(queryString string, parameters []any, ctx context.Context) (*[]map[string]any, error) {
+	rows, err := m.client.QueryContext(ctx, queryString, parameters...)
+	if err != nil {
 		return nil, err
 	}
-	return &results, nil
+	defer rows.Close()
+
+	if mappedRows, err := m.scan(rows); err != nil {
+		return nil, err
+	} else {
+		return mappedRows, nil
+	}
 }
 
-func (p *MySqlRawQueryRepository) Named(queryString string, parameters map[string]any, ctx context.Context) (*[]map[string]any, error) {
-	var results []map[string]any
-	lowerQuery := strings.TrimSpace(strings.ToLower(queryString))
-
-	tx := p.client.WithContext(ctx).Begin()
-	if tx.Error != nil {
-		return nil, tx.Error
-	}
-
-	if strings.HasPrefix(lowerQuery, common.OrmSelect) {
-		if err := p.client.WithContext(ctx).Raw(queryString, parameters).Scan(&results).Error; err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-	} else if strings.HasPrefix(lowerQuery, common.OrmInsert) {
-		if err := tx.Exec(queryString, parameters).Error; err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-		tableName := p.getTableName(queryString)
-		if tableName == "" {
-			tx.Rollback()
-			return nil, fmt.Errorf("table not found in query")
-		}
-		returnQuery := fmt.Sprintf("SELECT * FROM %s WHERE id = LAST_INSERT_ID() LIMIT 1", tableName)
-		if err := tx.Raw(returnQuery).Scan(&results).Error; err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-	} else if strings.HasPrefix(lowerQuery, common.OrmUpdate) {
-		if err := tx.Exec(queryString, parameters).Error; err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-		// tableName := p.getTableName(queryString)
-		// if tableName == "" {
-		// 	tx.Rollback()
-		// 	return nil, fmt.Errorf("table not found in query")
-		// }
-		// whereClause := p.getWhereClause(queryString)
-		// returnQuery := fmt.Sprintf("SELECT * FROM %s %s", tableName, whereClause)
-		// if err := tx.Raw(returnQuery, parameters).Scan(&results).Error; err != nil {
-		// 	tx.Rollback()
-		// 	return nil, err
-		// }
-	} else if strings.HasPrefix(lowerQuery, common.OrmDelete) {
-		tableName := p.getTableName(queryString)
-		if tableName == "" {
-			tx.Rollback()
-			return nil, fmt.Errorf("table not found in query")
-		}
-		whereClause := p.getWhereClause(queryString)
-		returnQuery := fmt.Sprintf("SELECT * FROM %s %s", tableName, whereClause)
-		if err := tx.Raw(returnQuery, parameters).Scan(&results).Error; err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-		if err := tx.Exec(queryString, parameters).Error; err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-	}
-
-	if err := tx.Commit().Error; err != nil {
-		tx.Rollback()
+func (m *MySqlRawQueryRepository) ScanNamed(queryString string, parameters map[string]any, ctx context.Context) (*[]map[string]any, error) {
+	rows, err := m.client.QueryContext(ctx, queryString, parameters)
+	if err != nil {
 		return nil, err
 	}
-	return &results, nil
+	defer rows.Close()
+
+	if mappedRows, err := m.scan(rows); err != nil {
+		return nil, err
+	} else {
+		return mappedRows, nil
+	}
 }
 
-func (p *MySqlRawQueryRepository) getTableName(query string) string {
-	parts := strings.Fields(query)
-	for i, part := range parts {
-		if strings.ToUpper(part) == "INTO" ||
-			strings.ToUpper(part) == "UPDATE" || strings.ToUpper(part) == "FROM" {
-			if i+1 < len(parts) {
-				return strings.TrimSpace(parts[i+1])
+func (m *MySqlRawQueryRepository) ExecPositional(queryString string, parameters []any, ctx context.Context) error {
+	if _, err := m.client.ExecContext(ctx, queryString, parameters...); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *MySqlRawQueryRepository) ExecNamed(queryString string, parameters map[string]any, ctx context.Context) error {
+	if _, err := m.client.ExecContext(ctx, queryString, parameters); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *MySqlRawQueryRepository) scan(rows *sql.Rows) (*[]map[string]any, error) {
+	mappedRows := []map[string]any{}
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+
+	scanCols := make([]any, len(columns))
+	for idx := range scanCols {
+		var a any
+		scanCols[idx] = &a
+	}
+
+	strDescision := make(map[int]bool, len(columns))
+	if rows.Next() {
+		if err := rows.Scan(scanCols...); err != nil {
+			return nil, err
+		}
+
+		m := make(map[string]any, len(scanCols))
+		for idx, v := range scanCols {
+			key := columns[idx]
+			retrieved := v.(*any)
+			if *retrieved == nil {
+				strDescision[idx] = true
+				m[key] = nil
+			} else if v, ok := (*retrieved).([]byte); ok {
+				strDescision[idx] = true
+				m[key] = string(v)
+			} else {
+				m[key] = *retrieved
 			}
 		}
+		mappedRows = append(mappedRows, m)
 	}
-	return ""
-}
 
-func (p *MySqlRawQueryRepository) getWhereClause(query string) string {
-	parts := strings.SplitN(strings.ToUpper(query), "WHERE", 2)
-	if len(parts) > 1 {
-		return "WHERE " + parts[1]
+	for rows.Next() {
+		scanCols := make([]any, len(columns))
+		for idx := range scanCols {
+			var a any
+			scanCols[idx] = &a
+		}
+		if err := rows.Scan(scanCols...); err != nil {
+			return nil, err
+		}
+
+		m := make(map[string]any, len(columns))
+		for idx, v := range scanCols {
+			key := columns[idx]
+			retrieved := v.(*any)
+			if strDescision[idx] {
+				if strcast, ok := (*retrieved).([]byte); ok {
+					m[key] = string(strcast)
+				} else {
+					m[key] = *retrieved
+				}
+			} else {
+				m[key] = *retrieved
+			}
+		}
+		mappedRows = append(mappedRows, m)
 	}
-	return ""
+	return &mappedRows, nil
 }

@@ -39,8 +39,7 @@ func NewMainController(router fiber.Router, core *core.ServerCore, api *api.Api,
 func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		logData := common.LogEnd{Start: time.Now()}
-		requestData := request_data.RequestData{}
-		requestData.Initialize()
+		requestData := request_data.NewRequestData()
 		eventChan := make(chan resolvable.Event, 1)
 
 		var contextState sync.Map
@@ -49,7 +48,7 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 		contextState.Store(common.ContextExternalExecTime, uint64(0))
 		contextState.Store(common.ContextResponseSent, false)
 		contextState.Store(common.ContextEventChannel, eventChan)
-		contextState.Store(common.ContextRequestData, &requestData)
+		contextState.Store(common.ContextRequestData, requestData)
 
 		valueCtx := context.WithValue(parentCtx, common.ContextState, &contextState)
 		cancelCtx, cancel := context.WithCancelCause(valueCtx)
@@ -67,7 +66,7 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 			}
 			logData.ExternalExecTime = externalExecTime.(uint64)
 			logData.InternalExecTime = logData.ExecutionTime - logData.ExternalExecTime
-			logData.RequestData = *requestData.UnSync()
+			logData.RequestData = structs.Map(requestData)
 
 			cancelCause := context.Cause(valueCtx)
 			if cancelCause != nil && cancelCause != context.Canceled {
@@ -75,7 +74,7 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 			}
 			common.LogWithTracer(common.LogSystem, "request end", structs.Map(logData),
 				logData.Error != "", cancelCtx)
-		}(&requestData, &logData, &contextState)
+		}(requestData, &logData, &contextState)
 
 		go func(ctx context.Context) {
 			if tracer, err := uuid.NewRandom(); err != nil {

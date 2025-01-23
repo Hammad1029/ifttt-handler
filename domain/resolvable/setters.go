@@ -22,11 +22,11 @@ func (s *setRes) Resolve(ctx context.Context, dependencies map[common.IntIota]an
 	}
 
 	reqData := GetRequestData(ctx)
-	reqData.Lock()
-	defer reqData.Unlock()
+	reqData.Mtx.Lock()
+	defer reqData.Mtx.Unlock()
 
 	for k, v := range resolvedMap {
-		if err := common.SyncMapSet(reqData.Response, k, v); err != nil {
+		if err := common.MapJQSet(&reqData.Response, k, v); err != nil {
 			return nil, err
 		}
 	}
@@ -41,11 +41,11 @@ func (s *setStore) Resolve(ctx context.Context, dependencies map[common.IntIota]
 	}
 
 	reqData := GetRequestData(ctx)
-	reqData.Lock()
-	defer reqData.Unlock()
+	reqData.Mtx.Lock()
+	defer reqData.Mtx.Unlock()
 
 	for k, v := range resolvedMap {
-		if err := common.SyncMapSet(reqData.Store, k, v); err != nil {
+		if err := common.MapJQSet(&reqData.Store, k, v); err != nil {
 			return nil, err
 		}
 	}

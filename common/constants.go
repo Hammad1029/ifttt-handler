@@ -1,5 +1,7 @@
 package common
 
+import "regexp"
+
 const (
 	DateTimeFormat        = "2006-01-02 15:04:05"
 	DateTimeFormatGeneric = "YYYY-MM-DD HH:mm:ss"
@@ -139,4 +141,15 @@ const (
 var ResponseDefaultMalfunction = map[string]string{
 	"responseCode":        EventCodes[EventSystemMalfunction],
 	"responseDescription": "Could not map response to profile",
+}
+
+var SQLRegex = map[string]*regexp.Regexp{
+	"SELECT":   regexp.MustCompile(`FROM\s+([a-zA-Z_][a-zA-Z0-9_]*)`),
+	"INSERT":   regexp.MustCompile(`INTO\s+([a-zA-Z_][a-zA-Z0-9_]*)`),
+	"UPDATE":   regexp.MustCompile(`UPDATE\s+([a-zA-Z_][a-zA-Z0-9_]*)`),
+	"DELETE":   regexp.MustCompile(`FROM\s+([a-zA-Z_][a-zA-Z0-9_]*)`),
+	"TRUNCATE": regexp.MustCompile(`TABLE\s+([a-zA-Z_][a-zA-Z0-9_]*)`),
+	"ALTER":    regexp.MustCompile(`TABLE\s+([a-zA-Z_][a-zA-Z0-9_]*)`),
+	"DROP":     regexp.MustCompile(`TABLE\s+([a-zA-Z_][a-zA-Z0-9_]*)`),
+	"CREATE":   regexp.MustCompile(`TABLE\s+([a-zA-Z_][a-zA-Z0-9_]*)`),
 }

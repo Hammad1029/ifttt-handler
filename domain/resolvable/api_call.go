@@ -142,7 +142,9 @@ func (a *apiRequest) createHttpRequest() (*http.Request, error) {
 
 func (c *callData) doRequest(ctx context.Context) error {
 	defer func() {
-		request_data.AddExternalTrip(common.ExternalTripApi, structs.Map(c), c.Metadata.TimeTaken, ctx)
+		mapped := structs.Map(c)
+		request_data.AddExternalTrip(common.ExternalTripApi,
+			fmt.Sprintf("%s:%s", c.Request.Method, c.Request.URL), &mapped, c.Metadata.TimeTaken, ctx)
 	}()
 
 	httpRequest, err := c.Request.createHttpRequest()

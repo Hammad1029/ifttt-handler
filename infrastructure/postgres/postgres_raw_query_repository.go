@@ -12,18 +12,18 @@ func NewPostgresRawQueryRepository(base *PostgresBaseRepository) *PostgresRawQue
 	return &PostgresRawQueryRepository{PostgresBaseRepository: base}
 }
 
-func (p *PostgresRawQueryRepository) Positional(queryString string, parameters []any, ctx context.Context) (*[]map[string]any, error) {
-	var results []map[string]any
-	if err := p.client.WithContext(ctx).Raw(queryString, parameters...).Scan(&results).Error; err != nil {
-		return nil, err
-	}
-	return &results, nil
+func (p *PostgresRawQueryRepository) ScanPositional(queryString string, parameters []any, ctx context.Context) (*[]map[string]any, error) {
+	return nil, nil
 }
 
-func (p *PostgresRawQueryRepository) Named(queryString string, parameters map[string]any, ctx context.Context) (*[]map[string]any, error) {
-	var results []map[string]any
-	if err := p.client.WithContext(ctx).Raw(queryString, parameters).Scan(&results).Error; err != nil {
-		return nil, err
-	}
-	return &results, nil
+func (p *PostgresRawQueryRepository) ScanNamed(queryString string, parameters map[string]any, ctx context.Context) (*[]map[string]any, error) {
+	return nil, nil
+}
+
+func (p *PostgresRawQueryRepository) ExecPositional(queryString string, parameters []any, ctx context.Context) error {
+	return nil
+}
+
+func (p *PostgresRawQueryRepository) ExecNamed(queryString string, parameters map[string]any, ctx context.Context) error {
+	return nil
 }

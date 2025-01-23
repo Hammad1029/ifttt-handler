@@ -27,9 +27,6 @@ func (e *Event) Resolve(ctx context.Context, dependencies map[common.IntIota]any
 
 func (e *Event) ChannelSend(eventChan chan Event, ctx context.Context) {
 	if ok := common.SetResponseSent(ctx); ok {
-		// if reqData := GetRequestData(ctx); reqData != nil {
-		// 	reqData.AggregatedResponse = structs.Map(r)
-		// }
 		common.LogWithTracer(common.LogSystem,
 			fmt.Sprintf("Sending event with trigger %s", e.Trigger), e, false, ctx)
 		eventChan <- *e
@@ -57,7 +54,7 @@ func (e *Event) HandlerTrigger(ctx context.Context, dependencies map[common.IntI
 	var response map[string]any
 	reqData := GetRequestData(ctx)
 	if !useProfile.UseBody {
-		response = common.SyncMapUnsync(reqData.Response)
+		response = reqData.Response
 	} else if resolved, err := resolveMapMaybeParallel(&useProfile.ResponseBody, ctx, dependencies); err != nil {
 		return nil, useProfile.ResponseHTTPStatus, err
 	} else {

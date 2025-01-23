@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"ifttt/handler/common"
 	"ifttt/handler/domain/api"
-	"ifttt/handler/domain/configuration"
 	"ifttt/handler/domain/resolvable"
 	infraStore "ifttt/handler/infrastructure/store"
 	"sync"
@@ -20,7 +19,6 @@ type ServerCore struct {
 	DataStore              *infraStore.DataStore
 	CacheStore             *infraStore.CacheStore
 	AppCacheStore          *infraStore.AppCacheStore
-	Configuration          *configuration.Configuration
 	ResolvableDependencies map[common.IntIota]any
 	Logger                 *logrus.Logger
 }
@@ -62,7 +60,11 @@ func NewServerCore() (*ServerCore, error) {
 }
 
 func (c *ServerCore) PreparePreConfig(config map[string]resolvable.Resolvable, ctx context.Context) error {
-	preConfig := resolvable.GetRequestData(ctx).PreConfig
+	reqData := resolvable.GetRequestData(ctx)
+	if reqData == nil {
+		return fmt.Errorf("request data not found")
+	}
+
 	var wg sync.WaitGroup
 
 	cancelCtx, cancel := context.WithCancelCause(ctx)
@@ -80,7 +82,9 @@ func (c *ServerCore) PreparePreConfig(config map[string]resolvable.Resolvable, c
 					cancel(err)
 					return
 				} else {
-					preConfig.Store(key, val)
+					reqData.Mtx.Lock()
+					reqData.PreConfig[key] = val
+					reqData.Mtx.Unlock()
 				}
 			}
 		}(key, r)
