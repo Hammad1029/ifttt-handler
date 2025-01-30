@@ -7,7 +7,7 @@ import (
 	"ifttt/handler/application/controllers"
 	"ifttt/handler/application/core"
 	"ifttt/handler/common"
-	eventprofiles "ifttt/handler/domain/event_profiles"
+	"ifttt/handler/domain/api"
 	"ifttt/handler/domain/orm_schema"
 	"strings"
 
@@ -53,13 +53,6 @@ func Init() {
 		panic(err)
 	}
 
-	currCore.Logger.Info("getting and storing response profiles")
-	if err := eventprofiles.GetAndStoreProfiles(
-		currCore.ConfigStore.EventProfileRepo, currCore.CacheStore.EventProfileRepo, ctx,
-	); err != nil {
-		panic(err)
-	}
-
 	app.Listen(fmt.Sprintf(":%s", port))
 	fmt.Printf("Handler running on port: %s", port)
 }
@@ -68,6 +61,15 @@ func createApis(fiber *fiber.App, ctx context.Context) error {
 	apis, err := currCore.ConfigStore.APIRepo.GetAllApis(ctx)
 	if err != nil {
 		return fmt.Errorf("could not get apis from persistent config store: %s", err)
+	}
+
+	profiles, err := currCore.ConfigStore.ResponseProfileRepo.GetAllProfiles()
+	if err != nil {
+		return fmt.Errorf("could not get response profiles: %s", err)
+	}
+
+	if err := api.AttachResponseProfiles(apis, profiles); err != nil {
+		return fmt.Errorf("could not attach response profiles to apis: %s", err)
 	}
 
 	if err := currCore.CacheStore.APIRepo.StoreApis(apis, ctx); err != nil {

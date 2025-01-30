@@ -1,6 +1,7 @@
 package common
 
 import (
+	"encoding/json"
 	"fmt"
 	"sync"
 
@@ -66,7 +67,13 @@ func MapJqGet(m *map[string]any, key string) (any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid jq query, could not parse: %v", err)
 	}
-	iter := parsed.Run(m)
+
+	jqCompatibleInput, err := ConvertToGoJQCompatible(m)
+	if err != nil {
+		return nil, fmt.Errorf("could not convert input to jq compatible: %s", err)
+	}
+
+	iter := parsed.Run(jqCompatibleInput)
 	for {
 		if v, ok := iter.Next(); !ok {
 			return nil, nil
@@ -102,4 +109,23 @@ func MapJQSet(m *map[string]any, key string, value any) error {
 		}
 	}
 	return nil
+}
+
+func ConvertToGoJQCompatible(input any) (any, error) {
+	switch o := input.(type) {
+	case *sync.Map:
+		return ConvertToGoJQCompatible(SyncMapUnsync(o))
+	default:
+		{
+			marshalled, err := json.Marshal(input)
+			if err != nil {
+				return nil, err
+			}
+			var a any
+			if err := json.Unmarshal(marshalled, &a); err != nil {
+				return nil, err
+			}
+			return a, nil
+		}
+	}
 }

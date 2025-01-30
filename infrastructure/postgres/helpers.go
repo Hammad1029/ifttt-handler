@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"ifttt/handler/domain/api"
-	eventprofiles "ifttt/handler/domain/event_profiles"
+	"ifttt/handler/domain/configuration"
 	"ifttt/handler/domain/orm_schema"
 	requestvalidator "ifttt/handler/domain/request_validator.go"
 	"ifttt/handler/domain/resolvable"
@@ -68,7 +68,7 @@ func (a *apis) toDomain() (*api.Api, error) {
 		Method:      a.Method,
 		Description: a.Description,
 		Request:     map[string]requestvalidator.RequestParameter{},
-		PreConfig:   map[string]resolvable.Resolvable{},
+		Response:    map[uint]resolvable.ResponseDefinition{},
 		Triggers:    &[]api.TriggerCondition{},
 	}
 
@@ -76,7 +76,7 @@ func (a *apis) toDomain() (*api.Api, error) {
 		return nil, err
 	}
 
-	if err := json.Unmarshal(a.PreConfig.Bytes, &domainApi.PreConfig); err != nil {
+	if err := json.Unmarshal(a.Response.Bytes, &domainApi.Response); err != nil {
 		return nil, err
 	}
 
@@ -116,11 +116,6 @@ func (c *crons) toDomain() (*api.Cron, error) {
 		TriggerFlows: &[]api.TriggerCondition{},
 	}
 
-	if err := json.Unmarshal(c.PreConfig.Bytes, &dCron.PreConfig); err != nil {
-		return nil,
-			fmt.Errorf("could not cast pgApi: %s", err)
-	}
-
 	var tConditions []api_trigger_flow_json
 	if err := json.Unmarshal(c.TriggerFlows.Bytes, &tConditions); err != nil {
 		return nil,
@@ -148,14 +143,6 @@ func (c *crons) toDomain() (*api.Cron, error) {
 	return &dCron, nil
 }
 
-func (o *orm_model) fromDomain(dModel *orm_schema.Model) error {
-	return mapstructure.Decode(dModel, o)
-}
-
-func (o *orm_association) fromDomain(dAssociation *orm_schema.ModelAssociation) error {
-	return mapstructure.Decode(dAssociation, o)
-}
-
 func (o *orm_model) toDomain() (*orm_schema.Model, error) {
 	var domain orm_schema.Model
 	if err := mapstructure.Decode(o, &domain); err != nil {
@@ -172,27 +159,23 @@ func (o *orm_association) toDomain() (*orm_schema.ModelAssociation, error) {
 	return &domain, nil
 }
 
-func (p *event_profile) toDomain() (*eventprofiles.Profile, error) {
-	dProfile := eventprofiles.Profile{
+func (p *response_profile) toDomain() (*configuration.ResponseProfile, error) {
+	dProfile := configuration.ResponseProfile{
 		ID:                 p.ID,
-		Trigger:            p.Trigger,
+		Name:               p.Name,
 		ResponseHTTPStatus: p.ResponseHTTPStatus,
-		Internal:           p.Internal,
-		UseBody:            p.UseBody,
 	}
-	if err := json.Unmarshal(p.ResponseBody.Bytes, &dProfile.ResponseBody); err != nil {
+	if err := json.Unmarshal(p.BodyFormat.Bytes, &dProfile.BodyFormat); err != nil {
 		return nil, err
 	}
-	if p.MappedProfiles != nil {
-		mappedProfiles := make([]eventprofiles.Profile, 0, len(*p.MappedProfiles))
-		for _, mp := range *p.MappedProfiles {
-			if dP, err := mp.toDomain(); err != nil {
-				return nil, err
-			} else {
-				mappedProfiles = append(mappedProfiles, *dP)
-			}
-		}
-		dProfile.MappedProfiles = &mappedProfiles
-	}
 	return &dProfile, nil
+}
+
+func (p *internal_tags) toDomain() *configuration.InternalTag {
+	dPTag := configuration.InternalTag{
+		ID:   p.ID,
+		Name: p.Name,
+	}
+
+	return &dPTag
 }

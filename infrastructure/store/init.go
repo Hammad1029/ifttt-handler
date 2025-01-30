@@ -5,7 +5,7 @@ import (
 	"ifttt/handler/application/config"
 	"ifttt/handler/common"
 	"ifttt/handler/domain/api"
-	eventprofiles "ifttt/handler/domain/event_profiles"
+	"ifttt/handler/domain/configuration"
 	"ifttt/handler/domain/orm_schema"
 	"ifttt/handler/domain/resolvable"
 	"strings"
@@ -36,19 +36,18 @@ type appCacheStorer interface {
 }
 
 type ConfigStore struct {
-	Store            configStorer
-	APIRepo          api.APIPersistentRepository
-	CronRepo         api.CronPersistentRepository
-	OrmRepo          orm_schema.PersistentRepository
-	EventProfileRepo eventprofiles.PersistentRepository
+	Store               configStorer
+	APIRepo             api.APIPersistentRepository
+	CronRepo            api.CronPersistentRepository
+	OrmRepo             orm_schema.PersistentRepository
+	ResponseProfileRepo configuration.ResponseProfilePersistentRepository
 }
 
 type CacheStore struct {
-	Store            cacheStorer
-	APIRepo          api.APICacheRepository
-	CronRepo         api.CronCacheRepository
-	OrmRepo          orm_schema.CacheRepository
-	EventProfileRepo eventprofiles.CacheRepository
+	Store    cacheStorer
+	APIRepo  api.APICacheRepository
+	CronRepo api.CronCacheRepository
+	OrmRepo  orm_schema.CacheRepository
 }
 
 type DataStore struct {

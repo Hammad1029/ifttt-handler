@@ -69,10 +69,11 @@ func (p *postgresStore) createDataStore() *DataStore {
 func (p *postgresStore) createConfigStore() *ConfigStore {
 	postgresBase := postgresInfra.NewPostgresBaseRepository(p.store, true)
 	return &ConfigStore{
-		Store:            p,
-		APIRepo:          postgresInfra.NewPostgresApiRepository(postgresBase),
-		CronRepo:         postgresInfra.NewPostgresCronRepository(postgresBase),
-		OrmRepo:          postgresInfra.NewPostgresOrmRepository(postgresBase),
-		EventProfileRepo: postgresInfra.NewPostgresEventProfilesRepository(postgresBase),
+		Store:               p,
+		APIRepo:             postgresInfra.NewPostgresApiRepository(postgresBase),
+		CronRepo:            postgresInfra.NewPostgresCronRepository(postgresBase),
+		OrmRepo:             postgresInfra.NewPostgresOrmRepository(postgresBase),
+		ResponseProfileRepo: postgresInfra.NewPostgresResponseProfilesRepository(postgresBase),
+		// InternalTagRepo:     postgresInfra.NewPostgresInternalTagRepository(postgresBase),
 	}
 }

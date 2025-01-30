@@ -6,12 +6,11 @@ import (
 )
 
 type Cron struct {
-	ID           uint                             `json:"id" mapstructure:"id"`
-	Name         string                           `json:"name" mapstructure:"name"`
-	Description  string                           `json:"description" mapstructure:"description"`
-	Cron         string                           `json:"cron" mapstructure:"cron"`
-	PreConfig    map[string]resolvable.Resolvable `json:"preConfig" mapstructure:"preConfig"`
-	TriggerFlows *[]TriggerCondition              `json:"triggerFlows" mapstructure:"triggerFlows"`
+	ID           uint                `json:"id" mapstructure:"id"`
+	Name         string              `json:"name" mapstructure:"name"`
+	Description  string              `json:"description" mapstructure:"description"`
+	Cron         string              `json:"cron" mapstructure:"cron"`
+	TriggerFlows *[]TriggerCondition `json:"triggerFlows" mapstructure:"triggerFlows"`
 }
 
 type Api struct {
@@ -21,7 +20,7 @@ type Api struct {
 	Method      string                                       `json:"method" mapstructure:"method"`
 	Description string                                       `json:"description" mapstructure:"description"`
 	Request     map[string]requestvalidator.RequestParameter `json:"request" mapstructure:"request"`
-	PreConfig   map[string]resolvable.Resolvable             `json:"preConfig" mapstructure:"preConfig"`
+	Response    map[uint]resolvable.ResponseDefinition       `json:"response" mapstructure:"response"`
 	Triggers    *[]TriggerCondition                          `json:"triggers" mapstructure:"triggers"`
 }
 

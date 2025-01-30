@@ -138,27 +138,28 @@ func SetResponseSent(ctx context.Context) bool {
 	return true
 }
 
-func BodyParser(c *fiber.Ctx, output *map[string]any) error {
+func BodyParser(c *fiber.Ctx) (*map[string]any, error) {
+	output := make(map[string]any)
 	bodyBytes := c.Body()
 	bodyStr := string(bodyBytes)
 	contentType := c.Get("Content-Type")
 	switch contentType {
 	case "application/json", "application/json; charset=UTF-8":
-		if err := json.Unmarshal(bodyBytes, output); err != nil {
-			return err
+		if err := json.Unmarshal(bodyBytes, &output); err != nil {
+			return nil, err
 		}
 	case "application/x-www-form-urlencoded":
 		if values, err := url.ParseQuery(bodyStr); err != nil {
-			return err
+			return nil, err
 		} else {
 			for k, v := range values {
 				if len(v) > 0 {
-					(*output)[k] = v[0]
+					output[k] = v[0]
 				}
 			}
 		}
 	default:
-		return fmt.Errorf("no parser for %s", contentType)
+		return nil, fmt.Errorf("no parser for %s", contentType)
 	}
-	return nil
+	return &output, nil
 }

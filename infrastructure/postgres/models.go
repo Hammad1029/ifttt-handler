@@ -12,7 +12,6 @@ type crons struct {
 	Name           string          `gorm:"type:varchar(50);not null;unique" mapstructure:"name"`
 	Description    string          `gorm:"type:text;default:''" mapstructure:"description"`
 	Cron           string          `gorm:"type:varchar(30);default:''" mapstructure:"description"`
-	PreConfig      pgtype.JSONB    `gorm:"type:jsonb;default:'{}';not null" mapstructure:"preConfig"`
 	TriggerFlowRef []trigger_flows `gorm:"many2many:cron_trigger_flows;joinForeignKey:CronId;joinReferences:FlowId;" mapstructure:"triggerFlows"`
 	TriggerFlows   pgtype.JSONB    `gorm:"type:jsonb;default:'{}';not null" mapstructure:"triggerConditions"`
 }
@@ -24,7 +23,7 @@ type apis struct {
 	Method       string          `gorm:"type:varchar(10);not null" mapstructure:"method"`
 	Description  string          `gorm:"type:text;default:''" mapstructure:"description"`
 	Request      pgtype.JSONB    `gorm:"type:jsonb;default:'{}';not null" mapstructure:"request"`
-	PreConfig    pgtype.JSONB    `gorm:"type:jsonb;default:'{}';not null" mapstructure:"preConfig"`
+	Response     pgtype.JSONB    `gorm:"type:jsonb;default:'{}';not null" mapstructure:"response"`
 	Triggers     []trigger_flows `gorm:"many2many:api_trigger_flows_main;joinForeignKey:ApiId;joinReferences:FlowId;" mapstructure:"triggerFlows"`
 	TriggerFlows pgtype.JSONB    `gorm:"type:jsonb;default:'{}';not null" mapstructure:"triggerConditions"`
 }
@@ -89,13 +88,17 @@ type orm_association struct {
 	ReferencesModel      orm_model `gorm:"foreignKey:ReferencesModelID" mapstructure:"referencesModel" json:"referencesModel"`
 }
 
-type event_profile struct {
+type response_profile struct {
 	gorm.Model
-	Trigger            string           `gorm:"not null" json:"trigger" mapstructure:"trigger"`
-	ResponseHTTPStatus int              `gorm:"not null" json:"responseHTTPStatus" mapstructure:"responseHTTPStatus"`
-	UseBody            bool             `gorm:"not null" json:"useBody" mapstructure:"useBody"`
-	ResponseBody       pgtype.JSONB     `gorm:"type:jsonb;default:'{}';not null" json:"responseBody" mapstructure:"responseBody"`
-	Internal           bool             `gorm:"not null" json:"internal" mapstructure:"internal"`
-	ParentID           *uint            `gorm:"index" json:"parentId" mapstructure:"parentId"`
-	MappedProfiles     *[]event_profile `gorm:"foreignKey:ParentID" json:"mappedProfiles" mapstructure:"mappedProfiles"`
+	Name               string              `gorm:"not null" json:"trigger" mapstructure:"trigger"`
+	ResponseHTTPStatus int                 `gorm:"not null" json:"responseHTTPStatus" mapstructure:"responseHTTPStatus"`
+	BodyFormat         pgtype.JSONB        `gorm:"type:jsonb;default:'{}';not null" json:"bodyFormat" mapstructure:"bodyFormat"`
+	Internal           bool                `gorm:"not null" json:"internal" mapstructure:"internal"`
+	ParentID           *uint               `json:"parentId" mapstructure:"parentId"`
+	MappedProfile      *[]response_profile `gorm:"foreignKey:ParentID" json:"mappedProfile" mapstructure:"mappedProfile"`
+}
+
+type internal_tags struct {
+	gorm.Model
+	Name string `json:"name" mapstructure:"name"`
 }

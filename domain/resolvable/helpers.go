@@ -16,10 +16,6 @@ func resolvableFactory(rType string) resolvableInterface {
 		return &jq{}
 	case accessorGetErrors:
 		return &getErrors{}
-	case accessorGetRequest:
-		return &getRequest{}
-	case accessorGetResponse:
-		return &getResponse{}
 	case accessorGetStore:
 		return &getStore{}
 	case accessorGetConst:
@@ -30,16 +26,12 @@ func resolvableFactory(rType string) resolvableInterface {
 		return &query{}
 	case accessorApiCall:
 		return &apiCall{}
-	case accessorSetRes:
-		return &setRes{}
 	case accessorSetStore:
 		return &setStore{}
 	case accessorSetLog:
 		return &setLog{}
-	case accessorEvent:
-		return &Event{}
-	case accessorPreConfig:
-		return &getPreConfig{}
+	case accessorResponse:
+		return &Response{}
 	case accessorStringInterpolation:
 		return &stringInterpolation{}
 	case accessorEncode:

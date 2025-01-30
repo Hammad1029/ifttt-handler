@@ -13,7 +13,6 @@ const (
 	DependencyLogger
 	DependencyOrmCacheRepo
 	DependencyOrmQueryRepo
-	DependencyEventProfileCacheRepo
 )
 
 var ReservedPaths = []string{"^/test/.*", "^/auth/.*"}
@@ -22,20 +21,22 @@ const (
 	ContextState IntIota = iota
 	ContextLogger
 	ContextRequestData
-	ContextEventChannel
+	ContextResponseChannel
 	ContextTracer
 	ContextExternalExecTime
 	ContextResponseSent
 	ContextLogStage
 	ContextIter
+	ContextResponseProfiles
 )
 
 const (
-	RedisApis         = "api"
-	RedisCrons        = "cron"
-	RedisSchemas      = "schema"
-	RedisAssociatons  = "association"
-	RedisEventProfile = "event_profile"
+	RedisApis            = "api"
+	RedisCrons           = "cron"
+	RedisSchemas         = "schema"
+	RedisAssociatons     = "association"
+	RedisResponseProfile = "response_profile"
+	RedisInternalTags    = "internal_tags"
 )
 
 const (
@@ -50,7 +51,6 @@ const (
 	LogStageMemload    = "memload"
 	LogStageParsing    = "parsing"
 	LogStageValidation = "validation"
-	LogStagePreConfig  = "preconfig"
 	LogStageExecution  = "execution"
 	LogStageEnding     = "end"
 )
@@ -72,12 +72,12 @@ const (
 	EventBadRequest
 )
 
-var EventCodes = map[IntIota]string{
-	EventSuccess:           "000",
-	EventExhaust:           "010",
-	EventBadRequest:        "400",
-	EventNotFound:          "404",
-	EventSystemMalfunction: "500",
+var EventCodes = map[IntIota]uint{
+	EventSuccess:           0,
+	EventExhaust:           10,
+	EventBadRequest:        400,
+	EventNotFound:          404,
+	EventSystemMalfunction: 500,
 }
 
 const (
@@ -138,7 +138,7 @@ const (
 	DateOperatorSubtract = "-"
 )
 
-var ResponseDefaultMalfunction = map[string]string{
+var ResponseDefaultMalfunction = map[string]any{
 	"responseCode":        EventCodes[EventSystemMalfunction],
 	"responseDescription": "Could not map response to profile",
 }
@@ -153,3 +153,9 @@ var SQLRegex = map[string]*regexp.Regexp{
 	"DROP":     regexp.MustCompile(`TABLE\s+([a-zA-Z_][a-zA-Z0-9_]*)`),
 	"CREATE":   regexp.MustCompile(`TABLE\s+([a-zA-Z_][a-zA-Z0-9_]*)`),
 }
+
+const (
+	InternalTagErrorValidation = "validation"
+	InternalTagErrorSystem     = "system"
+	InternalTagErrorUser       = "user"
+)

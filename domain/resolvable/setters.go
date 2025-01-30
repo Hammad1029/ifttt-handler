@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"ifttt/handler/common"
+	"ifttt/handler/domain/request_data"
 )
 
 type setRes map[string]any
@@ -15,37 +16,15 @@ type setLog struct {
 	LogType string `json:"logType" mapstructure:"logType"`
 }
 
-func (s *setRes) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
-	resolvedMap, err := resolveMapMaybeParallel((*map[string]any)(s), ctx, dependencies)
-	if err != nil {
-		return nil, err
-	}
-
-	reqData := GetRequestData(ctx)
-	reqData.Mtx.Lock()
-	defer reqData.Mtx.Unlock()
-
-	for k, v := range resolvedMap {
-		if err := common.MapJQSet(&reqData.Response, k, v); err != nil {
-			return nil, err
-		}
-	}
-
-	return nil, nil
-}
-
 func (s *setStore) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	resolvedMap, err := resolveMapMaybeParallel((*map[string]any)(s), ctx, dependencies)
 	if err != nil {
 		return nil, err
 	}
 
-	reqData := GetRequestData(ctx)
-	reqData.Mtx.Lock()
-	defer reqData.Mtx.Unlock()
-
+	reqData := request_data.GetRequestData(ctx)
 	for k, v := range resolvedMap {
-		if err := common.MapJQSet(&reqData.Store, k, v); err != nil {
+		if err := reqData.SetStore(k, v); err != nil {
 			return nil, err
 		}
 	}

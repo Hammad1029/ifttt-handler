@@ -10,7 +10,8 @@ import (
 	"github.com/samber/lo"
 )
 
-func ValidateMap(schema *map[string]RequestParameter, m *map[string]any) []ValidationError {
+func ValidateMap(schema *map[string]RequestParameter, m *map[string]any,
+	scan func(tagName string, value any) error) []ValidationError {
 	var wg sync.WaitGroup
 	validationErrors := []ValidationError{}
 
@@ -29,7 +30,7 @@ func ValidateMap(schema *map[string]RequestParameter, m *map[string]any) []Valid
 		go func(key string, val any) {
 			defer wg.Done()
 			if s, ok := (*schema)[key]; ok {
-				if err := s.validateValue(val); err != nil {
+				if err := s.validateValue(val, scan); err != nil {
 					for _, err := range err {
 						validationErrors = append(validationErrors, ValidationError{
 							ErrorInfo: fmt.Errorf("validation for key %s failed: %s", key, err.ErrorInfo),
@@ -44,7 +45,7 @@ func ValidateMap(schema *map[string]RequestParameter, m *map[string]any) []Valid
 	return validationErrors
 }
 
-func (s *RequestParameter) validateValue(val any) []ValidationError {
+func (s *RequestParameter) validateValue(val any, scan func(tagName string, value any) error) []ValidationError {
 	if val == nil {
 		if s.Required {
 			return []ValidationError{{ErrorInfo: fmt.Errorf("key is required")}}
@@ -91,6 +92,9 @@ func (s *RequestParameter) validateValue(val any) []ValidationError {
 					{ErrorInfo: fmt.Errorf("number not within range %d - %d", validator.Minimum, validator.Maximum)}}
 			}
 		}
+		if err := scan(s.InternalTag, val); err != nil {
+			return []ValidationError{{ErrorInfo: fmt.Errorf("could not scan request parameter: %s", err)}}
+		}
 	case dataTypeArray:
 		arr, ok := val.([]any)
 		if !ok {
@@ -101,7 +105,7 @@ func (s *RequestParameter) validateValue(val any) []ValidationError {
 			return []ValidationError{
 				{ErrorInfo: fmt.Errorf("could not decode validator"), Internal: true}}
 		}
-		return validator.validate(arr)
+		return validator.validate(arr, scan)
 	case dataTypeMap:
 		mapVal, ok := val.(map[string]any)
 		if !ok {
@@ -112,12 +116,12 @@ func (s *RequestParameter) validateValue(val any) []ValidationError {
 			return []ValidationError{
 				{ErrorInfo: fmt.Errorf("could not decode validator"), Internal: true}}
 		}
-		return ValidateMap((*map[string]RequestParameter)(&validator), &mapVal)
+		return ValidateMap((*map[string]RequestParameter)(&validator), &mapVal, scan)
 	}
 	return nil
 }
 
-func (s *arrayValue) validate(arr []any) []ValidationError {
+func (s *arrayValue) validate(arr []any, scan func(tagName string, value any) error) []ValidationError {
 	var wg sync.WaitGroup
 	validationErrors := []ValidationError{}
 
@@ -129,7 +133,7 @@ func (s *arrayValue) validate(arr []any) []ValidationError {
 		wg.Add(1)
 		go func(i int, item any) {
 			defer wg.Done()
-			if err := s.OfType.validateValue(item); err != nil {
+			if err := s.OfType.validateValue(item, scan); err != nil {
 				validationErrors = append(validationErrors, err...)
 			}
 		}(i, item)

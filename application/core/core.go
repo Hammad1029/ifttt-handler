@@ -50,48 +50,12 @@ func NewServerCore() (*ServerCore, error) {
 	logger := common.CreateLogrus()
 	serverCore.Logger = logger
 	serverCore.ResolvableDependencies = map[common.IntIota]any{
-		common.DependencyRawQueryRepo:          serverCore.DataStore.RawQueryRepo,
-		common.DependencyAppCacheRepo:          serverCore.AppCacheStore.AppCacheRepo,
-		common.DependencyOrmCacheRepo:          serverCore.CacheStore.OrmRepo,
-		common.DependencyEventProfileCacheRepo: serverCore.CacheStore.EventProfileRepo,
+		common.DependencyRawQueryRepo: serverCore.DataStore.RawQueryRepo,
+		common.DependencyAppCacheRepo: serverCore.AppCacheStore.AppCacheRepo,
+		common.DependencyOrmCacheRepo: serverCore.CacheStore.OrmRepo,
 	}
 
 	return &serverCore, nil
-}
-
-func (c *ServerCore) PreparePreConfig(config map[string]resolvable.Resolvable, ctx context.Context) error {
-	reqData := resolvable.GetRequestData(ctx)
-	if reqData == nil {
-		return fmt.Errorf("request data not found")
-	}
-
-	var wg sync.WaitGroup
-
-	cancelCtx, cancel := context.WithCancelCause(ctx)
-	defer cancel(nil)
-
-	for key, r := range config {
-		wg.Add(1)
-		go func(key string, r resolvable.Resolvable) {
-			defer wg.Done()
-			select {
-			case <-cancelCtx.Done():
-				return
-			default:
-				if val, err := r.Resolve(cancelCtx, c.ResolvableDependencies); err != nil {
-					cancel(err)
-					return
-				} else {
-					reqData.Mtx.Lock()
-					reqData.PreConfig[key] = val
-					reqData.Mtx.Unlock()
-				}
-			}
-		}(key, r)
-	}
-
-	wg.Wait()
-	return context.Cause(ctx)
 }
 
 func (c *ServerCore) InitExecution(triggerFlows *[]api.TriggerCondition, ctx context.Context) error {

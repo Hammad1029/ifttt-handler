@@ -2,11 +2,9 @@ package resolvable
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"ifttt/handler/common"
 	"strings"
-	"sync"
 
 	"github.com/itchyny/gojq"
 )
@@ -25,7 +23,7 @@ func (j *jq) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (
 	if err != nil {
 		return nil, err
 	}
-	jqCompatibleInput, err := convertToGoJQCompatible(inputResolved)
+	jqCompatibleInput, err := common.ConvertToGoJQCompatible(inputResolved)
 	if err != nil {
 		return nil, err
 	}
@@ -73,24 +71,5 @@ func runJQQuery(queryString string, input any) (any, error) {
 		return resultVals[0], nil
 	default:
 		return resultVals, nil
-	}
-}
-
-func convertToGoJQCompatible(input any) (any, error) {
-	switch o := input.(type) {
-	case *sync.Map:
-		return convertToGoJQCompatible(common.SyncMapUnsync(o))
-	default:
-		{
-			marshalled, err := json.Marshal(input)
-			if err != nil {
-				return nil, err
-			}
-			var a any
-			if err := json.Unmarshal(marshalled, &a); err != nil {
-				return nil, err
-			}
-			return a, nil
-		}
 	}
 }
