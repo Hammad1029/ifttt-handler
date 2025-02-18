@@ -24,7 +24,10 @@ func TransformProfiles(profiles *[]ResponseProfile) *map[string]ResponseProfile 
 func ScanToInternalTagFunc(ctx context.Context) func(tagName string, value any) error {
 	reqData := request_data.GetRequestData(ctx)
 	return func(tagName string, value any) error {
-		return reqData.SetStore(tagName, value)
+		if tagName != "" {
+			return reqData.SetStore(tagName, value)
+		}
+		return nil
 	}
 }
 

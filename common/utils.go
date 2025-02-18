@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 
+	"github.com/nleeper/goment"
 	"github.com/samber/lo"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func BenchmarkFn(fn func()) {
@@ -57,29 +58,48 @@ func toString(v any) string {
 	}
 }
 
-func evaluateFloats(a, b any, evaluate func(float64, float64) any) any {
+func evaluateFloats(a, b any, evaluate floatComparator) (bool, error) {
 	if af, aOk := toFloat64(a); aOk {
 		if bf, bOk := toFloat64(b); bOk {
-			return evaluate(af, bf)
+			return evaluate(af, bf), nil
 		}
 	}
-	return nil
+	return false, fmt.Errorf("could not convert values to floats")
+}
+
+func calculateFloats(a, b any, evaluate floatCalculator) (float64, error) {
+	if af, aOk := toFloat64(a); aOk {
+		if bf, bOk := toFloat64(b); bOk {
+			return evaluate(af, bf), nil
+		}
+	}
+	return 0, fmt.Errorf("could not convert values to floats")
+}
+
+func evaluateDates(a, b any, evaluate func(dt1, dt2 *goment.Goment) bool) (bool, error) {
+	if date1, err := goment.New(a); err != nil {
+		return false, fmt.Errorf("could not parse date1")
+	} else if date2, err := goment.New(b); err != nil {
+		return false, fmt.Errorf("could not parse date2")
+	} else {
+		return evaluate(date1, date2), nil
+	}
 }
 
 func EqualityCheck(a, b any) bool {
 	return fmt.Sprint(a) == fmt.Sprint(b)
 }
 
-func ArrayIncludes(a, b any) bool {
+func arrayIncludes(is, in any) bool {
 	var arr []any
-	switch a := a.(type) {
+	switch in := in.(type) {
 	case []any:
-		arr = a
+		arr = in
 	default:
-		arr = []any{a}
+		arr = []any{in}
 	}
 	return lo.ContainsBy(arr, func(x any) bool {
-		return EqualityCheck(x, b)
+		return EqualityCheck(x, is)
 	})
 }
 
@@ -94,25 +114,15 @@ func RegexpArrayMatch(patterns []string, input string) (bool, error) {
 	return false, nil
 }
 
-func ExtractFromQuery(query string) (string, string) {
-	var (
-		operation string
-		table     string
-	)
-
-	query = strings.TrimSpace(strings.ToUpper(query))
-	if words := strings.Fields(query); len(words) == 0 {
-		return operation, table
+func compareBcrypt(a, b any) (bool, error) {
+	aArr := []byte(fmt.Sprint(a))
+	bArr := []byte(fmt.Sprint(b))
+	if err := bcrypt.CompareHashAndPassword(aArr, bArr); err != nil {
+		if err == bcrypt.ErrMismatchedHashAndPassword {
+			return false, nil
+		}
+		return false, err
 	} else {
-		operation = words[0]
+		return true, nil
 	}
-
-	if pattern, exists := SQLRegex[operation]; !exists {
-		return operation, table
-	} else if matches := pattern.FindStringSubmatch(query); len(matches) > 1 {
-		table = matches[0]
-	}
-
-	return operation, table
-
 }

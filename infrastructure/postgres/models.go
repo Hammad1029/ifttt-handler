@@ -1,7 +1,7 @@
 package infrastructure
 
 import (
-	"ifttt/handler/domain/api"
+	"ifttt/handler/domain/resolvable"
 
 	"github.com/jackc/pgtype"
 	"gorm.io/gorm"
@@ -9,11 +9,11 @@ import (
 
 type crons struct {
 	gorm.Model
-	Name           string          `gorm:"type:varchar(50);not null;unique" mapstructure:"name"`
-	Description    string          `gorm:"type:text;default:''" mapstructure:"description"`
-	Cron           string          `gorm:"type:varchar(30);default:''" mapstructure:"description"`
-	TriggerFlowRef []trigger_flows `gorm:"many2many:cron_trigger_flows;joinForeignKey:CronId;joinReferences:FlowId;" mapstructure:"triggerFlows"`
-	TriggerFlows   pgtype.JSONB    `gorm:"type:jsonb;default:'{}';not null" mapstructure:"triggerConditions"`
+	Name        string `gorm:"type:varchar(50);not null;unique" mapstructure:"name"`
+	Description string `gorm:"type:text;default:''" mapstructure:"description"`
+	CronExpr    string `gorm:"type:varchar(30);default:''" mapstructure:"cronExpr"`
+	ApiID       uint   `gorm:"not null" mapstructure:"apiId" json:"apiId"`
+	API         apis   `gorm:"foreignKey:ApiID" mapstructure:"api" json:"api"`
 }
 
 type apis struct {
@@ -22,6 +22,7 @@ type apis struct {
 	Path         string          `gorm:"type:varchar(50);not null;unique" mapstructure:"path"`
 	Method       string          `gorm:"type:varchar(10);not null" mapstructure:"method"`
 	Description  string          `gorm:"type:text;default:''" mapstructure:"description"`
+	PreConfig    pgtype.JSONB    `gorm:"type:jsonb;default:'[]';not null" mapstructure:"preConfig"`
 	Request      pgtype.JSONB    `gorm:"type:jsonb;default:'{}';not null" mapstructure:"request"`
 	Response     pgtype.JSONB    `gorm:"type:jsonb;default:'{}';not null" mapstructure:"response"`
 	Triggers     []trigger_flows `gorm:"many2many:api_trigger_flows_main;joinForeignKey:ApiId;joinReferences:FlowId;" mapstructure:"triggerFlows"`
@@ -29,8 +30,8 @@ type apis struct {
 }
 
 type api_trigger_flow_json struct {
-	If      api.Condition `json:"if" mapstructure:"if"`
-	Trigger string        `json:"trigger" mapstructure:"trigger"`
+	If      resolvable.Condition `json:"if" mapstructure:"if"`
+	Trigger string               `json:"trigger" mapstructure:"trigger"`
 }
 
 type trigger_flows struct {
@@ -100,5 +101,5 @@ type response_profile struct {
 
 type internal_tags struct {
 	gorm.Model
-	Name string `json:"name" mapstructure:"name"`
+	Name string `gorm:"unique" json:"name" mapstructure:"name"`
 }

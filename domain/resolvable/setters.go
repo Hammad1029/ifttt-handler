@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"ifttt/handler/common"
 	"ifttt/handler/domain/request_data"
+	"sync"
 )
-
-type setRes map[string]any
 
 type setStore map[string]any
 
@@ -23,12 +22,29 @@ func (s *setStore) Resolve(ctx context.Context, dependencies map[common.IntIota]
 	}
 
 	reqData := request_data.GetRequestData(ctx)
-	for k, v := range resolvedMap {
-		if err := reqData.SetStore(k, v); err != nil {
-			return nil, err
-		}
-	}
+	var wg sync.WaitGroup
+	cancelCtx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
 
+	for key, value := range resolvedMap {
+		wg.Add(1)
+		go func(k string, v any) {
+			defer wg.Done()
+			select {
+			case <-cancelCtx.Done():
+				return
+			default:
+				if err := reqData.SetStore(k, v); err != nil {
+					cancel(err)
+				}
+			}
+		}(key, value)
+	}
+	wg.Wait()
+
+	if err := context.Cause(cancelCtx); err != nil {
+		return nil, err
+	}
 	return nil, nil
 }
 

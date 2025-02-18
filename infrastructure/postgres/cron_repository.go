@@ -17,7 +17,7 @@ func (p *PostgresCronRepository) GetAllCronJobs(ctx context.Context) (*[]api.Cro
 	var domainCrons []api.Cron
 	var postgresCrons []crons
 	if err := p.client.
-		Preload("TriggerFlowRef").Preload("TriggerFlowRef.Rules").
+		Preload("API").Preload("API.Triggers").Preload("API.Triggers.Rules").
 		Find(&postgresCrons).Error; err != nil {
 		return nil, err
 	}

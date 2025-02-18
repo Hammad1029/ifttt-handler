@@ -50,7 +50,7 @@ func (e *encode) Resolve(ctx context.Context, dependencies map[common.IntIota]an
 			if err != nil {
 				return nil, err
 			}
-			return hex.EncodeToString(hash), nil
+			return string(hash), nil
 		}
 	case common.EncodeBase64Decode:
 		{

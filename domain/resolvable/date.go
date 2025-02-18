@@ -4,24 +4,25 @@ import (
 	"context"
 	"fmt"
 	"ifttt/handler/common"
+	"strconv"
 
 	"github.com/nleeper/goment"
 )
 
 type dateFunc struct {
-	Input        dateInput         `json:"input" mapstructure:"input"`
-	Manipulators []dateManipulator `json:"manipulators" mapstructure:"manipulators"`
-	Format       string            `json:"format" mapstructure:"format"`
-	UTC          bool              `json:"utc" mapstructure:"utc"`
+	Input        dateInput        `json:"input" mapstructure:"input"`
+	Manipulators []dateArithmetic `json:"manipulators" mapstructure:"manipulators"`
+	Format       string           `json:"format" mapstructure:"format"`
+	UTC          bool             `json:"utc" mapstructure:"utc"`
 }
 
-type dateManipulator struct {
+type dateArithmetic struct {
 	Operator string     `json:"operator" mapstructure:"operator"`
 	Operand  Resolvable `json:"operand" mapstructure:"operand"`
 	Unit     string     `json:"unit" mapstructure:"unit"`
 }
 
-type dateManipulatorFunc func(input *goment.Goment) (*goment.Goment, error)
+type dateArithmeticFunc func(input *goment.Goment) (*goment.Goment, error)
 
 type dateInput struct {
 	Input    *Resolvable `json:"input" mapstructure:"input"`
@@ -30,21 +31,15 @@ type dateInput struct {
 }
 
 func (d *dateFunc) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
-	var dateInput *goment.Goment
-	if inputResolved, err := d.Input.Resolve(ctx, dependencies); err != nil {
+	dateInput, err := d.Input.get(ctx, dependencies)
+	if err != nil {
 		return nil, err
-	} else if casted, ok := inputResolved.(*goment.Goment); !ok {
-		return nil, fmt.Errorf("date input resolution did not return *goment.Goment")
-	} else {
-		dateInput = casted
 	}
 
 	for _, m := range d.Manipulators {
-		if mFunc, err := m.Resolve(ctx, dependencies); err != nil {
+		if mFunc, err := m.getFunc(ctx, dependencies); err != nil {
 			return nil, err
-		} else if mFuncCasted, ok := mFunc.(dateManipulatorFunc); !ok {
-			return nil, fmt.Errorf("could not cast dateManipulatorFunc")
-		} else if manipulated, err := mFuncCasted(dateInput); err != nil {
+		} else if manipulated, err := mFunc(dateInput); err != nil {
 			return nil, err
 		} else {
 			dateInput = manipulated
@@ -63,23 +58,33 @@ func (d *dateFunc) Resolve(ctx context.Context, dependencies map[common.IntIota]
 	return dateStr, nil
 }
 
-func (d *dateManipulator) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
+func (d *dateArithmetic) getFunc(ctx context.Context, dependencies map[common.IntIota]any) (dateArithmeticFunc, error) {
 	operand, err := d.Operand.Resolve(ctx, dependencies)
 	if err != nil {
 		return nil, err
+	} else if d.Operator != common.DateOperatorAdd && d.Operator != common.DateOperatorSubtract {
+		return nil, fmt.Errorf("date manipulation operator %s not found", d.Operator)
 	}
-	return func(input *goment.Goment) (*goment.Goment, error) {
-		if d.Operator == common.DateOperatorAdd {
-			return input.Add(operand, d.Unit), nil
-		} else if d.Operator == common.DateOperatorSubtract {
-			return input.Subtract(operand, d.Unit), nil
+
+	operandNumber, ok := operand.(int)
+	if !ok {
+		if opN, err := strconv.Atoi(fmt.Sprint(operand)); err != nil {
+			return nil, fmt.Errorf("failed to convert operand to number")
 		} else {
-			return nil, fmt.Errorf("date manipulation operator %s not found", d.Operator)
+			operandNumber = opN
+		}
+	}
+
+	return func(input *goment.Goment) (*goment.Goment, error) {
+		if d.Operator == common.DateOperatorSubtract {
+			return input.Subtract(operandNumber, d.Unit), nil
+		} else {
+			return input.Add(operandNumber, d.Unit), nil
 		}
 	}, nil
 }
 
-func (d *dateInput) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
+func (d *dateInput) get(ctx context.Context, dependencies map[common.IntIota]any) (*goment.Goment, error) {
 	var gomentDate *goment.Goment
 
 	if d.Input == nil {
@@ -89,9 +94,18 @@ func (d *dateInput) Resolve(ctx context.Context, dependencies map[common.IntIota
 			gomentDate = newDate
 		}
 	} else {
-		if newDate, err := d.Input.Resolve(ctx, dependencies); err != nil {
+		newDate, err := d.Input.Resolve(ctx, dependencies)
+		if err != nil {
 			return nil, err
-		} else if dateParsed, err := goment.New(fmt.Sprint(newDate), d.Parse); err != nil {
+		}
+
+		if d.Parse == "" {
+			d.Parse = common.DateTimeFormatGeneric
+		}
+
+		if strDate := fmt.Sprint(newDate); len(d.Parse) > len(strDate) {
+			return nil, fmt.Errorf("parser length greater than date")
+		} else if dateParsed, err := goment.New(strDate, d.Parse); err != nil {
 			return nil, err
 		} else {
 			gomentDate = dateParsed

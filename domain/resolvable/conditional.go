@@ -1,12 +1,32 @@
-package api
+package resolvable
 
 import (
 	"context"
 	"fmt"
 	"ifttt/handler/common"
-	"ifttt/handler/domain/resolvable"
 	"strings"
 )
+
+type conditional struct {
+	Condition Condition     `json:"condition" mapstructure:"condition"`
+	True      *[]Resolvable `json:"true" mapstructure:"true"`
+	False     *[]Resolvable `json:"false" mapstructure:"false"`
+}
+
+func (c *conditional) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
+	if ev, err := c.Condition.EvaluateGroup(ctx, dependencies); err != nil {
+		return nil, err
+	} else if ev {
+		if _, err := ResolveArrayMust(c.True, ctx, dependencies); err != nil {
+			return nil, err
+		}
+	} else {
+		if _, err := ResolveArrayMust(c.False, ctx, dependencies); err != nil {
+			return nil, err
+		}
+	}
+	return nil, nil
+}
 
 const (
 	conditionAnd = "AND"
@@ -14,12 +34,13 @@ const (
 )
 
 type Condition struct {
-	ConditionType string                `json:"conditionType" mapstructure:"conditionType"`
-	Conditions    []Condition           `json:"conditions" mapstructure:"conditions"`
-	Group         bool                  `json:"group" mapstructure:"group"`
-	Operator1     resolvable.Resolvable `json:"op1" mapstructure:"op1"`
-	Operand       string                `json:"opnd" mapstructure:"opnd"`
-	Operator2     resolvable.Resolvable `json:"op2" mapstructure:"op2"`
+	ConditionType   string      `json:"conditionType" mapstructure:"conditionType"`
+	Conditions      []Condition `json:"conditions" mapstructure:"conditions"`
+	Group           bool        `json:"group" mapstructure:"group"`
+	ComparisionType string      `json:"comparisionType" mapstructure:"comparisionType"`
+	Operator1       Resolvable  `json:"op1" mapstructure:"op1"`
+	Operand         string      `json:"opnd" mapstructure:"opnd"`
+	Operator2       Resolvable  `json:"op2" mapstructure:"op2"`
 }
 
 func (group *Condition) EvaluateGroup(ctx context.Context, resolvableDependencies map[common.IntIota]any) (bool, error) {
@@ -62,8 +83,8 @@ func (c *Condition) EvaluateCondition(ctx context.Context, resolvableDependencie
 	if c.Group {
 		return false, fmt.Errorf("method EvaluateCondition: object is a set")
 	}
-	evaluator := common.GetEvaluator(c.Operand)
-	if evaluator == nil {
+	comparator := common.GetComparator(c.Operand)
+	if comparator == nil {
 		return false, fmt.Errorf("method EvaluateCondition: operand not found")
 	}
 
@@ -75,6 +96,9 @@ func (c *Condition) EvaluateCondition(ctx context.Context, resolvableDependencie
 	if err != nil {
 		return false, fmt.Errorf("method EvaluateCondition: %s", err)
 	}
-	ev := (*evaluator)(op1Res, op2Res)
-	return ev, nil
+	if ev, err := (*comparator)(op1Res, op2Res, c.ComparisionType); err != nil {
+		return false, err
+	} else {
+		return ev, nil
+	}
 }

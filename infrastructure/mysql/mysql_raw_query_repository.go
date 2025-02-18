@@ -13,46 +13,32 @@ func NewMySqlRawQueryRepository(base *MySqlBaseRepository) *MySqlRawQueryReposit
 	return &MySqlRawQueryRepository{MySqlBaseRepository: base}
 }
 
-func (m *MySqlRawQueryRepository) ScanPositional(queryString string, parameters []any, ctx context.Context) (*[]map[string]any, error) {
-	rows, err := m.client.QueryContext(ctx, queryString, parameters...)
+func (m *MySqlRawQueryRepository) BeginTx(ctx context.Context) (*sql.Tx, error) {
+	return m.client.BeginTx(ctx, &sql.TxOptions{})
+}
+
+func (m *MySqlRawQueryRepository) Scan(tx *sql.Tx, queryString string, parameters []any, ctx context.Context) (*[]map[string]any, int, error) {
+	rows, err := tx.QueryContext(ctx, queryString, parameters...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
 	if mappedRows, err := m.scan(rows); err != nil {
-		return nil, err
+		return nil, 0, err
 	} else {
-		return mappedRows, nil
+		return mappedRows, len(*mappedRows), nil
 	}
 }
 
-func (m *MySqlRawQueryRepository) ScanNamed(queryString string, parameters map[string]any, ctx context.Context) (*[]map[string]any, error) {
-	rows, err := m.client.QueryContext(ctx, queryString, parameters)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	if mappedRows, err := m.scan(rows); err != nil {
-		return nil, err
+func (m *MySqlRawQueryRepository) Exec(tx *sql.Tx, queryString string, parameters []any, ctx context.Context) (int, error) {
+	if results, err := tx.ExecContext(ctx, queryString, parameters...); err != nil {
+		return 0, err
+	} else if affected, err := results.RowsAffected(); err != nil {
+		return 0, err
 	} else {
-		return mappedRows, nil
+		return int(affected), nil
 	}
-}
-
-func (m *MySqlRawQueryRepository) ExecPositional(queryString string, parameters []any, ctx context.Context) error {
-	if _, err := m.client.ExecContext(ctx, queryString, parameters...); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (m *MySqlRawQueryRepository) ExecNamed(queryString string, parameters map[string]any, ctx context.Context) error {
-	if _, err := m.client.ExecContext(ctx, queryString, parameters); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (m *MySqlRawQueryRepository) scan(rows *sql.Rows) (*[]map[string]any, error) {

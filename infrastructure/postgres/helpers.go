@@ -67,9 +67,14 @@ func (a *apis) toDomain() (*api.Api, error) {
 		Path:        a.Path,
 		Method:      a.Method,
 		Description: a.Description,
+		PreConfig:   []resolvable.Resolvable{},
 		Request:     map[string]requestvalidator.RequestParameter{},
 		Response:    map[uint]resolvable.ResponseDefinition{},
 		Triggers:    &[]api.TriggerCondition{},
+	}
+
+	if err := json.Unmarshal(a.PreConfig.Bytes, &domainApi.PreConfig); err != nil {
+		return nil, err
 	}
 
 	if err := json.Unmarshal(a.Request.Bytes, &domainApi.Request); err != nil {
@@ -109,35 +114,15 @@ func (a *apis) toDomain() (*api.Api, error) {
 
 func (c *crons) toDomain() (*api.Cron, error) {
 	dCron := api.Cron{
-		ID:           c.ID,
-		Name:         c.Name,
-		Description:  c.Name,
-		Cron:         c.Cron,
-		TriggerFlows: &[]api.TriggerCondition{},
+		Name:        c.Name,
+		Description: c.Name,
+		CronExpr:    c.CronExpr,
 	}
 
-	var tConditions []api_trigger_flow_json
-	if err := json.Unmarshal(c.TriggerFlows.Bytes, &tConditions); err != nil {
-		return nil,
-			fmt.Errorf("could not cast pgApi: %s", err)
-	}
-
-	triggerFlowMap := make(map[string]trigger_flows)
-	for _, tFlow := range c.TriggerFlowRef {
-		triggerFlowMap[tFlow.Name] = tFlow
-	}
-
-	for _, tc := range tConditions {
-		tcModel, ok := triggerFlowMap[tc.Trigger]
-		if !ok {
-			return nil,
-				fmt.Errorf("trigger flow not found from conditions")
-		}
-		domainTFlow, err := tcModel.toDomain()
-		if err != nil {
-			return nil, err
-		}
-		*dCron.TriggerFlows = append(*dCron.TriggerFlows, api.TriggerCondition{If: tc.If, Trigger: *domainTFlow})
+	if dApi, err := c.API.toDomain(); err != nil {
+		return nil, err
+	} else {
+		dCron.Api = *dApi
 	}
 
 	return &dCron, nil

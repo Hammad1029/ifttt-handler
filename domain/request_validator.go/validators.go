@@ -105,6 +105,9 @@ func (s *RequestParameter) validateValue(val any, scan func(tagName string, valu
 			return []ValidationError{
 				{ErrorInfo: fmt.Errorf("could not decode validator"), Internal: true}}
 		}
+		if err := scan(s.InternalTag, val); err != nil {
+			return []ValidationError{{ErrorInfo: fmt.Errorf("could not scan request parameter: %s", err)}}
+		}
 		return validator.validate(arr, scan)
 	case dataTypeMap:
 		mapVal, ok := val.(map[string]any)
@@ -116,6 +119,9 @@ func (s *RequestParameter) validateValue(val any, scan func(tagName string, valu
 			return []ValidationError{
 				{ErrorInfo: fmt.Errorf("could not decode validator"), Internal: true}}
 		}
+		if err := scan(s.InternalTag, val); err != nil {
+			return []ValidationError{{ErrorInfo: fmt.Errorf("could not scan request parameter: %s", err)}}
+		}
 		return ValidateMap((*map[string]RequestParameter)(&validator), &mapVal, scan)
 	}
 	return nil
@@ -125,7 +131,9 @@ func (s *arrayValue) validate(arr []any, scan func(tagName string, value any) er
 	var wg sync.WaitGroup
 	validationErrors := []ValidationError{}
 
-	if len(arr) < s.Minimum || len(arr) > s.Maximum {
+	if s.Maximum > 0 && len(arr) < s.Maximum {
+		return []ValidationError{{ErrorInfo: fmt.Errorf("invalid length of array")}}
+	} else if s.Minimum > 0 && len(arr) < s.Minimum {
 		return []ValidationError{{ErrorInfo: fmt.Errorf("invalid length of array")}}
 	}
 

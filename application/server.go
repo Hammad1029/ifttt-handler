@@ -4,21 +4,22 @@ import (
 	"context"
 	"fmt"
 	"ifttt/handler/application/config"
-	"ifttt/handler/application/controllers"
-	"ifttt/handler/application/core"
 	"ifttt/handler/common"
 	"ifttt/handler/domain/api"
 	"ifttt/handler/domain/orm_schema"
+	"net"
+	"os"
 	"strings"
+	"sync"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/pprof"
 )
 
-var currCore *core.ServerCore
+var currCore *ServerCore
 
 func Init() {
-	if core, err := core.NewServerCore(); err != nil {
+	if core, err := newServerCore(); err != nil {
 		panic(fmt.Errorf("could not create core: %s", err))
 	} else {
 		currCore = core
@@ -31,11 +32,6 @@ func Init() {
 
 	currCore.Logger.Info("creating APIs")
 	if err := createApis(app, ctx); err != nil {
-		panic(err)
-	}
-
-	currCore.Logger.Info("creating Cron Jobs")
-	if err := createCronJobs(ctx); err != nil {
 		panic(err)
 	}
 
@@ -53,8 +49,44 @@ func Init() {
 		panic(err)
 	}
 
-	app.Listen(fmt.Sprintf(":%s", port))
-	fmt.Printf("Handler running on port: %s", port)
+	currCore.Logger.Info("creating Cron Jobs")
+	if err := createCronJobs(ctx); err != nil {
+		panic(err)
+	}
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		listener, err := net.Listen("unix", common.SelfSocket)
+		if err != nil {
+			panic(err)
+		}
+		defer os.Remove(common.SelfSocket)
+
+		if err := os.Chmod(common.SelfSocket, 0666); err != nil {
+			panic(err)
+		}
+
+		fmt.Printf("Server running on unix socket: %s (for cronjobs) \n", common.SelfSocket)
+		if err := app.Listener(listener); err != nil {
+			panic(err)
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		if err := app.Listen(fmt.Sprintf(":%s", port)); err != nil {
+			panic(err)
+		}
+		fmt.Printf("Handler running on port: %s \n", port)
+	}()
+
+	wg.Wait()
 }
 
 func createApis(fiber *fiber.App, ctx context.Context) error {
@@ -81,12 +113,12 @@ func createApis(fiber *fiber.App, ctx context.Context) error {
 			if matched, err := common.RegexpArrayMatch(common.ReservedPaths, currApi.Path); err != nil {
 				return err
 			} else if matched {
-				fmt.Printf("ServerInit: skipping api path: %s | paths not allowed: %s",
+				fmt.Printf("skipping api path: %s | paths not allowed: %s",
 					currApi.Path, strings.Join(common.ReservedPaths, ", "))
 				continue
 			}
 			fmt.Printf("attempting to attach %s to routes\n", currApi.Path)
-			if err := controllers.NewMainController(fiber, currCore, &currApi, ctx); err != nil {
+			if err := newMainController(fiber, currCore, &currApi, ctx); err != nil {
 				fmt.Printf("failed to attach route %s", currApi.Path)
 			}
 		}
@@ -96,19 +128,17 @@ func createApis(fiber *fiber.App, ctx context.Context) error {
 }
 
 func createCronJobs(ctx context.Context) error {
+	os.Remove(common.SelfSocket)
+
 	cronJobs, err := currCore.ConfigStore.CronRepo.GetAllCronJobs(ctx)
 	if err != nil {
 		return fmt.Errorf("could not get cron jobs from persistent config store: %s", err)
 	}
 
-	if err := currCore.CacheStore.CronRepo.StoreCrons(cronJobs, ctx); err != nil {
-		return fmt.Errorf("could not store cronjobs in cache storage: %s", err)
-	}
-
 	if cronJobs != nil {
 		for _, currCron := range *cronJobs {
 			fmt.Printf("attempting to attach cronjob %s\n", currCron.Name)
-			if err := controllers.NewCronController(&currCron, currCore, ctx); err != nil {
+			if err := currCore.addCronJob(&currCron); err != nil {
 				fmt.Printf("failed to attach cronjob %s", currCron.Name)
 			}
 		}

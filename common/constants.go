@@ -1,7 +1,5 @@
 package common
 
-import "regexp"
-
 const (
 	DateTimeFormat        = "2006-01-02 15:04:05"
 	DateTimeFormatGeneric = "YYYY-MM-DD HH:mm:ss"
@@ -15,7 +13,7 @@ const (
 	DependencyOrmQueryRepo
 )
 
-var ReservedPaths = []string{"^/test/.*", "^/auth/.*"}
+var ReservedPaths = []string{"^/test/.*"}
 
 const (
 	ContextState IntIota = iota
@@ -51,6 +49,7 @@ const (
 	LogStageMemload    = "memload"
 	LogStageParsing    = "parsing"
 	LogStageValidation = "validation"
+	LogStagePreConfig  = "preconfig"
 	LogStageExecution  = "execution"
 	LogStageEnding     = "end"
 )
@@ -114,10 +113,10 @@ const (
 )
 
 const (
-	OrmSelect = "select"
-	OrmUpdate = "update"
-	OrmInsert = "insert"
-	OrmDelete = "delete"
+	OrmSelect = "SELECT"
+	OrmUpdate = "UPDATE"
+	OrmInsert = "INSERT"
+	OrmDelete = "DELETE"
 )
 
 const (
@@ -143,19 +142,39 @@ var ResponseDefaultMalfunction = map[string]any{
 	"responseDescription": "Could not map response to profile",
 }
 
-var SQLRegex = map[string]*regexp.Regexp{
-	"SELECT":   regexp.MustCompile(`FROM\s+([a-zA-Z_][a-zA-Z0-9_]*)`),
-	"INSERT":   regexp.MustCompile(`INTO\s+([a-zA-Z_][a-zA-Z0-9_]*)`),
-	"UPDATE":   regexp.MustCompile(`UPDATE\s+([a-zA-Z_][a-zA-Z0-9_]*)`),
-	"DELETE":   regexp.MustCompile(`FROM\s+([a-zA-Z_][a-zA-Z0-9_]*)`),
-	"TRUNCATE": regexp.MustCompile(`TABLE\s+([a-zA-Z_][a-zA-Z0-9_]*)`),
-	"ALTER":    regexp.MustCompile(`TABLE\s+([a-zA-Z_][a-zA-Z0-9_]*)`),
-	"DROP":     regexp.MustCompile(`TABLE\s+([a-zA-Z_][a-zA-Z0-9_]*)`),
-	"CREATE":   regexp.MustCompile(`TABLE\s+([a-zA-Z_][a-zA-Z0-9_]*)`),
-}
-
 const (
 	InternalTagErrorValidation = "validation"
 	InternalTagErrorSystem     = "system"
 	InternalTagErrorUser       = "user"
+)
+
+const SelfSocket = "/tmp/ifttt.sock"
+
+const AppCacheDefaultTTL = 86400
+
+const (
+	ComparatorEquals            = "eq"
+	ComparatorNotEquals         = "ne"
+	ComparatorIn                = "in"
+	ComparatorNotIn             = "ni"
+	ComparatorLessThan          = "lt"
+	ComparatorLessThanEquals    = "lte"
+	ComparatorGreaterThan       = "gt"
+	ComparatorGreaterThanEquals = "gte"
+)
+
+const (
+	ComparisionTypeString  = "string"
+	ComparisionTypeNumber  = "number"
+	ComparisionTypeBoolean = "boolean"
+	ComparisionTypeDate    = "date"
+	ComparisionTypeBcrypt  = "bcrypt"
+)
+
+const (
+	CalculatorAdd      = "+"
+	CalculatorSubtract = "-"
+	CalculatorMultiply = "*"
+	CalculatorDivide   = "/"
+	CalculatorModulus  = "%"
 )

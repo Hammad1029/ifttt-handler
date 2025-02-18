@@ -8,7 +8,7 @@ import (
 )
 
 type Response struct {
-	Trigger uint `json:"trigger" mapstructure:"trigger"`
+	Event uint `json:"event" mapstructure:"event"`
 }
 
 type ResponseDefinition struct {
@@ -34,13 +34,13 @@ func (e *Response) Resolve(ctx context.Context, dependencies map[common.IntIota]
 func (e *Response) ChannelSend(responseChannel chan Response, ctx context.Context) {
 	if ok := common.SetResponseSent(ctx); ok {
 		common.LogWithTracer(common.LogSystem,
-			fmt.Sprintf("Sending response with trigger %d", e.Trigger), e, false, ctx)
+			fmt.Sprintf("Sending response with event %d", e.Event), e, false, ctx)
 		responseChannel <- *e
 		close(responseChannel)
 	}
 }
 
-func (e *Response) HandlerTrigger(ctx context.Context, dependencies map[common.IntIota]any) (*map[string]any, int, error) {
+func (e *Response) HandlerEvent(ctx context.Context, dependencies map[common.IntIota]any) (*map[string]any, int, error) {
 	apiProfilesUncasted, ok := common.GetCtxState(ctx).Load(common.ContextResponseProfiles)
 	if !ok {
 		return nil, 0, fmt.Errorf("no api profiles found")
@@ -50,9 +50,9 @@ func (e *Response) HandlerTrigger(ctx context.Context, dependencies map[common.I
 		return nil, 0, fmt.Errorf("could not cast response profiles")
 	}
 
-	responseDefinition, ok := apiProfiles[e.Trigger]
+	responseDefinition, ok := apiProfiles[e.Event]
 	if !ok {
-		return nil, 0, fmt.Errorf("response definition for trigger %d not found", e.Trigger)
+		return nil, 0, fmt.Errorf("response definition for event %d not found", e.Event)
 	}
 
 	responseScanned, err := configuration.ScanFromInternalTags(responseDefinition.Definition, ctx)

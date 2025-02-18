@@ -10,12 +10,12 @@ func AttachResponseProfiles(apis *[]Api, profiles *[]configuration.ResponseProfi
 	transformedProfiles := configuration.TransformProfiles(profiles)
 
 	for idx, a := range *apis {
-		for trigger, profile := range a.Response {
+		for event, profile := range a.Response {
 			if profile.UseProfile != "" {
 				if p, ok := (*transformedProfiles)[profile.UseProfile]; !ok {
 					return fmt.Errorf("profile %s not found", profile.UseProfile)
 				} else {
-					(*apis)[idx].Response[trigger] = resolvable.ResponseDefinition{
+					(*apis)[idx].Response[event] = resolvable.ResponseDefinition{
 						UseProfile:     p.Name,
 						Definition:     p.BodyFormat,
 						HTTPStatusCode: p.ResponseHTTPStatus,

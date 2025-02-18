@@ -2,6 +2,7 @@ package resolvable
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"ifttt/handler/common"
@@ -14,13 +15,11 @@ import (
 )
 
 type query struct {
-	QueryString          string                `json:"queryString" mapstructure:"queryString"`
-	Scan                 bool                  `json:"scan" mapstructure:"scan"`
-	Named                bool                  `json:"named" mapstructure:"named"`
-	NamedParameters      map[string]Resolvable `json:"namedParameters" mapstructure:"namedParameters"`
-	PositionalParameters []Resolvable          `json:"positionalParameters" mapstructure:"positionalParameters"`
-	Async                bool                  `json:"async" mapstructure:"async"`
-	Timeout              uint                  `json:"timeout" mapstructure:"timeout"`
+	QueryString string       `json:"queryString" mapstructure:"queryString"`
+	Scan        bool         `json:"scan" mapstructure:"scan"`
+	Parameters  []Resolvable `json:"parameters" mapstructure:"parameters"`
+	Async       bool         `json:"async" mapstructure:"async"`
+	Timeout     uint         `json:"timeout" mapstructure:"timeout"`
 }
 
 type queryData struct {
@@ -30,79 +29,79 @@ type queryData struct {
 }
 
 type queryRequest struct {
-	Operation            string         `json:"operation" mapstructure:"operation"`
-	Table                string         `json:"table" mapstructure:"table"`
-	Scan                 bool           `json:"scan" mapstructure:"scan"`
-	QueryString          string         `json:"queryString" mapstructure:"queryString"`
-	Named                bool           `json:"named" mapstructure:"named"`
-	NamedParameters      map[string]any `json:"namedParameters" mapstructure:"namedParameters"`
-	PositionalParameters []any          `json:"positionalParameters" mapstructure:"positionalParameters"`
+	Scan        bool   `json:"scan" mapstructure:"scan"`
+	QueryString string `json:"queryString" mapstructure:"queryString"`
+	Parameters  []any  `json:"parameters" mapstructure:"parameters"`
 }
 
 type queryMetadata struct {
-	Start      time.Time `json:"start" mapstructure:"start"`
-	End        time.Time `json:"end" mapstructure:"end"`
-	TimeTaken  uint64    `json:"timeTaken" mapstructure:"timeTaken"`
-	Timeout    uint      `json:"timeOut" mapstructure:"timeOut"`
-	DidTimeout bool      `json:"didTimeout" mapstructure:"didTimeout"`
-	Async      bool      `json:"async" mapstructure:"async"`
-	Error      string    `json:"error" mapstructure:"error"`
+	Start        time.Time `json:"start" mapstructure:"start"`
+	End          time.Time `json:"end" mapstructure:"end"`
+	TimeTaken    uint64    `json:"timeTaken" mapstructure:"timeTaken"`
+	Timeout      uint      `json:"timeOut" mapstructure:"timeOut"`
+	DidTimeout   bool      `json:"didTimeout" mapstructure:"didTimeout"`
+	Async        bool      `json:"async" mapstructure:"async"`
+	Error        string    `json:"error" mapstructure:"error"`
+	RowsAffected int       `json:"rowsAffected" mapstructure:"rowsAffected"`
 }
 
 type RawQueryRepository interface {
-	ScanPositional(queryString string, parameters []any, ctx context.Context) (*[]map[string]any, error)
-	ScanNamed(queryString string, parameters map[string]any, ctx context.Context) (*[]map[string]any, error)
-	ExecPositional(queryString string, parameters []any, ctx context.Context) error
-	ExecNamed(queryString string, parameters map[string]any, ctx context.Context) error
+	BeginTx(ctx context.Context) (*sql.Tx, error)
+	Scan(tx *sql.Tx, queryString string, parameters []any, ctx context.Context) (*[]map[string]any, int, error)
+	Exec(tx *sql.Tx, queryString string, parameters []any, ctx context.Context) (int, error)
 }
 
 func (q *query) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
-	var (
-		namedResolved      map[string]any
-		positionalResolved []any
-		err                error
-	)
-
-	if q.Named {
-		namedResolved, err = resolveMapMustParallel(&q.NamedParameters, ctx, dependencies)
-	} else {
-		positionalResolved, err = resolveArrayMustParallel(&q.PositionalParameters, ctx, dependencies)
-	}
-
+	resolved, err := resolveArrayMustParallel(&q.Parameters, ctx, dependencies)
 	if err != nil {
 		return nil, fmt.Errorf("could resolve parameters for query: %s", err)
-	} else {
-		return q.init(positionalResolved, namedResolved, ctx, dependencies)
 	}
+
+	rawQueryRepo, ok := dependencies[common.DependencyRawQueryRepo].(RawQueryRepository)
+	if !ok {
+		return nil, fmt.Errorf("method *QueryResolvable: could not cast raw query repo")
+	}
+
+	tx, err := rawQueryRepo.BeginTx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not begin tx: %s", err)
+	}
+
+	queryData, err := q.init(tx, resolved, ctx, dependencies)
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return nil, fmt.Errorf("attempted rollback on error: %s. rollback failed %s", err, rollbackErr)
+		}
+		return nil, fmt.Errorf("rolled back. error: %s", err)
+	} else if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit failed: %s", err)
+	}
+
+	return queryData, nil
 }
 
-func (q *query) init(positional []any, named map[string]any, ctx context.Context, dependencies map[common.IntIota]any) (*queryData, error) {
-	queryData, err := q.createQueryData(positional, named)
+func (q *query) init(tx *sql.Tx, parameters []any, ctx context.Context, dependencies map[common.IntIota]any) (*queryData, error) {
+	queryData, err := q.createQueryData(parameters)
 	if err != nil {
 		return nil, fmt.Errorf("queryResolvable: could not create query data: %s", err)
 	}
 
 	if q.Async {
-		go queryData.execute(dependencies, ctx)
-	} else if err := queryData.execute(dependencies, ctx); err != nil {
+		go queryData.execute(tx, dependencies, ctx)
+	} else if err := queryData.execute(tx, dependencies, ctx); err != nil {
 		return nil, fmt.Errorf("queryResolvable: could not execute query: %s", err)
 	}
 
 	return queryData, nil
 }
 
-func (q *query) createQueryData(positional []any, named map[string]any) (*queryData, error) {
-	operation, table := common.ExtractFromQuery(q.QueryString)
+func (q *query) createQueryData(parameters []any) (*queryData, error) {
 	req := queryRequest{
-		Operation:            operation,
-		Table:                table,
-		Scan:                 q.Scan,
-		QueryString:          q.QueryString,
-		Named:                q.Named,
-		PositionalParameters: []any{},
-		NamedParameters:      map[string]any{},
+		Scan:        q.Scan,
+		QueryString: q.QueryString,
+		Parameters:  []any{},
 	}
-	req.preProcess(positional, named)
+	req.preProcess(parameters)
 
 	queryData := queryData{
 		Request:  &req,
@@ -116,10 +115,12 @@ func (q *query) createQueryMetadata() *queryMetadata {
 	return &queryMetadata{Timeout: q.Timeout, Async: q.Async}
 }
 
-func (q *queryData) execute(dependencies map[common.IntIota]any, ctx context.Context) error {
+func (q *queryData) execute(tx *sql.Tx, dependencies map[common.IntIota]any, ctx context.Context) error {
 	defer func() {
 		mapped := structs.Map(q)
-		request_data.AddExternalTrip(common.ExternalTripQuery, fmt.Sprintf("%s:%s", q.Request.Operation, q.Request.Table), &mapped, q.Metadata.TimeTaken, ctx)
+		request_data.AddExternalTrip(common.ExternalTripQuery,
+			q.Request.QueryString[20:],
+			&mapped, q.Metadata.TimeTaken, ctx)
 	}()
 
 	q.Metadata.Start = time.Now()
@@ -130,15 +131,16 @@ func (q *queryData) execute(dependencies map[common.IntIota]any, ctx context.Con
 	}
 
 	var (
-		results *[]map[string]any
-		err     error
+		results      *[]map[string]any
+		rowsAffected int
+		err          error
 	)
 	if q.Metadata.Timeout > 0 {
 		timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(q.Metadata.Timeout)*time.Millisecond)
 		defer cancel()
-		results, err = q.Request.runQuery(rawQueryRepo, timeoutCtx)
+		results, rowsAffected, err = q.Request.runQuery(tx, rawQueryRepo, timeoutCtx)
 	} else {
-		results, err = q.Request.runQuery(rawQueryRepo, ctx)
+		results, rowsAffected, err = q.Request.runQuery(tx, rawQueryRepo, ctx)
 	}
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -152,21 +154,19 @@ func (q *queryData) execute(dependencies map[common.IntIota]any, ctx context.Con
 	}
 
 	q.Results = results
+	q.Metadata.RowsAffected = rowsAffected
 	q.Metadata.End = time.Now()
 	q.Metadata.TimeTaken = uint64(q.Metadata.End.Sub(q.Metadata.Start).Milliseconds())
 
 	return nil
 }
-func (q *queryRequest) preProcess(positional []any, named map[string]any) {
-	if q.Named || named != nil {
-		return
-	}
 
+func (q *queryRequest) preProcess(parameters []any) {
 	var builder strings.Builder
 	builder.Grow(len(q.QueryString))
 
 	estimatedParams := strings.Count(q.QueryString, "?")
-	q.PositionalParameters = make([]any, 0, estimatedParams)
+	q.Parameters = make([]any, 0, estimatedParams)
 
 	var (
 		afterParenthesis bool
@@ -174,14 +174,14 @@ func (q *queryRequest) preProcess(positional []any, named map[string]any) {
 	)
 
 	for _, v := range q.QueryString {
-		if v == '?' && idx < len(positional) {
+		if v == '?' && idx < len(parameters) {
 			if afterParenthesis {
-				rv := reflect.ValueOf(positional[idx])
+				rv := reflect.ValueOf(parameters[idx])
 				switch rv.Kind() {
 				case reflect.Slice, reflect.Array:
 					if rv.Len() == 0 {
 						builder.WriteRune('?')
-						q.PositionalParameters = append(q.PositionalParameters, nil)
+						q.Parameters = append(q.Parameters, nil)
 					} else {
 						if rv.Len() > 1 {
 							builder.WriteRune('?')
@@ -192,16 +192,16 @@ func (q *queryRequest) preProcess(positional []any, named map[string]any) {
 							builder.WriteRune('?')
 						}
 						for i := 0; i < rv.Len(); i++ {
-							q.PositionalParameters = append(q.PositionalParameters, rv.Index(i).Interface())
+							q.Parameters = append(q.Parameters, rv.Index(i).Interface())
 						}
 					}
 				default:
 					builder.WriteRune('?')
-					q.PositionalParameters = append(q.PositionalParameters, positional[idx])
+					q.Parameters = append(q.Parameters, parameters[idx])
 				}
 			} else {
 				builder.WriteRune('?')
-				q.PositionalParameters = append(q.PositionalParameters, positional[idx])
+				q.Parameters = append(q.Parameters, parameters[idx])
 			}
 			idx++
 		} else {
@@ -213,17 +213,18 @@ func (q *queryRequest) preProcess(positional []any, named map[string]any) {
 	q.QueryString = builder.String()
 }
 
-func (q *queryRequest) runQuery(rawQueryRepo RawQueryRepository, ctx context.Context) (*[]map[string]any, error) {
-	switch {
-	case q.Named && q.Scan:
-		return rawQueryRepo.ScanNamed(q.QueryString, q.NamedParameters, ctx)
-	case q.Named && !q.Scan:
-		return nil, rawQueryRepo.ExecNamed(q.QueryString, q.NamedParameters, ctx)
-	case !q.Named && q.Scan:
-		return rawQueryRepo.ScanPositional(q.QueryString, q.PositionalParameters, ctx)
-	case !q.Named && !q.Scan:
-		return nil, rawQueryRepo.ExecPositional(q.QueryString, q.PositionalParameters, ctx)
-	default:
-		return nil, fmt.Errorf("no run query case matched")
+func (q *queryRequest) runQuery(tx *sql.Tx, rawQueryRepo RawQueryRepository, ctx context.Context) (*[]map[string]any, int, error) {
+	var (
+		results      *[]map[string]any
+		rowsAffected int
+		err          error
+	)
+
+	if q.Scan {
+		results, rowsAffected, err = rawQueryRepo.Scan(tx, q.QueryString, q.Parameters, ctx)
+	} else {
+		rowsAffected, err = rawQueryRepo.Exec(tx, q.QueryString, q.Parameters, ctx)
 	}
+
+	return results, rowsAffected, err
 }

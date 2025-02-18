@@ -40,6 +40,8 @@ func resolvableFactory(rType string) resolvableInterface {
 		return &setCache{}
 	case accessorGetCache:
 		return &getCache{}
+	case accessorDeleteCache:
+		return &deleteCache{}
 	case accessorUUID:
 		return &generateUUID{}
 	case accessorHeaders:
@@ -52,12 +54,10 @@ func resolvableFactory(rType string) resolvableInterface {
 		return &forEach{}
 	case accessorGetIter:
 		return &getIter{}
-	case accessorDateInput:
-		return &dateInput{}
-	case accessorDateManipulator:
-		return &dateManipulator{}
 	case accessorDateFunc:
 		return &dateFunc{}
+	case accessorConditional:
+		return &conditional{}
 	default:
 		return nil
 	}

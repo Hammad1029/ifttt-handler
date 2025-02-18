@@ -1,4 +1,4 @@
-package core
+package application
 
 import (
 	"context"
@@ -7,10 +7,13 @@ import (
 	"ifttt/handler/domain/api"
 	"ifttt/handler/domain/resolvable"
 	infraStore "ifttt/handler/infrastructure/store"
+	"net"
+	"net/http"
 	"sync"
 
 	"github.com/robfig/cron/v3"
 	"github.com/sirupsen/logrus"
+	"github.com/valyala/fasthttp"
 )
 
 type ServerCore struct {
@@ -21,9 +24,10 @@ type ServerCore struct {
 	AppCacheStore          *infraStore.AppCacheStore
 	ResolvableDependencies map[common.IntIota]any
 	Logger                 *logrus.Logger
+	selfClient             *fasthttp.Client
 }
 
-func NewServerCore() (*ServerCore, error) {
+func newServerCore() (*ServerCore, error) {
 	var serverCore ServerCore
 
 	serverCore.Cron = cron.New()
@@ -47,6 +51,11 @@ func NewServerCore() (*ServerCore, error) {
 	} else {
 		serverCore.AppCacheStore = appCacheStore
 	}
+	serverCore.selfClient = &fasthttp.Client{
+		Dial: func(addr string) (net.Conn, error) {
+			return net.Dial("unix", common.SelfSocket)
+		},
+	}
 	logger := common.CreateLogrus()
 	serverCore.Logger = logger
 	serverCore.ResolvableDependencies = map[common.IntIota]any{
@@ -58,7 +67,7 @@ func NewServerCore() (*ServerCore, error) {
 	return &serverCore, nil
 }
 
-func (c *ServerCore) InitExecution(triggerFlows *[]api.TriggerCondition, ctx context.Context) error {
+func (c *ServerCore) initExecution(triggerFlows *[]api.TriggerCondition, ctx context.Context) error {
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 
@@ -178,4 +187,25 @@ func (c *ServerCore) doRuleCase(s *api.RuleSwitchCase, ctx context.Context) (uin
 		return 0, err
 	}
 	return s.Return, nil
+}
+
+func (c *ServerCore) addCronJob(cron *api.Cron) error {
+	if _, err := c.Cron.AddFunc(cron.CronExpr, func() {
+		reqURI := fmt.Sprintf("http://unix/%s", cron.Api.Path)
+		fmt.Printf("attempting api call at %s", reqURI)
+
+		req := fasthttp.AcquireRequest()
+		resp := fasthttp.AcquireResponse()
+
+		req.SetRequestURI(reqURI)
+		req.Header.SetMethod(http.MethodGet)
+
+		if err := c.selfClient.Do(req, resp); err != nil {
+			c.Logger.Error(err)
+			return
+		}
+	}); err != nil {
+		return err
+	}
+	return nil
 }

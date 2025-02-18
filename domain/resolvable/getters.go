@@ -2,13 +2,16 @@ package resolvable
 
 import (
 	"context"
+	"fmt"
 	"ifttt/handler/common"
 	"ifttt/handler/domain/request_data"
 )
 
 type getErrors struct{}
 
-type getStore struct{}
+type getStore struct {
+	Query any `json:"query" mapstructure:"query"`
+}
 
 type getHeaders struct{}
 
@@ -26,7 +29,18 @@ func (r *getErrors) Resolve(ctx context.Context, dependencies map[common.IntIota
 }
 
 func (s *getStore) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
-	return request_data.GetRequestData(ctx).Store, nil
+	queryResolved, err := resolveMaybe(s.Query, ctx, dependencies)
+	if err != nil {
+		return nil, err
+	}
+
+	input := request_data.GetRequestData(ctx).Store
+	jqCompatibleInput, err := common.ConvertToGoJQCompatible(input)
+	if err != nil {
+		return nil, err
+	}
+
+	return runJQQuery(fmt.Sprint(queryResolved), jqCompatibleInput)
 }
 
 func (c *getConst) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {

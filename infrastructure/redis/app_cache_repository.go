@@ -32,3 +32,8 @@ func (r *RedisAppCacheRepository) GetKey(key string, ctx context.Context) (any, 
 	}
 	return val, nil
 }
+
+func (r *RedisAppCacheRepository) DeleteKey(key string, ctx context.Context) (int64, error) {
+	affected, err := r.client.Del(ctx, key).Result()
+	return affected, err
+}

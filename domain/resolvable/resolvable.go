@@ -28,15 +28,15 @@ const (
 	accessorEncode              = "encode"
 	accessorSetCache            = "setCache"
 	accessorGetCache            = "getCache"
+	accessorDeleteCache         = "deleteCache"
 	accessorUUID                = "uuid"
 	accessorHeaders             = "headers"
 	accessorCast                = "cast"
 	accessorOrm                 = "orm"
 	accessorForEach             = "forEach"
 	accessorGetIter             = "getIter"
-	accessorDateInput           = "dateInput"
-	accessorDateManipulator     = "dateManipulator"
 	accessorDateFunc            = "dateFunc"
+	accessorConditional         = "conditional"
 )
 
 type resolvableInterface interface {

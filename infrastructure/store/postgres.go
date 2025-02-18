@@ -59,10 +59,10 @@ func (p *postgresStore) init(config map[string]any) error {
 }
 
 func (p *postgresStore) createDataStore() *DataStore {
-	postgresBase := postgresInfra.NewPostgresBaseRepository(p.store, false)
+	// postgresBase := postgresInfra.NewPostgresBaseRepository(p.store, false)
 	return &DataStore{
-		Store:        p,
-		RawQueryRepo: postgresInfra.NewPostgresRawQueryRepository(postgresBase),
+		Store: p,
+		// RawQueryRepo: postgresInfra.NewPostgresRawQueryRepository(postgresBase),
 	}
 }
 

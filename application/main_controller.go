@@ -1,9 +1,8 @@
-package controllers
+package application
 
 import (
 	"context"
 	"fmt"
-	"ifttt/handler/application/core"
 	"ifttt/handler/common"
 	"ifttt/handler/domain/api"
 	"ifttt/handler/domain/configuration"
@@ -20,7 +19,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func NewMainController(router fiber.Router, core *core.ServerCore, api *api.Api, ctx context.Context) error {
+func newMainController(router fiber.Router, core *ServerCore, api *api.Api, ctx context.Context) error {
 	controller := mainController(core, ctx)
 	switch strings.ToUpper(api.Method) {
 	case http.MethodGet:
@@ -37,7 +36,7 @@ func NewMainController(router fiber.Router, core *core.ServerCore, api *api.Api,
 	return nil
 }
 
-func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fiber.Ctx) error {
+func mainController(core *ServerCore, parentCtx context.Context) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		logData := common.LogEnd{Start: time.Now()}
 		requestData := request_data.NewRequestData()
@@ -85,7 +84,7 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 				))
 				cancel(err)
 				core.Logger.Error("could not assign tracer", err)
-				res := &resolvable.Response{Trigger: common.EventCodes[common.EventSystemMalfunction]}
+				res := &resolvable.Response{Event: common.EventCodes[common.EventSystemMalfunction]}
 				res.ChannelSend(responseChan, ctx)
 				return
 			} else {
@@ -105,7 +104,7 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 				defer cancel(err)
 				common.LogWithTracer(common.LogSystem,
 					fmt.Sprintf("api not found | path: %s", c.Path()), err, true, ctx)
-				response := &resolvable.Response{Trigger: common.EventCodes[common.EventNotFound]}
+				response := &resolvable.Response{Event: common.EventCodes[common.EventNotFound]}
 				response.ChannelSend(responseChan, ctx)
 				return
 			} else {
@@ -131,7 +130,7 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 					requestData.AddErrors(err)
 					scanToInternal(common.InternalTagErrorValidation, err.Error())
 					common.LogWithTracer(common.LogSystem, "could not parse body", err, true, ctx)
-					response := &resolvable.Response{Trigger: common.EventCodes[common.EventBadRequest]}
+					response := &resolvable.Response{Event: common.EventCodes[common.EventBadRequest]}
 					response.ChannelSend(responseChan, ctx)
 					return
 				}
@@ -153,7 +152,7 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 					}
 					scanToInternal(common.InternalTagErrorValidation, strErr)
 					common.LogWithTracer(common.LogSystem, "request validation failed", vErr, false, ctx)
-					response := &resolvable.Response{Trigger: common.EventCodes[common.EventBadRequest]}
+					response := &resolvable.Response{Event: common.EventCodes[common.EventBadRequest]}
 					response.ChannelSend(responseChan, ctx)
 					return
 				} else {
@@ -161,22 +160,37 @@ func mainController(core *core.ServerCore, parentCtx context.Context) func(c *fi
 				}
 			}
 
-			contextState.Store(common.ContextLogStage, common.LogStageExecution)
-			if err := core.InitExecution(api.Triggers, ctx); err != nil {
-				cancel(err)
+			select {
+			case <-ctx.Done():
+			default:
+				contextState.Store(common.ContextLogStage, common.LogStagePreConfig)
+				if _, err := resolvable.ResolveArrayMust(&api.PreConfig, ctx, core.ResolvableDependencies); err != nil {
+					cancel(err)
+				}
 			}
-			responseTrigger := common.EventCodes[common.EventExhaust]
+
+			select {
+			case <-ctx.Done():
+			default:
+				contextState.Store(common.ContextLogStage, common.LogStageExecution)
+				if err := core.initExecution(api.Triggers, ctx); err != nil {
+					cancel(err)
+				}
+			}
+
+			responseEvent := common.EventCodes[common.EventExhaust]
 			err = context.Cause(ctx)
 			if err != nil {
-				responseTrigger = common.EventCodes[common.EventSystemMalfunction]
+				responseEvent = common.EventCodes[common.EventSystemMalfunction]
 				requestData.AddErrors(err)
+				requestData.SetStore(common.InternalTagErrorSystem, err.Error())
 			}
-			response := &resolvable.Response{Trigger: responseTrigger}
+			response := &resolvable.Response{Event: responseEvent}
 			response.ChannelSend(responseChan, ctx)
 		}(cancelCtx)
 
 		res := <-responseChan
-		if response, status, err := res.HandlerTrigger(valueCtx, core.ResolvableDependencies); err != nil {
+		if response, status, err := res.HandlerEvent(valueCtx, core.ResolvableDependencies); err != nil {
 			return c.Status(status).JSON(common.ResponseDefaultMalfunction)
 		} else {
 			return c.Status(status).JSON(response)

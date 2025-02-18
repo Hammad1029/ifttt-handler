@@ -11,16 +11,17 @@ import (
 )
 
 type orm struct {
-	Query       *query                   `json:"query" mapstructure:"query"`
-	Operation   string                   `json:"operation" mapstructure:"operation"`
-	Model       string                   `json:"model" mapstructure:"model"`
-	Project     *[]orm_schema.Projection `json:"project" mapstructure:"project"`
-	Columns     *map[string]any          `json:"columns" mapstructure:"columns"`
-	Populate    *[]orm_schema.Populate   `json:"populate" mapstructure:"populate"`
-	Where       *orm_schema.Where        `json:"where" mapstructure:"where"`
-	OrderBy     string                   `json:"orderBy" mapstructure:"orderBy"`
-	Limit       int                      `json:"limit" mapstructure:"limit"`
-	ModelsInUse *[]string                `json:"modelsInUse" mapstructure:"modelsInUse"`
+	Query           *query                   `json:"query" mapstructure:"query"`
+	SuccessiveQuery *query                   `json:"successiveQuery" mapstructure:"successiveQuery"`
+	Operation       string                   `json:"operation" mapstructure:"operation"`
+	Model           string                   `json:"model" mapstructure:"model"`
+	Project         *[]orm_schema.Projection `json:"project" mapstructure:"project"`
+	Columns         *map[string]any          `json:"columns" mapstructure:"columns"`
+	Populate        *[]orm_schema.Populate   `json:"populate" mapstructure:"populate"`
+	Where           *orm_schema.Where        `json:"where" mapstructure:"where"`
+	OrderBy         string                   `json:"orderBy" mapstructure:"orderBy"`
+	Limit           int                      `json:"limit" mapstructure:"limit"`
+	ModelsInUse     *[]string                `json:"modelsInUse" mapstructure:"modelsInUse"`
 }
 
 func (o *orm) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
@@ -33,11 +34,16 @@ func (o *orm) Resolve(ctx context.Context, dependencies map[common.IntIota]any) 
 		return nil, fmt.Errorf("could not cast orm repo")
 	}
 
-	var (
-		namedResolved      map[string]any
-		positionalResolved []any
-		err                error
-	)
+	rawQueryRepo, ok := dependencies[common.DependencyRawQueryRepo].(RawQueryRepository)
+	if !ok {
+		return nil, fmt.Errorf("method *QueryResolvable: could not cast raw query repo")
+	}
+
+	switch o.Operation {
+	case common.OrmSelect, common.OrmInsert, common.OrmUpdate, common.OrmDelete:
+	default:
+		return nil, fmt.Errorf("unsupported operation: %s", o.Operation)
+	}
 
 	modelsInUse := make(map[string]*orm_schema.Model)
 	for _, m := range *o.ModelsInUse {
@@ -53,85 +59,59 @@ func (o *orm) Resolve(ctx context.Context, dependencies map[common.IntIota]any) 
 		return nil, fmt.Errorf("main model %s not found", o.Model)
 	}
 
-	switch o.Operation {
-	case common.OrmSelect:
-		positionalResolved, err = resolveArrayMustParallel(&o.Query.PositionalParameters, ctx, dependencies)
-	case common.OrmInsert:
-		namedResolved, err = resolveMapMustParallel(&o.Query.NamedParameters, ctx, dependencies)
-	default:
-		return nil, fmt.Errorf("unsupported operation: %s", o.Operation)
-	}
-
+	resolved, err := resolveArrayMustParallel(&o.Query.Parameters, ctx, dependencies)
 	if err != nil {
 		return nil, err
-	} else if err := o.verifyParameters(&positionalResolved, &namedResolved, mainModel, ctx); err != nil {
+	}
+
+	tx, err := rawQueryRepo.BeginTx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not begin tx: %s", err)
+	}
+
+	var queryData *queryData
+	queryData, err = o.Query.init(tx, resolved, ctx, dependencies)
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return nil, fmt.Errorf("attempted rollback on error: %s. rollback failed %s", err, rollbackErr)
+		}
+		return nil, fmt.Errorf("rolled back. error: %s", err)
+	}
+
+	if o.SuccessiveQuery == nil {
+		if transformed, err := o.transformResults(
+			queryData.Results, mainModel.Name, mainModel, o.Project, o.Populate, &modelsInUse, ctx,
+		); err != nil {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				return nil, fmt.Errorf("attempted rollback on error: %s. rollback failed %s", err, rollbackErr)
+			}
+			return nil, fmt.Errorf("rolled back. error: %s", err)
+		} else if err := tx.Commit(); err != nil {
+			return nil, fmt.Errorf("commit failed: %s", err)
+		} else {
+			queryData.Results = &transformed
+			return queryData, nil
+		}
+	}
+
+	queryData, err = o.SuccessiveQuery.init(tx, resolved, ctx, dependencies)
+	if err != nil {
 		return nil, err
-	} else if queryData, err := o.Query.init(positionalResolved, namedResolved, ctx, dependencies); err != nil {
-		return nil, err
-	} else if transformed, err := o.transformResults(
-		queryData.Results, mainModel.Name, mainModel, o.Project, o.Populate, &modelsInUse, ctx,
+	}
+
+	if transformed, err := o.transformResults(
+		queryData.Results, mainModel.Name, mainModel, nil, nil, &modelsInUse, ctx,
 	); err != nil {
-		return nil, err
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return nil, fmt.Errorf("attempted rollback on error: %s. rollback failed %s", err, rollbackErr)
+		}
+		return nil, fmt.Errorf("rolled back. error: %s", err)
+	} else if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit failed: %s", err)
 	} else {
 		queryData.Results = &transformed
 		return queryData, nil
 	}
-}
-
-func (o *orm) verifyParameters(
-	positional *[]any, named *map[string]any, model *orm_schema.Model, ctx context.Context,
-) error {
-	ctx, cancel := context.WithCancelCause(ctx)
-	defer cancel(nil)
-
-	wg := sync.WaitGroup{}
-	safeMap := sync.Map{}
-	available := make(map[string]orm_schema.Projection, len(model.Projections))
-	for _, p := range model.Projections {
-		available[p.Column] = p
-	}
-
-	if positional != nil {
-	}
-	if named != nil {
-		for key, param := range *named {
-			wg.Add(1)
-			go func(k string, v any) {
-				defer wg.Done()
-				projection, ok := available[k]
-				if !ok {
-					cancel(fmt.Errorf("config for column %s not found", k))
-				}
-				select {
-				case <-ctx.Done():
-					return
-				default:
-					if sanitized, err := projection.SanitizeValue(v, true); err != nil {
-						cancel(err)
-					} else {
-						select {
-						case <-ctx.Done():
-							return
-						default:
-							safeMap.Store(k, sanitized)
-						}
-					}
-				}
-
-			}(key, param)
-		}
-		wg.Wait()
-
-		if err := context.Cause(ctx); err != nil {
-			return err
-		}
-		safeMap.Range(func(key, value any) bool {
-			(*named)[fmt.Sprint(key)] = value
-			return true
-		})
-	}
-
-	return nil
 }
 
 func (o *orm) transformResults(
@@ -149,12 +129,7 @@ func (o *orm) transformResults(
 		return nil, fmt.Errorf("primary key not found in model %s", currModel.Name)
 	}
 
-	var pKeyAccessor string
-	if o.Operation == common.OrmSelect {
-		pKeyAccessor = fmt.Sprintf("%s.%s", alias, currModel.PrimaryKey)
-	} else {
-		pKeyAccessor = currModel.PrimaryKey
-	}
+	pKeyAccessor := fmt.Sprintf("%s.%s", alias, currModel.PrimaryKey)
 	pKeyOrder := lo.Uniq(lo.FilterMap(*rawResults, func(row map[string]any, _ int) (any, bool) {
 		return row[pKeyAccessor], row[pKeyAccessor] != nil
 	}))
@@ -187,7 +162,7 @@ func (o *orm) transformResults(
 						transformedRow map[string]any
 						err            error
 					)
-					if len(*customProjections) > 0 {
+					if customProjections != nil && len(*customProjections) > 0 {
 						transformedRow, err = o.projectRow(&baseRow, customProjections, alias)
 					} else {
 						transformedRow, err = o.projectRow(&baseRow, &currModel.Projections, alias)
@@ -201,34 +176,35 @@ func (o *orm) transformResults(
 						return
 					default:
 						{
+							if populate != nil && len(*populate) != 0 {
+								for _, p := range *populate {
 
-							for _, p := range *populate {
-
-								childModel, ok := (*modelsInUse)[p.Model]
-								if !ok || childModel == nil {
-									cancel(fmt.Errorf("model %s not found", p.Model))
-									return
-								}
-								association := o.findAssociation(currModel, childModel)
-								if association == nil {
-									cancel(fmt.Errorf("association not found between %s and %s", currModel.Name, childModel.Name))
-									return
-								}
-								childAlias := fmt.Sprintf("%s_%s", alias, p.As)
-								childGroups, err := o.transformResults(&rowGroup, childAlias, childModel, &p.Project, &p.Populate, modelsInUse, ctx)
-								if err != nil {
-									cancel(fmt.Errorf("could not transform alias %s for model %s: %s", childAlias, p.Model, err))
-									return
-								}
-								if association.Type == common.AssociationsHasOne ||
-									association.Type == common.AssociationsBelongsTo {
-									if len(childGroups) > 0 {
-										transformedRow[p.As] = childGroups[0]
-									} else {
-										transformedRow[p.As] = nil
+									childModel, ok := (*modelsInUse)[p.Model]
+									if !ok || childModel == nil {
+										cancel(fmt.Errorf("model %s not found", p.Model))
+										return
 									}
-								} else {
-									transformedRow[p.As] = childGroups
+									association := o.findAssociation(currModel, childModel)
+									if association == nil {
+										cancel(fmt.Errorf("association not found between %s and %s", currModel.Name, childModel.Name))
+										return
+									}
+									childAlias := fmt.Sprintf("%s_%s", alias, p.As)
+									childGroups, err := o.transformResults(&rowGroup, childAlias, childModel, &p.Project, &p.Populate, modelsInUse, ctx)
+									if err != nil {
+										cancel(fmt.Errorf("could not transform alias %s for model %s: %s", childAlias, p.Model, err))
+										return
+									}
+									if association.Type == common.AssociationsHasOne ||
+										association.Type == common.AssociationsBelongsTo {
+										if len(childGroups) > 0 {
+											transformedRow[p.As] = childGroups[0]
+										} else {
+											transformedRow[p.As] = nil
+										}
+									} else {
+										transformedRow[p.As] = childGroups
+									}
 								}
 							}
 							flattened[idx] = transformedRow
@@ -249,11 +225,7 @@ func (o *orm) projectRow(
 	row *map[string]any, projections *[]orm_schema.Projection, alias string,
 ) (map[string]any, error) {
 	projectedRow := make(map[string]any, len(*projections))
-	var prefix string
-
-	if o.Operation == common.OrmSelect {
-		prefix = alias + "."
-	}
+	prefix := alias + "."
 
 	for _, projection := range *projections {
 		p := &projection
