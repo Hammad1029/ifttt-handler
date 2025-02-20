@@ -50,12 +50,14 @@ func resolvableFactory(rType string) resolvableInterface {
 		return &cast{}
 	case accessorOrm:
 		return &orm{}
-	case accessorForEach:
-		return &forEach{}
+	case accessorFilterMap:
+		return &filterMap{}
 	case accessorGetIter:
 		return &getIter{}
 	case accessorDateFunc:
 		return &dateFunc{}
+	case accessorDateIntervals:
+		return &dateIntervals{}
 	case accessorConditional:
 		return &conditional{}
 	default:
@@ -174,6 +176,9 @@ func resolveMapMaybeParallel(
 func ResolveArrayMust(
 	resolvables *[]Resolvable, ctx context.Context, dependencies map[common.IntIota]any,
 ) ([]any, error) {
+	if resolvables == nil {
+		return nil, nil
+	}
 	rVals := make([]any, len(*resolvables))
 	for idx, r := range *resolvables {
 		if v, err := r.Resolve(ctx, dependencies); err != nil {

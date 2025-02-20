@@ -33,9 +33,10 @@ const (
 	accessorHeaders             = "headers"
 	accessorCast                = "cast"
 	accessorOrm                 = "orm"
-	accessorForEach             = "forEach"
+	accessorFilterMap           = "filterMap"
 	accessorGetIter             = "getIter"
 	accessorDateFunc            = "dateFunc"
+	accessorDateIntervals       = "dateIntervals"
 	accessorConditional         = "conditional"
 )
 

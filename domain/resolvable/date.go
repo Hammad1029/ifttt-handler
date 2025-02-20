@@ -30,6 +30,13 @@ type dateInput struct {
 	Timezone string      `json:"timezone" mapstructure:"timezone"`
 }
 
+type dateIntervals struct {
+	Start  dateInput `json:"start" mapstructure:"start"`
+	End    dateInput `json:"end" mapstructure:"end"`
+	Unit   string    `json:"unit" mapstructure:"unit"`
+	Format string    `json:"format" mapstructure:"format"`
+}
+
 func (d *dateFunc) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
 	dateInput, err := d.Input.get(ctx, dependencies)
 	if err != nil {
@@ -119,4 +126,29 @@ func (d *dateInput) get(ctx context.Context, dependencies map[common.IntIota]any
 	}
 
 	return gomentDate, nil
+}
+
+func (d *dateIntervals) Resolve(ctx context.Context, dependencies map[common.IntIota]any) (any, error) {
+	start, err := d.Start.get(ctx, dependencies)
+	if err != nil {
+		return nil, err
+	}
+
+	end, err := d.End.get(ctx, dependencies)
+	if err != nil {
+		return nil, err
+	}
+
+	formatter := d.Format
+	if formatter == "" {
+		formatter = common.DateTimeFormatGeneric
+	}
+
+	var dates []string
+	for start.IsBefore(end, d.Unit) || start.IsSame(end, d.Unit) {
+		dates = append(dates, start.Format(formatter))
+		start.Add(1, d.Unit)
+	}
+
+	return dates, nil
 }
